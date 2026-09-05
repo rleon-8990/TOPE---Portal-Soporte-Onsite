@@ -1,0 +1,6 @@
+{
+  "name": "Reliant CMMS",
+  "description": "Portal Soporte Onsite de Hipermercados Tottus S.A. - Sistemas de la Información. Sistema para inventario de equipos en 90 tiendas, mantenimiento preventivo, helpdesk, órdenes de trabajo e informes técnicos.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": []
+}
