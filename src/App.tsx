@@ -67,6 +67,14 @@ export default function App() {
   const [showRegionalAlerts, setShowRegionalAlerts] = useState<boolean>(false);
   const [showM365Sync, setShowM365Sync] = useState<boolean>(false);
 
+  // Responsive Sidebar Collapse State (default to collapsed on tablet screens < 1150px)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 1150;
+    }
+    return false;
+  });
+
   // Toast banner for live push simulation
   const [liveToast, setLiveToast] = useState<PushNotification | null>(null);
 
@@ -237,9 +245,11 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9ff] text-[#0b1c30] flex flex-col font-sans selection:bg-[#00236f] selection:text-white">
+    <div className="min-h-screen bg-[#f8f9ff] text-[#0b1c30] flex font-sans selection:bg-[#00236f] selection:text-white overflow-x-hidden">
       {/* Desktop Sidebar Navigation */}
       <Sidebar
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
         currentView={currentView}
         onSelectView={setCurrentView}
         currentUser={currentUser}
@@ -249,19 +259,23 @@ export default function App() {
         onOpenM365Sync={() => setShowM365Sync(true)}
       />
 
-      {/* Mobile Top Header */}
-      <MobileHeader
-        currentView={currentView}
-        currentUser={currentUser}
-        unreadCount={unreadNotificationsCount}
-        onOpenNotifications={() => setShowNotifications(true)}
-        onOpenQRScanner={() => setShowQRScanner(true)}
-        onOpenAlertsManager={() => setShowRegionalAlerts(true)}
-        onOpenM365Sync={() => setShowM365Sync(true)}
-      />
+      {/* Main Content Area Wrapper: adapts dynamically to sidebar and uses 100% viewport width */}
+      <div className={`flex-1 min-w-0 flex flex-col transition-all duration-300 ${
+        sidebarCollapsed ? 'md:pl-[76px]' : 'md:pl-[260px]'
+      }`}>
+        {/* Mobile Top Header */}
+        <MobileHeader
+          currentView={currentView}
+          currentUser={currentUser}
+          unreadCount={unreadNotificationsCount}
+          onOpenNotifications={() => setShowNotifications(true)}
+          onOpenQRScanner={() => setShowQRScanner(true)}
+          onOpenAlertsManager={() => setShowRegionalAlerts(true)}
+          onOpenM365Sync={() => setShowM365Sync(true)}
+        />
 
-      {/* Main Content Area */}
-      <main className="flex-1 md:ml-[260px] pt-20 md:pt-6 px-4 sm:px-6 lg:px-8 max-w-7xl w-full mx-auto">
+        {/* Main Content Area: uses full screen width on desktop, comfortably padded, never overflows */}
+        <main className="flex-1 pt-20 md:pt-6 px-3.5 sm:px-6 lg:px-8 xl:px-10 w-full min-w-0 pb-12">
         {currentView === 'dashboard' && (
           <DashboardView
             currentUser={currentUser}
@@ -348,6 +362,7 @@ export default function App() {
         onSelectView={setCurrentView}
         onOpenAlertsManager={() => setShowRegionalAlerts(true)}
       />
+      </div>
 
       {/* Floating Live Push Toast Notification Banner */}
       {liveToast && (

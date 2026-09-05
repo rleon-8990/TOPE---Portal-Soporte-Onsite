@@ -83,8 +83,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* 4 Stats Summary Cards Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+      {/* 4 Stats Summary Cards Grid: 2 cols on tablet for maximum readability, 4 cols on full screen */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 sm:gap-4">
         {/* Card 1: Tiendas */}
         <div
           onClick={() => onNavigate('tiendas')}
@@ -213,9 +213,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* Charts and Critical Alerts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Main Performance Chart (2 cols) */}
-        <div className="lg:col-span-2 bg-white rounded-xl p-5 border border-[#e5eeff] shadow-[0_2px_12px_rgba(30,58,138,0.04)] flex flex-col justify-between">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+        {/* Main Performance Chart (2 cols on large screen) */}
+        <div className="xl:col-span-2 bg-white rounded-xl p-5 border border-[#e5eeff] shadow-[0_2px_12px_rgba(30,58,138,0.04)] flex flex-col justify-between">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
             <div>
               <h2 className="font-bold text-base text-[#0b1c30]">Rendimiento de Equipos</h2>
@@ -428,7 +428,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* Bottom Row: Regional Status & Work Orders & Maintenance Status */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {/* Regional Status Interactive Map (1 col) */}
         <div className="bg-white rounded-xl p-5 border border-[#e5eeff] shadow-[0_2px_12px_rgba(30,58,138,0.04)] flex flex-col justify-between relative overflow-hidden">
           <div className="flex items-center justify-between mb-3">
