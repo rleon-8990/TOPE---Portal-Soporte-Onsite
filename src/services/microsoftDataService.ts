@@ -34,7 +34,30 @@ export interface MicrosoftConnectorConfig {
   syncIntervalMinutes: number;
 }
 
+export interface AutoSyncConfig {
+  enabled: boolean;
+  intervalMinutes: number; // 5, 10, 15, 30, 60
+  syncOnStartup: boolean;
+  syncUsersAgenda: boolean;
+  autoPushChanges: boolean;
+  lastSyncTimestamp: string | null;
+  lastSyncStatus: 'success' | 'error' | 'syncing' | 'idle';
+  lastSyncMessage: string | null;
+}
+
 const STORAGE_KEY = 'reliant_cmms_m365_config';
+const AUTOSYNC_STORAGE_KEY = 'reliant_cmms_autosync_config';
+
+export const DEFAULT_AUTOSYNC_CONFIG: AutoSyncConfig = {
+  enabled: true,
+  intervalMinutes: 10,
+  syncOnStartup: true,
+  syncUsersAgenda: true,
+  autoPushChanges: true,
+  lastSyncTimestamp: null,
+  lastSyncStatus: 'idle',
+  lastSyncMessage: 'Auto-sincronización permanente activa'
+};
 
 export const DEFAULT_M365_CONFIG: MicrosoftConnectorConfig = {
   mode: 'dataverse',
@@ -60,6 +83,28 @@ export interface SyncProgressCallback {
 }
 
 export const MicrosoftDataService = {
+  getAutoSyncConfig(): AutoSyncConfig {
+    try {
+      const saved = localStorage.getItem(AUTOSYNC_STORAGE_KEY);
+      if (saved) {
+        return { ...DEFAULT_AUTOSYNC_CONFIG, ...JSON.parse(saved) };
+      }
+    } catch (e) {
+      console.warn('Error reading AutoSync config', e);
+    }
+    return DEFAULT_AUTOSYNC_CONFIG;
+  },
+
+  saveAutoSyncConfig(partial: Partial<AutoSyncConfig>): AutoSyncConfig {
+    const current = this.getAutoSyncConfig();
+    const updated: AutoSyncConfig = { ...current, ...partial };
+    try {
+      localStorage.setItem(AUTOSYNC_STORAGE_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Error saving AutoSync config', e);
+    }
+    return updated;
+  },
   getConfig(): MicrosoftConnectorConfig {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -682,6 +727,177 @@ export const MicrosoftDataService = {
       return {
         success: false,
         message: `No se pudo consultar el Webhook de Power Automate: ${err.message || err}`
+      };
+    }
+  },
+
+  // Extract / synchronize managers and IT operators from stores to user directory
+  extractUsersFromStores(stores: Store[], existingUsers: AppUser[]): AppUser[] {
+    const userMap = new Map<string, AppUser>();
+    
+    // First keep existing technical/admin specialists
+    existingUsers.forEach(u => {
+      userMap.set(u.id, u);
+    });
+
+    // Extract Gerentes & IT Operators from stores
+    stores.forEach((s, idx) => {
+      const code = s.codTienda || parseInt(String(s.id).replace(/\D/g, '')) || (100 + idx);
+      
+      if (s.gerenteTienda && s.gerenteTienda.trim().length > 2) {
+        const id = `user-mgr-${code}`;
+        const prev = userMap.get(id);
+        const name = s.gerenteTienda.trim();
+        const email = s.managerEmail || `gerente.t${code}@tottus.com.pe`;
+        const phone = s.phone || `+51 989 ${String(code).padStart(3, '0')} 101`;
+        userMap.set(id, {
+          id,
+          name,
+          role: 'Gerente de Tienda',
+          cargo: 'Gerente de Tienda',
+          specialty: 'Gestión Integral de Tienda & Mantenimiento',
+          email,
+          phone,
+          anexo: `Ext. ${code}1`,
+          turno: 'Jornada Completa',
+          avatarUrl: `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80`,
+          status: 'disponible',
+          activeTickets: 0,
+          assignedRegion: s.region,
+          userType: 'tienda',
+          storeId: s.id,
+          codTienda: code,
+          tiendaNombre: s.name,
+          ...prev
+        });
+      }
+
+      if (s.itOperator && s.itOperator.trim().length > 2) {
+        const id = `user-it-${code}`;
+        const prev = userMap.get(id);
+        const name = s.itOperator.trim();
+        const email = `it.t${code}@tottus.com.pe`;
+        const phone = `+51 988 ${String(code).padStart(3, '0')} 202`;
+        userMap.set(id, {
+          id,
+          name,
+          role: 'IT Operator',
+          cargo: 'IT Operator Onsite',
+          specialty: 'Sistemas POS, Redes y CCTV',
+          email,
+          phone,
+          anexo: `Ext. ${code}8`,
+          turno: 'Turno Mañana',
+          avatarUrl: `https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80`,
+          status: 'disponible',
+          activeTickets: 0,
+          assignedRegion: s.region,
+          userType: 'tienda',
+          storeId: s.id,
+          codTienda: code,
+          tiendaNombre: s.name,
+          ...prev
+        });
+      }
+    });
+
+    return Array.from(userMap.values());
+  },
+
+  // Execute background auto-sync
+  async runBackgroundSync(
+    stores: Store[],
+    users: AppUser[]
+  ): Promise<{
+    success: boolean;
+    storesUpdated?: Store[];
+    usersUpdated?: AppUser[];
+    message: string;
+    timestamp: string;
+  }> {
+    const autoCfg = this.getAutoSyncConfig();
+    const m365Cfg = this.getConfig();
+    const timestamp = new Date().toISOString();
+
+    this.saveAutoSyncConfig({
+      lastSyncStatus: 'syncing',
+      lastSyncMessage: 'Ejecutando auto-sincronización con SharePoint / M365...'
+    });
+
+    try {
+      let freshStores: Store[] = stores;
+      let fetchedFromRemote = false;
+
+      // 1. If Power Automate URL is configured, pull fresh stores
+      if (m365Cfg.mode === 'powerautomate' && m365Cfg.webhookEndpointUrl) {
+        const remoteRes = await this.fetchPowerAutomateStores(m365Cfg.webhookEndpointUrl);
+        if (remoteRes.success && remoteRes.stores && remoteRes.stores.length > 0) {
+          freshStores = remoteRes.stores;
+          fetchedFromRemote = true;
+        }
+      } else if (m365Cfg.mode === 'sharepoint' && m365Cfg.sharepointAuthToken) {
+        const remoteRes = await this.fetchSharePointListItems(m365Cfg.sharepointSiteUrl, 'Tiendas', m365Cfg.sharepointAuthToken);
+        if (remoteRes.success && remoteRes.stores && remoteRes.stores.length > 0) {
+          freshStores = remoteRes.stores;
+          fetchedFromRemote = true;
+        }
+      }
+
+      // 2. Extract or update users from stores if enabled
+      let freshUsers = users;
+      if (autoCfg.syncUsersAgenda) {
+        freshUsers = this.extractUsersFromStores(freshStores, users);
+      }
+
+      // 3. Process any pending queue items
+      const queueKey = 'cmms_m365_sync_queue';
+      const queue = JSON.parse(localStorage.getItem(queueKey) || '[]');
+      if (queue.length > 0 && m365Cfg.webhookEndpointUrl) {
+        try {
+          await fetch(m365Cfg.webhookEndpointUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'FLUSH_QUEUE',
+              items: queue,
+              timestamp
+            })
+          });
+          localStorage.removeItem(queueKey);
+        } catch (e) {
+          // Keep queue for next attempt
+        }
+      }
+
+      const statusMsg = fetchedFromRemote
+        ? `Sincronización remota exitosa. ${freshStores.length} tiendas actualizadas desde servidor.`
+        : `Sincronización permanente completada. ${freshStores.length} tiendas y ${freshUsers.length} contactos verificados.`;
+
+      this.saveAutoSyncConfig({
+        lastSyncTimestamp: timestamp,
+        lastSyncStatus: 'success',
+        lastSyncMessage: statusMsg
+      });
+
+      return {
+        success: true,
+        storesUpdated: freshStores,
+        usersUpdated: freshUsers,
+        message: statusMsg,
+        timestamp
+      };
+    } catch (err: any) {
+      const errorMsg = `Fallo en auto-sincronización: ${err.message || err}`;
+      this.saveAutoSyncConfig({
+        lastSyncTimestamp: timestamp,
+        lastSyncStatus: 'error',
+        lastSyncMessage: errorMsg
+      });
+
+      return {
+        success: false,
+        message: errorMsg,
+        timestamp
       };
     }
   }

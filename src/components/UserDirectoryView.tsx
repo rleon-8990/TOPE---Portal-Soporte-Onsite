@@ -27,7 +27,8 @@ import {
   MessageCircle,
   Smartphone,
   CheckCircle2,
-  X
+  X,
+  ArrowUpDown
 } from 'lucide-react';
 import { AppUser, Store, Region } from '../types';
 
@@ -57,6 +58,17 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
   const [selectedCargoFilter, setSelectedCargoFilter] = useState<string>('todos');
   const [selectedRegionFilter, setSelectedRegionFilter] = useState<string>('todas');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('todos');
+  const [sortField, setSortField] = useState<keyof AppUser | 'codTienda'>('codTienda');
+  const [sortAsc, setSortAsc] = useState<boolean>(true);
+
+  const handleSort = (field: keyof AppUser | 'codTienda') => {
+    if (sortField === field) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+  };
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);

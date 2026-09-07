@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, QrCode, SlidersHorizontal, AlertTriangle, TableProperties } from 'lucide-react';
+import { Bell, QrCode, SlidersHorizontal, AlertTriangle, TableProperties, Zap } from 'lucide-react';
 import { AppUser } from '../types';
 
 interface MobileHeaderProps {
@@ -10,6 +10,8 @@ interface MobileHeaderProps {
   onOpenQRScanner: () => void;
   onOpenAlertsManager: () => void;
   onOpenM365Sync: () => void;
+  onOpenStoreSync?: () => void;
+  isAutoSyncActive?: boolean;
 }
 
 export const MobileHeader: React.FC<MobileHeaderProps> = ({
@@ -20,6 +22,8 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
   onOpenQRScanner,
   onOpenAlertsManager,
   onOpenM365Sync,
+  onOpenStoreSync,
+  isAutoSyncActive = true,
 }) => {
   const getTitle = () => {
     switch (currentView) {
@@ -47,6 +51,19 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
       </div>
 
       <div className="flex items-center gap-1.5">
+        {onOpenStoreSync && (
+          <button
+            onClick={onOpenStoreSync}
+            className="relative p-2 rounded-full text-[#00236f] bg-[#eff4ff] hover:bg-[#dce9ff] transition-transform active:scale-95"
+            title="Auto-Sincronización Permanente"
+          >
+            <Zap className="w-4 h-4 text-emerald-600" />
+            {isAutoSyncActive && (
+              <span className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white animate-pulse" />
+            )}
+          </button>
+        )}
+
         <button
           onClick={onOpenM365Sync}
           className="p-2 rounded-full text-[#00236f] bg-[#eff4ff] hover:bg-[#dce9ff] transition-transform active:scale-95"

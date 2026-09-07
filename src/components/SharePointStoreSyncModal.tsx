@@ -23,10 +23,12 @@ import {
   Sparkles,
   Link,
   FileText,
-  AlertTriangle
+  AlertTriangle,
+  Zap,
+  Clock
 } from 'lucide-react';
 import { Store, Region } from '../types';
-import { MicrosoftDataService, SharePointStoreFieldMap } from '../services/microsoftDataService';
+import { MicrosoftDataService, SharePointStoreFieldMap, AutoSyncConfig } from '../services/microsoftDataService';
 
 interface SharePointStoreSyncModalProps {
   isOpen: boolean;
@@ -43,8 +45,13 @@ export const SharePointStoreSyncModal: React.FC<SharePointStoreSyncModalProps> =
   onApplyStores,
   onResetToDefaultStores,
 }) => {
-  const [activeTab, setActiveTab] = useState<'upload' | 'live' | 'powerautomate' | 'current'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'live' | 'powerautomate' | 'autosync' | 'current'>('autosync');
   
+  // AutoSync configuration state
+  const [autoSyncConfig, setAutoSyncConfig] = useState<AutoSyncConfig>(() => MicrosoftDataService.getAutoSyncConfig());
+  const [isManualSyncing, setIsManualSyncing] = useState<boolean>(false);
+  const [manualSyncMsg, setManualSyncMsg] = useState<string | null>(null);
+
   // File Upload & Parsing States
   const [dragActive, setDragActive] = useState<boolean>(false);
   const [rawText, setRawText] = useState<string>('');
@@ -306,6 +313,20 @@ export const SharePointStoreSyncModal: React.FC<SharePointStoreSyncModalProps> =
           >
             <Sparkles className="w-4 h-4 text-amber-500" />
             <span>3. Power Automate (Recomendado)</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('autosync')}
+            className={`py-3 px-4 text-xs font-semibold border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
+              activeTab === 'autosync'
+                ? 'border-[#00236f] text-[#00236f]'
+                : 'border-transparent text-[#757682] hover:text-[#0b1c30]'
+            }`}
+          >
+            <Zap className={`w-4 h-4 ${autoSyncConfig.enabled ? 'text-emerald-600' : 'text-slate-400'}`} />
+            <span>4. Auto-Sincronización Permanente</span>
+            {autoSyncConfig.enabled && (
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab('current')}
@@ -710,6 +731,170 @@ export const SharePointStoreSyncModal: React.FC<SharePointStoreSyncModalProps> =
                   <li>Agrega el paso <strong>Respuesta</strong> y pon en el cuerpo la salida de los elementos de SharePoint (<code>body(&apos;Obtener_elementos&apos;)?['value']</code>).</li>
                   <li>Copia la URL HTTP POST generada y pégala arriba. ¡Listo!</li>
                 </ol>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: AUTO-SINCRONIZACIÓN PERMANENTE */}
+          {activeTab === 'autosync' && (
+            <div className="space-y-4 text-xs">
+              {/* Status banner */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-900 to-[#00236f] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md">
+                <div className="flex items-start sm:items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-400/20 border border-emerald-300/30 flex items-center justify-center text-emerald-300 shrink-0">
+                    <Zap className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="bg-emerald-400/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-400/30 uppercase tracking-wider">
+                        MODO PERMANENTE ACTIVO
+                      </span>
+                      <span className="text-[11px] text-white/80">LocalStorage + Background Worker</span>
+                    </div>
+                    <h3 className="text-base font-bold text-white mt-0.5">
+                      Auto-Sincronización en Segundo Plano
+                    </h3>
+                    <p className="text-xs text-white/80 mt-0.5">
+                      Los datos se mantienen de forma indefinida en tu equipo. No requieres volver a conectar cada vez que entras.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-end sm:self-center">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setIsManualSyncing(true);
+                      setManualSyncMsg(null);
+                      const res = await MicrosoftDataService.runBackgroundSync(currentStores, []);
+                      setIsManualSyncing(false);
+                      setAutoSyncConfig(MicrosoftDataService.getAutoSyncConfig());
+                      setManualSyncMsg(res.message);
+                    }}
+                    disabled={isManualSyncing}
+                    className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold flex items-center gap-2 shadow-sm transition-all text-xs"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isManualSyncing ? 'animate-spin' : ''}`} />
+                    <span>{isManualSyncing ? 'Verificando...' : 'Comprobar Ahora'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {manualSyncMsg && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{manualSyncMsg}</span>
+                </div>
+              )}
+
+              {/* Configuration Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* AutoSync Master Switch */}
+                <div className="p-4 bg-white rounded-xl border border-[#dce9ff] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-[#00236f] text-sm">Estado del Servicio</h4>
+                      <p className="text-[11px] text-[#757682]">Monitoreo automático periódico</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={autoSyncConfig.enabled}
+                        onChange={(e) => {
+                          const updated = MicrosoftDataService.saveAutoSyncConfig({ enabled: e.target.checked });
+                          setAutoSyncConfig(updated);
+                        }}
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="pt-2 border-t border-[#f0f4ff]">
+                    <label className="block text-[11px] font-semibold text-[#444651] mb-2">
+                      Frecuencia de sincronización continua:
+                    </label>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {[5, 10, 15, 30, 60].map((mins) => (
+                        <button
+                          key={mins}
+                          type="button"
+                          onClick={() => {
+                            const updated = MicrosoftDataService.saveAutoSyncConfig({ intervalMinutes: mins });
+                            setAutoSyncConfig(updated);
+                          }}
+                          className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${
+                            autoSyncConfig.intervalMinutes === mins
+                              ? 'bg-[#00236f] text-white border-[#00236f] shadow-xs'
+                              : 'bg-white text-[#444651] border-[#e5eeff] hover:bg-[#eff4ff]'
+                          }`}
+                        >
+                          {mins} min
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Behavioral Toggles */}
+                <div className="p-4 bg-white rounded-xl border border-[#dce9ff] space-y-3">
+                  <h4 className="font-bold text-[#00236f] text-sm">Comportamiento Automatizado</h4>
+
+                  <label className="flex items-start gap-2.5 p-2 rounded-lg bg-[#f8f9ff] border border-[#e5eeff] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={autoSyncConfig.syncOnStartup}
+                      onChange={(e) => {
+                        const updated = MicrosoftDataService.saveAutoSyncConfig({ syncOnStartup: e.target.checked });
+                        setAutoSyncConfig(updated);
+                      }}
+                      className="mt-0.5 rounded text-[#00236f] focus:ring-0"
+                    />
+                    <div>
+                      <div className="font-semibold text-[#00236f]">Sincronizar al iniciar sesión</div>
+                      <div className="text-[10px] text-[#757682]">
+                        Comprueba automáticamente si hay cambios en SharePoint al abrir la web.
+                      </div>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-2.5 p-2 rounded-lg bg-[#f8f9ff] border border-[#e5eeff] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={autoSyncConfig.syncUsersAgenda}
+                      onChange={(e) => {
+                        const updated = MicrosoftDataService.saveAutoSyncConfig({ syncUsersAgenda: e.target.checked });
+                        setAutoSyncConfig(updated);
+                      }}
+                      className="mt-0.5 rounded text-[#00236f] focus:ring-0"
+                    />
+                    <div>
+                      <div className="font-semibold text-[#00236f]">Auto-incorporar personal a la Agenda</div>
+                      <div className="text-[10px] text-[#757682]">
+                        Extrae a los Gerentes e IT Operators de las tiendas y los agrega a Directorio.
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* FAQ / Persistence Explainer */}
+              <div className="p-4 bg-[#eff4ff] rounded-2xl border border-[#dce9ff] space-y-2.5">
+                <h5 className="font-bold text-[#00236f] flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  ¿Cómo funciona la permanencia de datos en Tottus CMMS?
+                </h5>
+                <ul className="space-y-1.5 text-[11px] text-[#444651] leading-relaxed list-disc list-inside">
+                  <li>
+                    <strong>Persistencia permanente en el navegador:</strong> Los 90 locales de Tottus con sus datos (código, CECO, dirección, gerente, IT operator, celular) quedan guardados en la memoria persistente del navegador (HTML5 LocalStorage).
+                  </li>
+                  <li>
+                    <strong>Sin reconexión manual obligatoria:</strong> Puedes cerrar el navegador o reiniciar tu equipo; al regresar, todo el inventario, órdenes de trabajo y agenda seguirán cargados.
+                  </li>
+                  <li>
+                    <strong>Actualización sin esfuerzo:</strong> Si tu organización añade tiendas o actualiza encargados en SharePoint, el sistema los detecta y actualiza sin que pierdas tu trabajo.
+                  </li>
+                </ul>
               </div>
             </div>
           )}

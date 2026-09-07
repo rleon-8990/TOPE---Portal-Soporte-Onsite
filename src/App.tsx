@@ -20,7 +20,8 @@ import {
   RegionalAlert
 } from './types';
 import { playNotificationChime } from './utils/helpers';
-import { MicrosoftDataService } from './services/microsoftDataService';
+import { MicrosoftDataService, AutoSyncConfig } from './services/microsoftDataService';
+import { QrCode, AlertTriangle, Bell, CheckCircle2 } from 'lucide-react';
 
 // Components
 import { Sidebar } from './components/Sidebar';
@@ -33,6 +34,7 @@ import { MaintenanceView } from './components/MaintenanceView';
 import { TechnicalReportsView } from './components/TechnicalReportsView';
 import { HelpdeskView } from './components/HelpdeskView';
 import { UserDirectoryView } from './components/UserDirectoryView';
+import { AutoSyncStatusWidget } from './components/AutoSyncStatusWidget';
 
 // Modals
 import { NotificationModal } from './components/NotificationModal';
@@ -103,6 +105,79 @@ export default function App() {
   const [liveToast, setLiveToast] = useState<PushNotification | null>(null);
 
   const unreadNotificationsCount = notifications.filter(n => !n.read).length;
+
+  // AutoSync Engine State & Operations
+  const [autoSyncConfig, setAutoSyncConfig] = useState<AutoSyncConfig>(() => MicrosoftDataService.getAutoSyncConfig());
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(() => {
+    return localStorage.getItem('reliant_cmms_stores_last_sync') || autoSyncConfig.lastSyncTimestamp;
+  });
+
+  const handleUpdateAutoSyncConfig = (patch: Partial<AutoSyncConfig>) => {
+    const updated = MicrosoftDataService.saveAutoSyncConfig(patch);
+    setAutoSyncConfig(updated);
+  };
+
+  const handleTriggerAutoSync = async (isStartup = false) => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+
+    try {
+      const result = await MicrosoftDataService.runBackgroundSync(stores, users);
+      setIsSyncing(false);
+      setLastSyncTime(result.timestamp);
+      setAutoSyncConfig(MicrosoftDataService.getAutoSyncConfig());
+
+      if (result.storesUpdated && result.storesUpdated.length > 0) {
+        setStores(result.storesUpdated);
+        try {
+          localStorage.setItem('reliant_cmms_stores_data', JSON.stringify(result.storesUpdated));
+          localStorage.setItem('reliant_cmms_stores_last_sync', result.timestamp);
+        } catch (e) {}
+      }
+
+      if (result.usersUpdated && result.usersUpdated.length > 0) {
+        setUsers(result.usersUpdated);
+        try {
+          localStorage.setItem('reliant_cmms_users_data', JSON.stringify(result.usersUpdated));
+        } catch (e) {}
+      }
+
+      if (!isStartup) {
+        const notif: PushNotification = {
+          id: `notif-autosync-${Date.now()}`,
+          title: 'Auto-Sincronización Completada',
+          message: result.message,
+          type: 'mantenimiento',
+          severity: 'info',
+          timestamp: result.timestamp,
+          timeAgo: 'Ahora',
+          read: false,
+          linkModule: 'tiendas'
+        };
+        setNotifications(prev => [notif, ...prev]);
+      }
+    } catch (e) {
+      setIsSyncing(false);
+    }
+  };
+
+  // Run on startup if configured
+  useEffect(() => {
+    if (autoSyncConfig.enabled && autoSyncConfig.syncOnStartup) {
+      handleTriggerAutoSync(true);
+    }
+  }, []);
+
+  // Recurring timer
+  useEffect(() => {
+    if (!autoSyncConfig.enabled || autoSyncConfig.intervalMinutes <= 0) return;
+    const intervalMs = autoSyncConfig.intervalMinutes * 60 * 1000;
+    const timer = setInterval(() => {
+      handleTriggerAutoSync(false);
+    }, intervalMs);
+    return () => clearInterval(timer);
+  }, [autoSyncConfig.enabled, autoSyncConfig.intervalMinutes, stores.length, users.length]);
 
   // Real-time Push Simulator Handler
   const handleSimulateNewPush = () => {
@@ -308,10 +383,18 @@ export default function App() {
       console.warn('Error saving stores to localStorage', e);
     }
 
+    if (autoSyncConfig.syncUsersAgenda) {
+      const mergedUsers = MicrosoftDataService.extractUsersFromStores(newStores, users);
+      setUsers(mergedUsers);
+      try {
+        localStorage.setItem('reliant_cmms_users_data', JSON.stringify(mergedUsers));
+      } catch (e) {}
+    }
+
     const syncNotif: PushNotification = {
       id: `notif-sync-${Date.now()}`,
       title: 'Planilla de Tiendas Sincronizada',
-      message: `Se han integrado ${newStores.length} tiendas exitosamente desde ${sourceInfo}.`,
+      message: `Se han integrado ${newStores.length} tiendas exitosamente desde ${sourceInfo}.${autoSyncConfig.syncUsersAgenda ? ' Agenda de usuarios en tienda actualizada.' : ''}`,
       type: 'mantenimiento',
       severity: 'info',
       timestamp: new Date().toISOString(),
@@ -362,7 +445,73 @@ export default function App() {
           onOpenQRScanner={() => setShowQRScanner(true)}
           onOpenAlertsManager={() => setShowRegionalAlerts(true)}
           onOpenM365Sync={() => setShowM365Sync(true)}
+          onOpenStoreSync={() => setShowStoreSharePointSync(true)}
+          isAutoSyncActive={autoSyncConfig.enabled}
         />
+
+        {/* Desktop Top Header Bar with AutoSync Status & Quick Actions */}
+        <header className="hidden md:flex items-center justify-between px-6 lg:px-8 xl:px-10 py-3 bg-white border-b border-[#e5eeff] sticky top-0 z-30 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-bold text-[#00236f]">CMMS Tottus</span>
+              <span className="text-[#c4c6d0]">/</span>
+              <span className="text-[#444651] capitalize font-semibold">
+                {currentView === 'dashboard' ? 'Panel General' :
+                 currentView === 'inventario' ? 'Inventario de Activos' :
+                 currentView === 'mantenimiento' ? 'Mantenimiento & OTs' :
+                 currentView === 'informes' ? 'Informes Técnicos' :
+                 currentView === 'tiendas' ? 'Sucursales (90)' :
+                 currentView === 'helpdesk' ? 'Helpdesk & Repuestos' :
+                 currentView === 'usuarios' ? 'Agenda de Tiendas' : currentView}
+              </span>
+            </div>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              {stores.length} Tiendas en Red
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* AutoSync Status Indicator & Settings Widget */}
+            <AutoSyncStatusWidget
+              onTriggerSync={() => handleTriggerAutoSync(false)}
+              isSyncing={isSyncing}
+              lastSyncTime={lastSyncTime}
+              onOpenSyncModal={() => setShowStoreSharePointSync(true)}
+              autoSyncConfig={autoSyncConfig}
+              onUpdateConfig={handleUpdateAutoSyncConfig}
+            />
+
+            <div className="h-5 w-px bg-[#e5eeff]" />
+
+            {/* Quick action buttons */}
+            <button
+              onClick={() => setShowQRScanner(true)}
+              className="p-1.5 rounded-lg text-[#00236f] bg-[#eff4ff] hover:bg-[#dce9ff] transition-colors"
+              title="Escanear QR de Equipo"
+            >
+              <QrCode className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => setShowRegionalAlerts(true)}
+              className="p-1.5 rounded-lg text-[#ba1a1a] bg-[#ffdad6]/40 hover:bg-[#ffdad6] transition-colors"
+              title="Alertas Críticas"
+            >
+              <AlertTriangle className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => setShowNotifications(true)}
+              className="relative p-1.5 rounded-lg text-[#444651] bg-[#f8f9ff] hover:bg-[#eff4ff] transition-colors"
+              title="Notificaciones"
+            >
+              <Bell className="w-4 h-4" />
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-[#ba1a1a] rounded-full ring-2 ring-white" />
+              )}
+            </button>
+          </div>
+        </header>
 
         {/* Main Content Area: uses full screen width on desktop, comfortably padded, never overflows */}
         <main className="flex-1 pt-20 md:pt-6 px-3.5 sm:px-6 lg:px-8 xl:px-10 w-full min-w-0 pb-12">

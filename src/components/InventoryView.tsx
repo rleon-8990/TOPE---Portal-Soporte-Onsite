@@ -144,11 +144,31 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         matchesCalibration
       );
     }).sort((a, b) => {
-      const valA = (a[sortField] || '').toString().toLowerCase();
-      const valB = (b[sortField] || '').toString().toLowerCase();
-      if (valA < valB) return sortAsc ? -1 : 1;
-      if (valA > valB) return sortAsc ? 1 : -1;
-      return 0;
+      let valA: string = '';
+      let valB: string = '';
+
+      if (sortField === 'brand') {
+        valA = `${a.brand || ''} ${a.model || ''}`.trim().toLowerCase();
+        valB = `${b.brand || ''} ${b.model || ''}`.trim().toLowerCase();
+      } else if (sortField === 'code') {
+        valA = `${a.code || ''} ${a.hostName || ''}`.trim().toLowerCase();
+        valB = `${b.code || ''} ${b.hostName || ''}`.trim().toLowerCase();
+      } else if (sortField === 'storeName') {
+        valA = `${a.storeName || ''} ${a.locationInStore || ''}`.trim().toLowerCase();
+        valB = `${b.storeName || ''} ${b.locationInStore || ''}`.trim().toLowerCase();
+      } else if (sortField === 'ipAddress') {
+        valA = (a.ipAddress || a.macAddress || '').toLowerCase();
+        valB = (b.ipAddress || b.macAddress || '').toLowerCase();
+      } else if (sortField === 'gateway') {
+        valA = (a.gateway || a.mascara || '').toLowerCase();
+        valB = (b.gateway || b.mascara || '').toLowerCase();
+      } else {
+        valA = (a[sortField] ?? '').toString().toLowerCase();
+        valB = (b[sortField] ?? '').toString().toLowerCase();
+      }
+
+      const cmp = valA.localeCompare(valB, 'es', { numeric: true, sensitivity: 'base' });
+      return sortAsc ? cmp : -cmp;
     });
   }, [
     equipments,
@@ -520,58 +540,137 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse min-w-[1100px]">
               <thead>
-                <tr className="bg-[#f0f4ff] text-[#00236f] font-bold border-b border-[#dce9ff]">
+                <tr className="bg-[#f0f4ff] text-[#00236f] font-bold border-b border-[#dce9ff] select-none">
                   <th
                     onClick={() => handleSort('hostName')}
-                    className="py-3 px-3.5 cursor-pointer hover:bg-[#e5eeff] transition-colors w-32"
+                    className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors w-32 group ${
+                      sortField === 'hostName' ? 'bg-[#e2edff]' : ''
+                    }`}
+                    title="Ordenar por HostName (A-Z / Z-A)"
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-between gap-1">
                       <span>HOSTNAME</span>
-                      {sortField === 'hostName' && (sortAsc ? '▲' : '▼')}
+                      <span className="text-xs font-bold shrink-0">
+                        {sortField === 'hostName' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                      </span>
                     </div>
                   </th>
                   <th
                     onClick={() => handleSort('name')}
-                    className="py-3 px-3.5 cursor-pointer hover:bg-[#e5eeff] transition-colors"
+                    className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors group ${
+                      sortField === 'name' ? 'bg-[#e2edff]' : ''
+                    }`}
+                    title="Ordenar por Nombre de Equipo (A-Z / Z-A)"
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-between gap-1">
                       <span>EQUIPO / SERVICIO</span>
-                      {sortField === 'name' && (sortAsc ? '▲' : '▼')}
+                      <span className="text-xs font-bold shrink-0">
+                        {sortField === 'name' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                      </span>
                     </div>
                   </th>
                   <th
                     onClick={() => handleSort('storeName')}
-                    className="py-3 px-3.5 cursor-pointer hover:bg-[#e5eeff] transition-colors"
+                    className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors group ${
+                      sortField === 'storeName' ? 'bg-[#e2edff]' : ''
+                    }`}
+                    title="Ordenar por Tienda y Código (A-Z / Z-A)"
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-between gap-1">
                       <span>TIENDA & COD</span>
-                      {sortField === 'storeName' && (sortAsc ? '▲' : '▼')}
+                      <span className="text-xs font-bold shrink-0">
+                        {sortField === 'storeName' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                      </span>
                     </div>
                   </th>
-                  <th className="py-3 px-3.5">UBICACIÓN</th>
+                  <th
+                    onClick={() => handleSort('locationInStore')}
+                    className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors group ${
+                      sortField === 'locationInStore' ? 'bg-[#e2edff]' : ''
+                    }`}
+                    title="Ordenar por Ubicación en Tienda (A-Z / Z-A)"
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span>UBICACIÓN</span>
+                      <span className="text-xs font-bold shrink-0">
+                        {sortField === 'locationInStore' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                      </span>
+                    </div>
+                  </th>
                   <th
                     onClick={() => handleSort('switchName')}
-                    className="py-3 px-3.5 cursor-pointer hover:bg-[#e5eeff] transition-colors bg-[#e8efff]/60"
+                    className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors bg-[#e8efff]/60 group ${
+                      sortField === 'switchName' ? 'bg-[#e2edff]' : ''
+                    }`}
+                    title="Ordenar por Switch de Red (A-Z / Z-A)"
                   >
-                    <div className="flex items-center gap-1.5 text-[#00236f]">
-                      <Server className="w-3.5 h-3.5" />
-                      <span>SWITCH DE RED</span>
-                      {sortField === 'switchName' && (sortAsc ? '▲' : '▼')}
+                    <div className="flex items-center justify-between gap-1 text-[#00236f]">
+                      <div className="flex items-center gap-1.5">
+                        <Server className="w-3.5 h-3.5" />
+                        <span>SWITCH DE RED</span>
+                      </div>
+                      <span className="text-xs font-bold shrink-0">
+                        {sortField === 'switchName' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                      </span>
                     </div>
                   </th>
                   <th
                     onClick={() => handleSort('puertoSwitch')}
-                    className="py-3 px-3.5 cursor-pointer hover:bg-[#e5eeff] transition-colors bg-[#e8efff]/60 w-28 text-center"
+                    className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors bg-[#e8efff]/60 w-28 text-center group ${
+                      sortField === 'puertoSwitch' ? 'bg-[#e2edff]' : ''
+                    }`}
+                    title="Ordenar por Puerto de Switch (A-Z / Z-A)"
                   >
                     <div className="flex items-center justify-center gap-1 text-[#00236f]">
                       <Network className="w-3.5 h-3.5" />
                       <span>PUERTO</span>
-                      {sortField === 'puertoSwitch' && (sortAsc ? '▲' : '▼')}
+                      <span className="text-xs font-bold shrink-0">
+                        {sortField === 'puertoSwitch' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                      </span>
                     </div>
                   </th>
-                  <th className="py-3 px-3.5">DIRECCIÓN IP / MAC</th>
-                  <th className="py-3 px-3.5">GATEWAY / MÁSCARA</th>
-                  <th className="py-3 px-3.5 text-center">ESTADO ENLACE</th>
+                  <th
+                    onClick={() => handleSort('ipAddress')}
+                    className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors group ${
+                      sortField === 'ipAddress' ? 'bg-[#e2edff]' : ''
+                    }`}
+                    title="Ordenar por Dirección IP (A-Z / Z-A)"
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span>DIRECCIÓN IP / MAC</span>
+                      <span className="text-xs font-bold shrink-0">
+                        {sortField === 'ipAddress' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                      </span>
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('gateway')}
+                    className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors group ${
+                      sortField === 'gateway' ? 'bg-[#e2edff]' : ''
+                    }`}
+                    title="Ordenar por Gateway / Máscara (A-Z / Z-A)"
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span>GATEWAY / MÁSCARA</span>
+                      <span className="text-xs font-bold shrink-0">
+                        {sortField === 'gateway' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                      </span>
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('linkStatus')}
+                    className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors text-center group ${
+                      sortField === 'linkStatus' ? 'bg-[#e2edff]' : ''
+                    }`}
+                    title="Ordenar por Estado de Enlace (A-Z / Z-A)"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>ESTADO ENLACE</span>
+                      <span className="text-xs font-bold shrink-0">
+                        {sortField === 'linkStatus' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                      </span>
+                    </div>
+                  </th>
                   <th className="py-3 px-3.5 text-center w-28">ACCIONES</th>
                 </tr>
               </thead>
@@ -794,61 +893,117 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse min-w-[900px]">
               <thead>
-                <tr className="bg-[#f0f4ff] text-[#00236f] font-bold border-b border-[#dce9ff]">
+                <tr className="bg-[#f0f4ff] text-[#00236f] font-bold border-b border-[#dce9ff] select-none">
                   <th
                     onClick={() => handleSort('code')}
-                    className="py-3 px-3.5 cursor-pointer hover:bg-[#e5eeff] transition-colors w-32"
+                    className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors w-32 group ${
+                      sortField === 'code' ? 'bg-[#e2edff]' : ''
+                    }`}
+                    title="Ordenar por Código / Host (A-Z / Z-A)"
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-between gap-1">
                       <span>CÓDIGO / HOST</span>
-                      {sortField === 'code' && (sortAsc ? '▲' : '▼')}
+                      <span className="text-xs font-bold shrink-0">
+                        {sortField === 'code' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                      </span>
                     </div>
                   </th>
                   <th
                     onClick={() => handleSort('name')}
-                    className="py-3 px-3.5 cursor-pointer hover:bg-[#e5eeff] transition-colors"
+                    className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors group ${
+                      sortField === 'name' ? 'bg-[#e2edff]' : ''
+                    }`}
+                    title="Ordenar por Equipo / Descripción (A-Z / Z-A)"
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-between gap-1">
                       <span>EQUIPO / DESCRIPCIÓN</span>
-                      {sortField === 'name' && (sortAsc ? '▲' : '▼')}
+                      <span className="text-xs font-bold shrink-0">
+                        {sortField === 'name' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                      </span>
                     </div>
                   </th>
                   <th
                     onClick={() => handleSort('categoryName')}
-                    className="py-3 px-3.5 cursor-pointer hover:bg-[#e5eeff] transition-colors"
+                    className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors group ${
+                      sortField === 'categoryName' ? 'bg-[#e2edff]' : ''
+                    }`}
+                    title="Ordenar por Categoría (A-Z / Z-A)"
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-between gap-1">
                       <span>CATEGORÍA</span>
-                      {sortField === 'categoryName' && (sortAsc ? '▲' : '▼')}
+                      <span className="text-xs font-bold shrink-0">
+                        {sortField === 'categoryName' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                      </span>
                     </div>
                   </th>
                   <th
                     onClick={() => handleSort('storeName')}
-                    className="py-3 px-3.5 cursor-pointer hover:bg-[#e5eeff] transition-colors"
+                    className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors group ${
+                      sortField === 'storeName' ? 'bg-[#e2edff]' : ''
+                    }`}
+                    title="Ordenar por Sucursal / Ubicación (A-Z / Z-A)"
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-between gap-1">
                       <span>SUCURSAL / UBICACIÓN</span>
-                      {sortField === 'storeName' && (sortAsc ? '▲' : '▼')}
+                      <span className="text-xs font-bold shrink-0">
+                        {sortField === 'storeName' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                      </span>
                     </div>
                   </th>
-                  <th className="py-3 px-3.5">MARCA & MODELO</th>
-                  <th className="py-3 px-3.5">N° SERIE</th>
+                  <th
+                    onClick={() => handleSort('brand')}
+                    className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors group ${
+                      sortField === 'brand' ? 'bg-[#e2edff]' : ''
+                    }`}
+                    title="Ordenar por Marca & Modelo (A-Z / Z-A)"
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span>MARCA & MODELO</span>
+                      <span className="text-xs font-bold shrink-0">
+                        {sortField === 'brand' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                      </span>
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('serialNumber')}
+                    className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors group ${
+                      sortField === 'serialNumber' ? 'bg-[#e2edff]' : ''
+                    }`}
+                    title="Ordenar por N° de Serie (A-Z / Z-A)"
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span>N° SERIE</span>
+                      <span className="text-xs font-bold shrink-0">
+                        {sortField === 'serialNumber' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                      </span>
+                    </div>
+                  </th>
                   <th
                     onClick={() => handleSort('status')}
-                    className="py-3 px-3.5 cursor-pointer hover:bg-[#e5eeff] transition-colors"
+                    className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors group ${
+                      sortField === 'status' ? 'bg-[#e2edff]' : ''
+                    }`}
+                    title="Ordenar por Estado Operativo (A-Z / Z-A)"
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-between gap-1">
                       <span>ESTADO</span>
-                      {sortField === 'status' && (sortAsc ? '▲' : '▼')}
+                      <span className="text-xs font-bold shrink-0">
+                        {sortField === 'status' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                      </span>
                     </div>
                   </th>
                   <th
                     onClick={() => handleSort('nextMaintenance')}
-                    className="py-3 px-3.5 cursor-pointer hover:bg-[#e5eeff] transition-colors"
+                    className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors group ${
+                      sortField === 'nextMaintenance' ? 'bg-[#e2edff]' : ''
+                    }`}
+                    title="Ordenar por Fecha de Próximo Mantenimiento (A-Z / Z-A)"
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-between gap-1">
                       <span>PRÓXIMO MTTO</span>
-                      {sortField === 'nextMaintenance' && (sortAsc ? '▲' : '▼')}
+                      <span className="text-xs font-bold shrink-0">
+                        {sortField === 'nextMaintenance' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                      </span>
                     </div>
                   </th>
                   <th className="py-3 px-3.5 text-center w-24">ACCIONES</th>
