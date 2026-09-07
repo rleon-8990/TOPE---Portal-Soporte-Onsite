@@ -353,5 +353,342 @@ export const MicrosoftDataService = {
         ]
       };
     }
+  },
+
+  // Parse CSV, TSV, Semicolon-delimited, or JSON exported directly from SharePoint Lists
+  parseSharePointStoreExport(rawText: string): {
+    stores: Store[];
+    detectedHeaders: string[];
+    fieldMappings: Record<string, string>;
+  } {
+    const trimmed = rawText.trim().replace(/^\uFEFF/, ''); // Remove UTF-8 BOM if present
+
+    // Check if JSON
+    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        const arrayData = Array.isArray(parsed) ? parsed : (parsed.value || parsed.d?.results || []);
+        if (Array.isArray(arrayData) && arrayData.length > 0) {
+          const sample = arrayData[0];
+          const headers = Object.keys(sample);
+          const stores = arrayData.map((row, idx) => this.mapRowToStore(row, idx));
+          return {
+            stores,
+            detectedHeaders: headers,
+            fieldMappings: this.inferFieldMappings(headers)
+          };
+        }
+      } catch (e) {
+        // Fallback to text parsing
+      }
+    }
+
+    // Determine delimiter (tab, comma, semicolon)
+    const lines = trimmed.split(/\r?\n/).filter(line => line.trim().length > 0);
+    if (lines.length < 2) {
+      throw new Error('El archivo debe tener al menos una fila de encabezado y una fila de datos.');
+    }
+
+    const firstLine = lines[0];
+    let delimiter = ',';
+    if (firstLine.includes('\t')) delimiter = '\t';
+    else if (firstLine.split(';').length > firstLine.split(',').length) delimiter = ';';
+
+    // Parse CSV line taking quotes into account
+    const parseLine = (line: string): string[] => {
+      const result: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === delimiter && !inQuotes) {
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim());
+      return result;
+    };
+
+    const rawHeaders = parseLine(lines[0]);
+    const cleanHeaders = rawHeaders.map(h => h.replace(/^["']|["']$/g, '').trim());
+    const fieldMappings = this.inferFieldMappings(cleanHeaders);
+
+    const stores: Store[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = parseLine(lines[i]);
+      if (values.length === 0 || (values.length === 1 && values[0] === '')) continue;
+
+      const rowObj: Record<string, string> = {};
+      cleanHeaders.forEach((h, idx) => {
+        rowObj[h] = values[idx] !== undefined ? values[idx].replace(/^["']|["']$/g, '').trim() : '';
+      });
+
+      const store = this.mapRowToStore(rowObj, i - 1);
+      stores.push(store);
+    }
+
+    return {
+      stores,
+      detectedHeaders: cleanHeaders,
+      fieldMappings
+    };
+  },
+
+  inferFieldMappings(headers: string[]): Record<string, string> {
+    const mappings: Record<string, string> = {};
+    const norm = (s: string) => s.toLowerCase().replace(/_x0020_/g, '').replace(/[^a-z0-9]/g, '');
+
+    headers.forEach(h => {
+      const n = norm(h);
+      if (n.includes('codtienda') || n === 'cod' || n === 'codigo' || n === 'id' || n === 'codigotienda') {
+        mappings[h] = 'codTienda';
+      } else if (n === 'tienda' || n === 'title' || n === 'nombre' || n === 'sucursal' || n === 'nombretienda') {
+        mappings[h] = 'name';
+      } else if (n.includes('centrocosto') || n.includes('ceco') || n === 'sap' || n.includes('centrodecosto')) {
+        mappings[h] = 'centroCostoSap';
+      } else if (n.includes('cluster') || n === 'grupo') {
+        mappings[h] = 'cluster';
+      } else if (n.includes('formato') || n === 'tipo') {
+        mappings[h] = 'formato';
+      } else if (n.includes('zonal') || n.includes('gzonal')) {
+        mappings[h] = 'gZonal';
+      } else if (n.includes('gerente') || n.includes('administrador') || n.includes('jefe')) {
+        mappings[h] = 'gerenteTienda';
+      } else if (n.includes('operator') || n.includes('itoperator') || n.includes('operadorit') || n.includes('soporte')) {
+        mappings[h] = 'itOperator';
+      } else if (n.includes('direccion') || n.includes('address') || n.includes('ubicacion')) {
+        mappings[h] = 'direccion';
+      } else if (n.includes('distrito') || n.includes('ciudad') || n === 'city') {
+        mappings[h] = 'distrito';
+      } else if (n.includes('provincia')) {
+        mappings[h] = 'provincia';
+      } else if (n.includes('region') || n.includes('zona')) {
+        mappings[h] = 'region';
+      } else if (n.includes('situacion') || n.includes('legal') || n.includes('propiedad')) {
+        mappings[h] = 'situacion';
+      } else if (n.includes('latitud') || n === 'lat') {
+        mappings[h] = 'latitud';
+      } else if (n.includes('longitud') || n === 'lng' || n === 'lon') {
+        mappings[h] = 'longitud';
+      }
+    });
+
+    return mappings;
+  },
+
+  mapRowToStore(row: Record<string, any>, index: number): Store {
+    // Helper to find value by normalized key names
+    const getVal = (candidates: string[]): string => {
+      for (const cand of candidates) {
+        if (row[cand] !== undefined && row[cand] !== null && String(row[cand]).trim() !== '') {
+          return String(row[cand]).trim();
+        }
+      }
+      // Try fuzzy match
+      const rowKeys = Object.keys(row);
+      for (const cand of candidates) {
+        const cNorm = cand.toLowerCase().replace(/[^a-z0-9]/g, '');
+        for (const k of rowKeys) {
+          const kNorm = k.toLowerCase().replace(/_x0020_/g, '').replace(/[^a-z0-9]/g, '');
+          if (kNorm === cNorm && row[k] !== undefined && String(row[k]).trim() !== '') {
+            return String(row[k]).trim();
+          }
+        }
+      }
+      return '';
+    };
+
+    const codRaw = getVal(['Cod', 'CodTienda', 'Codigo', 'Código', 'Codigo_Tienda', 'ID', 'Title']);
+    const codeClean = codRaw.replace(/^T-?/i, '') || `${101 + index}`;
+    const codeNumber = parseInt(codeClean, 10) || (101 + index);
+
+    const nameRaw = getVal(['Tienda', 'Title', 'Nombre', 'NombreTienda', 'Sucursal']) || `Tottus Sucursal ${codeNumber}`;
+    const cleanName = nameRaw.replace(/^Hipermercados?\s*Tottus\s*/i, '').replace(/^Tottus\s*/i, '').trim();
+
+    const clusterRaw = getVal(['Cluster', 'Grupo']) || 'GLP';
+    const cecoRaw = getVal(['Centro_Costo_SAP', 'CentroCosto', 'CECO', 'Centro de Costo SAP', 'SAP', 'CecoSap']) || `P009100${codeClean}01`;
+    const gZonalRaw = getVal(['G_Zonal', 'G Zonal', 'GerenciaZonal', 'Zonal']) || 'G Luna';
+    const gerenteRaw = getVal(['Gerente_Tienda', 'Gerente', 'Gerente de Tienda', 'Administrador', 'Manager']) || 'Ronald Lopez P';
+    const direccionRaw = getVal(['Direccion', 'Dirección', 'Address', 'DireccionFiscal']) || `Av. Comercial #${100 + index * 10}`;
+    const formatoRaw = getVal(['FORMATO', 'Formato', 'Tipo', 'FormatoTienda']) || 'Hiper';
+    const itOperatorRaw = getVal(['IT_Operator', 'IT Operator', 'OperadorIT', 'SoporteTI', 'ITOperator']) || 'Jose Bravo';
+    const distritoRaw = getVal(['Distrito', 'Ciudad', 'City']) || 'Lima';
+    const provinciaRaw = getVal(['Provincia', 'Prov']) || 'Lima';
+    const situacionRaw = getVal(['SITUACION', 'Situación', 'Situacion', 'Condicion']) || 'Propia';
+
+    let regionRaw = getVal(['Region', 'Región', 'Zona']);
+    let regionVal: any = 'Lima y Callao';
+    const regLower = (regionRaw || '').toLowerCase();
+    if (regLower.includes('norte')) regionVal = 'Zona Norte';
+    else if (regLower.includes('sur')) regionVal = 'Zona Sur';
+    else if (regLower.includes('centro')) regionVal = 'Zona Centro';
+    else if (regLower.includes('oriente') || regLower.includes('selva')) regionVal = 'Zona Oriente';
+    else if (provinciaRaw.toLowerCase() !== 'lima' && provinciaRaw.toLowerCase() !== 'callao' && provinciaRaw !== '') {
+      if (['trujillo', 'chiclayo', 'piura', 'tumbes', 'chimbote', 'cajamarca', 'lambayeque', 'la libertad'].some(c => provinciaRaw.toLowerCase().includes(c))) {
+        regionVal = 'Zona Norte';
+      } else if (['arequipa', 'cusco', 'tacna', 'puno', 'ica', 'moquegua', 'chincha', 'pisco'].some(c => provinciaRaw.toLowerCase().includes(c))) {
+        regionVal = 'Zona Sur';
+      } else if (['huancayo', 'huanuco', 'pasco', 'junin'].some(c => provinciaRaw.toLowerCase().includes(c))) {
+        regionVal = 'Zona Centro';
+      } else if (['iquitos', 'pucallpa', 'tarapoto'].some(c => provinciaRaw.toLowerCase().includes(c))) {
+        regionVal = 'Zona Oriente';
+      }
+    }
+
+    const latRaw = parseFloat(getVal(['Latitud', 'Lat'])) || (-12.0 + (index * 0.04));
+    const lonRaw = parseFloat(getVal(['Longitud', 'Lon', 'Lng'])) || (-77.0 - (index * 0.03));
+    const ubigeoRaw = getVal(['Ubigeo']) || '0';
+
+    return {
+      id: `store-${codeNumber}`,
+      code: `T-${codeNumber}`,
+      codTienda: codeNumber,
+      name: cleanName,
+      cluster: clusterRaw,
+      centroCostoSap: cecoRaw,
+      cecoSap: cecoRaw,
+      gZonal: gZonalRaw,
+      gerenteTienda: gerenteRaw,
+      direccion: direccionRaw,
+      formato: formatoRaw,
+      itOperator: itOperatorRaw,
+      ubigeo: ubigeoRaw,
+      region: regionVal,
+      provincia: provinciaRaw,
+      distrito: distritoRaw,
+      situacion: situacionRaw,
+      latitud: latRaw,
+      longitud: lonRaw,
+      city: distritoRaw || provinciaRaw || 'Lima',
+      address: direccionRaw,
+      phone: `+51 1 ${400 + (codeNumber % 100)}-${5000 + codeNumber}`,
+      manager: gerenteRaw,
+      managerEmail: `administrador.t${codeNumber}@tottus.com.pe`,
+      totalEquipments: 14 + (index % 6) * 3,
+      operationalRate: parseFloat((96.5 + (index % 4) * 0.8).toFixed(1)),
+      activeAlerts: index % 5 === 0 ? 1 : 0,
+      criticalIssues: 0,
+      status: 'activa'
+    };
+  },
+
+  // Fetch SharePoint List items via SharePoint Online REST API or Microsoft Graph API
+  async fetchSharePointListItems(
+    siteUrl: string,
+    listName: string,
+    bearerToken?: string
+  ): Promise<{ success: boolean; message: string; stores?: Store[]; count?: number }> {
+    const cleanSite = siteUrl.trim().replace(/\/$/, '');
+    const cleanList = listName.trim();
+
+    // If no bearer token is supplied, simulate response with notice
+    if (!bearerToken || bearerToken.trim() === '') {
+      await new Promise(r => setTimeout(r, 600));
+      return {
+        success: false,
+        message: 'Se requiere un Token de Acceso Bearer de Microsoft Graph / Azure AD para consultar directamente la API de SharePoint sin CORS. Alternativamente, utiliza la pestaña "1. Cargar Archivo de SharePoint" (CSV/Excel) o "3. Power Automate".'
+      };
+    }
+
+    try {
+      // Direct SharePoint REST endpoint
+      const endpoint = `${cleanSite}/_api/web/lists/getbytitle('${encodeURIComponent(cleanList)}')/items?$top=500`;
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json;odata=verbose',
+          'Authorization': bearerToken.startsWith('Bearer ') ? bearerToken : `Bearer ${bearerToken}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const items = data?.d?.results || data?.value || [];
+      if (Array.isArray(items) && items.length > 0) {
+        const stores = items.map((row, idx) => this.mapRowToStore(row, idx));
+        return {
+          success: true,
+          message: `Conexión exitosa. Se recuperaron ${stores.length} tiendas desde la lista "${cleanList}".`,
+          stores,
+          count: stores.length
+        };
+      } else {
+        return {
+          success: false,
+          message: `La lista "${cleanList}" fue consultada pero no contiene elementos o la respuesta no tuvo registros.`
+        };
+      }
+    } catch (err: any) {
+      return {
+        success: false,
+        message: `Error al consultar la lista de SharePoint: ${err.message || err}`
+      };
+    }
+  },
+
+  // Fetch stores via Power Automate Webhook
+  async fetchPowerAutomateStores(webhookUrl: string): Promise<{
+    success: boolean;
+    message: string;
+    stores?: Store[];
+    count?: number;
+  }> {
+    try {
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'GET_STORES',
+          requestedBy: 'Reliant CMMS Web',
+          timestamp: new Date().toISOString()
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`El flujo de Power Automate respondió con código HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      const rawList = Array.isArray(data) ? data : (data.value || data.items || data.stores || []);
+      if (Array.isArray(rawList) && rawList.length > 0) {
+        const stores = rawList.map((row, idx) => this.mapRowToStore(row, idx));
+        return {
+          success: true,
+          message: `Flujo ejecutado con éxito. Se obtuvieron ${stores.length} tiendas de SharePoint.`,
+          stores,
+          count: stores.length
+        };
+      } else {
+        return {
+          success: false,
+          message: 'El flujo de Power Automate respondió correctamente pero no devolvió un array de elementos de lista.'
+        };
+      }
+    } catch (err: any) {
+      return {
+        success: false,
+        message: `No se pudo consultar el Webhook de Power Automate: ${err.message || err}`
+      };
+    }
   }
 };
+
+export interface SharePointStoreFieldMap {
+  rawHeader: string;
+  mappedField: keyof Store | 'ignore';
+}
+

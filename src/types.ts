@@ -29,9 +29,27 @@ export interface CategoryInfo {
 
 export interface Store {
   id: string;
-  code: string; // e.g. T-001
-  name: string;
-  region: Region;
+  code: string; // e.g. T-103 o 103
+  codTienda: number | string; // Cod (103, 104, 105, etc.)
+  name: string; // Tienda (Megaplaza, Las Begonias, La Marina, etc.)
+  cluster?: string; // Cluster (GLP, GLA, MLP, VECINO, MLX, LFOCO, MLA, SB, UNO, CLA, HB)
+  centroCostoSap?: string; // Centro de Costo SAP (P009100101, etc.)
+  cecoSap?: string;
+  gZonal?: string; // G Zonal (G Luna, S Nazzal, M Torres, C Farfan, G Larrab, J Hidalgo)
+  gerenteTienda?: string; // Gerente de Tienda (Ricardo Paz, Sandro Jara, etc.)
+  direccion?: string; // Direccion (Av. Alfredo Mendiola 3698 - Independencia, etc.)
+  formato?: string; // FORMATO (Hiper, Hiper Compacto, Vecino, Super Extendido, Superbodega, Hiper Bodega, Super)
+  itOperator?: string; // IT Operator (Jose Bravo, Adrian Lipa, etc.)
+  ubigeo?: string | number; // Ubigeo (0, 70,101, 70,102)
+  region: Region; // Region (Lima y Callao, Zona Norte, etc.)
+  provincia?: string; // Provincia (Lima, Callao, etc.)
+  distrito?: string; // Distrito (Independencia, San Isidro, etc.)
+  situacion?: 'Alquilada' | 'Propia' | string; // SITUACIÓN
+  fechaApertura?: string; // Fecha de Apertura
+  latitud?: number; // Latitud (-11.99360537, etc.)
+  longitud?: number; // Longitud (-77.0620619, etc.)
+
+  // Compatibilidad con campos existentes
   city: string;
   address: string;
   phone: string;
@@ -61,7 +79,7 @@ export interface MaintenanceRecord {
 
 export interface Equipment {
   id: string;
-  code: string; // e.g. HVAC-001, BMB-042
+  code: string; // e.g. HVAC-001, BMB-042, POS-316001
   name: string;
   categoryId: string;
   categoryName: string;
@@ -87,11 +105,46 @@ export interface Equipment {
   history?: MaintenanceRecord[];
   assignedTechnician?: string;
   notes?: string;
+
+  // Encabezados corporativos TOPE / Falabella / Sistemas
+  b?: string; // e.g. 'TOPE'
+  pais?: string; // e.g. 'Perú'
+  negocio?: string; // e.g. 'MERCADOS TOTTUS'
+  storeCodeNumber?: string; // e.g. '316', '317', '338', '375', '452', '472'
+  centroCostos?: string; // e.g. 'P009102301'
+  sistemaAsociado?: string; // e.g. 'PUNTO DE VENTAS', 'CLIMATIZACION', 'CADENA DE FRIO'
+  hostName?: string; // e.g. 'PS316001', 'OPEPOS-317001'
+  partNumber?: string; // e.g. '7603-1101-8801'
+  ipAddress?: string; // e.g. '172.23.87.101', '10.163.51.101'
+  macAddress?: string; // e.g. '3C:E1:A1:3E:CB:5C'
+  mascara?: string; // e.g. '255.255.255.0'
+  gateway?: string; // e.g. '172.23.87.1'
+  procesador?: string; // e.g. 'Intel(R) Celeron(R) CPU G1820TE', 'Intel(R) Core(TM) i5-9500TE'
+  sistemaOperativo?: string; // e.g. 'Windows Embedded Estándar 32-bit', 'WINDOWS 10 Enterprise LTSC'
+  memoriaRam?: string; // e.g. '3,511.95 MB', '8,063.27 MB', '16,251.51 MB'
+  discoDuro?: string; // e.g. '106,177 MB', '218,031 MB'
+  obsolescenciaHW?: string; // e.g. '31/12/2022 00:00', '08/04/2030 00:00'
+  anoInstalacion?: string; // e.g. '31/12/2020', '08/04/2025'
+  servicio?: string; // e.g. 'Caja Asistida', 'SCO (Self Checkout)', 'Punto de Ventas'
+  estadoServicio?: string; // e.g. 'DEPLOYED', 'MAINTENANCE', 'STANDBY'
+  ambiente?: string; // e.g. 'PRODUCCION', 'PILOTO', 'LAB'
+  costoServicio?: string | number; // e.g. 9.86
+  proveedor?: string; // e.g. 'NCR COMMERCE DEL PERU S.A.C.'
+  formato?: string; // e.g. 'Hiper', 'Hiper Compacto', 'Super Extendido', 'Hiper Bodega'
+  direccionFiscal?: string; // e.g. 'Av. Porongoche N° 500 - Mall Aventura plaza'
+
+  // Enlace a Equipos de Comunicación (Switches & Puertos de Red)
+  switchName?: string; // e.g. 'PE-MPO-TOT-SA-03', 'PE-HUY-TOT-SA-05'
+  switchIp?: string; // e.g. '172.22.86.71', '10.161.43.77'
+  puertoSwitch?: string; // e.g. 'Gi1/0/17', 'Gi1/0/10', '10', '11'
+  vlan?: string; // e.g. 'VLAN 101 - POS', 'VLAN 10 - Red Gestión'
+  linkStatus?: 'up' | 'down' | 'warning'; // Estado de enlace de red
+  speedDuplex?: string; // e.g. '1 Gbps Full Duplex', '100 Mbps'
 }
 
 export interface Ticket {
   id: string;
-  code?: string; // TK-1024
+  code?: string; // TK-1024 / OCR-020126
   ticketNumber?: string;
   title: string;
   description: string;
@@ -122,6 +175,40 @@ export interface Ticket {
     timestamp: string;
     isInternal?: boolean;
   }>;
+
+  // --- Columnas Oficiales Planilla Corporativa Onsite (Helpdesk, Repuestos y Presupuestos) ---
+  ticketJR?: string; // TICKET JR (ej. 'OCR-020126', 'OCR-641022')
+  proveedorServicio?: string; // PROVEEDOR (ej. 'DMS PERU S.A.C', 'PRECISION PERU S.A.', 'NCR')
+  ticketProveedor?: string; // TICKET PROVEEDOR (ej. '98638', '98952', '98590')
+  fechaInicio?: string; // FECHA INICIO (ej. '2/01/2026', '15/01/2026')
+  codTiendaNum?: string | number; // COD (ej. 123, 117, 568, 569, 103, 474)
+  tiendaNombre?: string; // TIENDA (ej. 'Angamas', 'Comas', 'CD Huachipa Secos', 'Megaplaza')
+  cecoSap?: string; // CECO SAP (ej. 'P009102001', 'P009821001', 'P009811001')
+  idEquipo?: string; // ID EQUIPO (ej. 'No Aplica', '87, 89, 90', '64', '85')
+  ipAddress?: string; // IP (ej. '10.163.224.140', '172.43.41.64', 'no aplica')
+  tipoEquipo?: string; // EQUIPO (ej. 'Consulta Precios', 'Terminal Móvil', 'SCO - Scanner de Mano', 'Impresora Industrial', 'Balanzas')
+  marca?: string; // MARCA (ej. 'MOTOROLA', 'ZEBRA', 'PRECISION')
+  modelo?: string; // MODELO (ej. 'MK500', 'TC26', 'MC93', 'DS2208', 'ZT410', '8442')
+  numeroSerie?: string; // N° SERIE (ej. '12348522500479', '22067523021608', '18J171600018')
+  detalleTicket?: string; // DETALLE DE TICKET / Falla (ej. 'Error app', 'talla opaca y se ve linea', 'Se reinicia', 'cabezal dañado')
+  contacto?: string; // CONTACTO (ej. 'Raul Leon', 'Ronald Lopez', 'Luis Garcia', 'Jesus Bravo')
+  celular?: string; // CELULAR (ej. '51 992 797 523', '987804150', '905 456 127')
+  estadoTicket?: string; // ESTADO TICKET (ej. 'Atendido', 'Pendiente Reparación', 'En Proceso')
+  direccionFiscal?: string; // DIRECCIÓN FISCAL (ej. 'Tomas Marsano con Av. Angamos', 'Av. Mendiola 3698 - Independencia')
+  fechaCierre?: string; // FECHA CIERRE (ej. '20/01/2026 05:00', '30/12/2025 05:00')
+  observaciones?: string; // OBSERVACIONES (ej. 'Mantenimiento', 'Cambio PCB', 'Cambio Cable', 'Cambio Cabezal', 'Instalacion Camara')
+  creadoPor?: string; // Creado por (ej. 'Roger Leon Apolinario', 'Luis Garcia Cueva', 'Denis Bravo')
+  tienePdf?: boolean | string; // pdf? (ej. 'SI', 'NO')
+
+  // --- SECCIÓN REPUESTOS Y PRESUPUESTOS (Compras & Facturación SAP) ---
+  partNumberRepuesto?: string; // Part Number (ej. 'TSRRF00026', 'P1058930-010A', 'CBA-U01-S07ZAR')
+  descripcionPartNumber?: string; // Descripción Part Number (ej. 'SERVICIO DE REPARACIÓN DE EQUIPOS', 'CABEZAL 300 DPI PARA IMPRESORA ZM400')
+  cotizacion?: string; // Cotización (ej. '003-00071073', '003-00070811', '003-00070885')
+  precio?: number; // Precio (ej. 55, 547, 255, 448, 570, 103, 38, 21.24)
+  solped?: string; // Solped (ej. '1001571403', '1001704359')
+  ordenCompra?: string; // Orden de Compra (ej. '6001495464', '6001613078')
+  hes?: string; // HES (ej. '1002515853', '1002727237')
+  presupuestoMes?: string; // Presupuesto Mes (ej. 'Enero 2026', 'Diciembre 2025', 'Noviembre 2025')
 }
 
 export interface WorkOrder {
@@ -217,7 +304,7 @@ export interface AppUser {
   id: string;
   name: string;
   email: string;
-  role: 'Administrador' | 'Supervisor Regional' | 'Técnico Especialista' | 'Jefe de Tienda' | 'Administrador General';
+  role: 'Administrador' | 'Supervisor Regional' | 'Técnico Especialista' | 'Jefe de Tienda' | 'Administrador General' | 'Gerente de Tienda' | 'IT Operator' | 'Jefe de Mantenimiento' | 'Subgerente' | 'Jefe de Prevención' | string;
   specialty?: string;
   phone: string;
   assignedRegion: Region | 'Nacional';
@@ -227,6 +314,16 @@ export interface AppUser {
   activeTicketsCount?: number;
   activeTickets?: number;
   completedOrders?: number;
+
+  // Asignación de Tienda & Agenda de Usuarios
+  userType?: 'tienda' | 'especialista';
+  codTienda?: number | string; // ej. 103, 104, 105, 316
+  tiendaNombre?: string; // ej. Megaplaza, Las Begonias, Porongoche
+  storeId?: string; // ej. store-103
+  cargo?: string; // ej. Gerente de Tienda, IT Operator Onsite, Jefe de Mantenimiento, Subgerente, etc.
+  anexo?: string; // Anexo telefónico interno
+  turno?: string; // ej. Turno Mañana, Turno Tarde, Completo
+  distrito?: string;
 }
 
 export interface PushNotification {

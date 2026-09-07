@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   X,
   QrCode,
@@ -10,7 +10,12 @@ import {
   Tag,
   CheckCircle,
   Clock,
-  Printer
+  Printer,
+  Network,
+  Server,
+  Building,
+  Copy,
+  Check
 } from 'lucide-react';
 import { Equipment } from '../types';
 
@@ -27,14 +32,22 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
   onOpenReportForEquipment,
   onOpenTicketForEquipment,
 }) => {
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
   if (!equipment) return null;
+
+  const handleCopy = (key: string, val: string) => {
+    navigator.clipboard?.writeText(val);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 1800);
+  };
 
   const isCritical = equipment.status === 'falla_critica';
   const isWarning = equipment.status === 'mantenimiento';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-5 border border-[#e5eeff]">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-4 border border-[#e5eeff]">
         {/* Header */}
         <div className="flex justify-between items-start border-b border-[#e5eeff] pb-4">
           <div className="flex items-center gap-3">
@@ -46,10 +59,26 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
               />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-mono text-xs font-bold text-[#00236f] bg-[#eff4ff] px-2 py-0.5 rounded">
                   {equipment.code}
                 </span>
+                {equipment.hostName && (
+                  <span className="font-mono text-xs font-bold text-[#00236f] bg-blue-100 border border-blue-200 px-2 py-0.5 rounded flex items-center gap-1">
+                    <span>Host: {equipment.hostName}</span>
+                    <button
+                      onClick={() => handleCopy('host', equipment.hostName!)}
+                      className="hover:text-blue-900"
+                    >
+                      {copiedKey === 'host' ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                    </button>
+                  </span>
+                )}
+                {equipment.storeCodeNumber && (
+                  <span className="text-[10px] font-bold bg-[#e8efff] text-[#00236f] px-1.5 py-0.5 rounded">
+                    COD {equipment.storeCodeNumber}
+                  </span>
+                )}
                 <span
                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                     isCritical
@@ -63,13 +92,15 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
                 </span>
               </div>
               <h2 className="text-lg font-bold text-[#0b1c30] mt-1">{equipment.name}</h2>
-              <span className="text-xs text-[#757682]">{equipment.storeName} • {equipment.locationInStore}</span>
+              <span className="text-xs text-[#757682]">
+                {equipment.storeName} • {equipment.locationInStore} {equipment.formato ? `(${equipment.formato})` : ''}
+              </span>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="text-[#757682] p-1 font-bold hover:text-black"
+            className="text-[#757682] p-1 font-bold hover:text-black rounded-lg hover:bg-gray-100"
           >
             <X className="w-5 h-5" />
           </button>
@@ -84,7 +115,16 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
           </div>
           <div className="p-3 bg-[#f8f9ff] rounded-xl border border-[#e5eeff]">
             <span className="text-[#757682] text-[10px] uppercase font-bold block">N° Serie</span>
-            <strong className="font-mono text-[#00236f] text-xs">{equipment.serialNumber}</strong>
+            <div className="flex items-center justify-between">
+              <strong className="font-mono text-[#00236f] text-xs truncate">{equipment.serialNumber}</strong>
+              <button
+                onClick={() => handleCopy('sn', equipment.serialNumber)}
+                className="text-[#757682] hover:text-[#00236f] ml-1"
+                title="Copiar serie"
+              >
+                {copiedKey === 'sn' ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+              </button>
+            </div>
           </div>
           <div className="p-3 bg-[#f8f9ff] rounded-xl border border-[#e5eeff]">
             <span className="text-[#757682] text-[10px] uppercase font-bold block">Último Mantenimiento</span>
@@ -96,16 +136,152 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
           </div>
         </div>
 
+        {/* SECCIÓN DESTACADA: ENLACE A SWITCH Y EQUIPO DE COMUNICACIÓN */}
+        <div className="p-3.5 bg-gradient-to-br from-[#eff4ff] to-[#f4f7ff] rounded-xl border border-[#dce9ff] space-y-2.5">
+          <div className="flex items-center justify-between">
+            <h4 className="font-bold text-xs text-[#00236f] flex items-center gap-1.5 uppercase tracking-wide">
+              <Network className="w-4 h-4 text-[#00236f]" />
+              <span>Enlace a Equipos de Comunicación (Switch & Red)</span>
+            </h4>
+            {equipment.linkStatus === 'down' ? (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                LINK DOWN
+              </span>
+            ) : (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                CONECTADO / LINK UP
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 text-xs">
+            <div className="bg-white p-2.5 rounded-lg border border-[#dce9ff] shadow-2xs">
+              <span className="text-[10px] text-[#757682] uppercase font-semibold block">Switch Conectado</span>
+              <strong className="font-mono text-[#00236f] text-[11px] block truncate">
+                {equipment.switchName || 'No asignado'}
+              </strong>
+            </div>
+
+            <div className="bg-white p-2.5 rounded-lg border border-[#dce9ff] shadow-2xs">
+              <span className="text-[10px] text-[#757682] uppercase font-semibold block">Puerto de Switch</span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-xs bg-[#00236f] text-white px-2 py-0.5 rounded">
+                  {equipment.puertoSwitch || 'N/A'}
+                </span>
+                {equipment.vlan && (
+                  <span className="text-[10px] text-[#757682]">{equipment.vlan}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-white p-2.5 rounded-lg border border-[#dce9ff] shadow-2xs">
+              <span className="text-[10px] text-[#757682] uppercase font-semibold block">Dirección IP del Equipo</span>
+              <div className="flex items-center justify-between mt-0.5">
+                <strong className="font-mono text-[#0b1c30] text-xs">
+                  {equipment.ipAddress || 'Sin IP asignada'}
+                </strong>
+                {equipment.ipAddress && (
+                  <button
+                    onClick={() => handleCopy('ip', equipment.ipAddress!)}
+                    className="text-[#757682] hover:text-[#00236f]"
+                  >
+                    {copiedKey === 'ip' ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-white p-2.5 rounded-lg border border-[#dce9ff] shadow-2xs">
+              <span className="text-[10px] text-[#757682] uppercase font-semibold block">MAC Address</span>
+              <strong className="font-mono text-[#444651] text-[11px] block truncate">
+                {equipment.macAddress || 'No registrada'}
+              </strong>
+            </div>
+
+            <div className="bg-white p-2.5 rounded-lg border border-[#dce9ff] shadow-2xs">
+              <span className="text-[10px] text-[#757682] uppercase font-semibold block">Gateway & Máscara</span>
+              <div className="font-mono text-[11px] text-[#444651]">
+                GW: {equipment.gateway || 'N/A'}
+              </div>
+              <div className="font-mono text-[10px] text-[#757682]">
+                Subnet: {equipment.mascara || '255.255.255.0'}
+              </div>
+            </div>
+
+            <div className="bg-white p-2.5 rounded-lg border border-[#dce9ff] shadow-2xs">
+              <span className="text-[10px] text-[#757682] uppercase font-semibold block">Velocidad / Dúplex</span>
+              <strong className="text-[#0b1c30] text-xs block">
+                {equipment.speedDuplex || '100 Mbps / 1 Gbps Auto'}
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        {/* SECCIÓN DATOS CORPORATIVOS TOPE / SISTEMAS */}
+        {(equipment.centroCostos || equipment.partNumber || equipment.procesador) && (
+          <div className="p-3.5 bg-white rounded-xl border border-[#e5eeff] space-y-2">
+            <h4 className="font-bold text-xs text-[#0b1c30] flex items-center gap-1.5 uppercase tracking-wide">
+              <Building className="w-4 h-4 text-[#00236f]" />
+              <span>Información Corporativa TOPE (Falabella / Tottus)</span>
+            </h4>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div className="p-2 bg-[#f8f9ff] rounded-lg">
+                <span className="text-[10px] text-[#757682] uppercase block">Centro de Costos</span>
+                <strong className="font-mono text-[#00236f] text-xs">{equipment.centroCostos || 'N/A'}</strong>
+              </div>
+              <div className="p-2 bg-[#f8f9ff] rounded-lg">
+                <span className="text-[10px] text-[#757682] uppercase block">Part Number (PN)</span>
+                <strong className="font-mono text-[#0b1c30] text-xs">{equipment.partNumber || 'N/A'}</strong>
+              </div>
+              <div className="p-2 bg-[#f8f9ff] rounded-lg">
+                <span className="text-[10px] text-[#757682] uppercase block">Procesador</span>
+                <span className="font-medium text-[#0b1c30] text-[11px] block truncate" title={equipment.procesador}>
+                  {equipment.procesador || 'N/A'}
+                </span>
+              </div>
+              <div className="p-2 bg-[#f8f9ff] rounded-lg">
+                <span className="text-[10px] text-[#757682] uppercase block">RAM & Disco</span>
+                <span className="font-medium text-[#0b1c30] text-[11px] block truncate">
+                  {equipment.memoriaRam || '4 GB'} / {equipment.discoDuro || '128 GB'}
+                </span>
+              </div>
+              <div className="p-2 bg-[#f8f9ff] rounded-lg">
+                <span className="text-[10px] text-[#757682] uppercase block">Sistema Operativo</span>
+                <span className="font-medium text-[#0b1c30] text-[11px] block truncate">
+                  {equipment.sistemaOperativo || 'Windows'}
+                </span>
+              </div>
+              <div className="p-2 bg-[#f8f9ff] rounded-lg">
+                <span className="text-[10px] text-[#757682] uppercase block">Obsolescencia HW</span>
+                <strong className="text-[#ba1a1a] text-xs">{equipment.obsolescenciaHW || 'N/A'}</strong>
+              </div>
+              <div className="p-2 bg-[#f8f9ff] rounded-lg">
+                <span className="text-[10px] text-[#757682] uppercase block">Proveedor Hardware</span>
+                <span className="font-medium text-[#0b1c30] text-[11px] block truncate" title={equipment.proveedor}>
+                  {equipment.proveedor || 'NCR COMMERCE'}
+                </span>
+              </div>
+              <div className="p-2 bg-[#f8f9ff] rounded-lg">
+                <span className="text-[10px] text-[#757682] uppercase block">Costo Mensual Servicio</span>
+                <strong className="text-emerald-700 text-xs">
+                  {equipment.costoServicio ? `S/ ${equipment.costoServicio.toFixed(2)}` : 'S/ 9.86'}
+                </strong>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* QR Code & Physical Asset Tag Preview */}
-        <div className="p-4 bg-[#eff4ff] rounded-xl border border-[#dce9ff] flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="p-3.5 bg-[#eff4ff] rounded-xl border border-[#dce9ff] flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-16 h-16 bg-white p-2 rounded-xl shadow-xs border border-[#dce9ff] flex items-center justify-center">
-              <QrCode className="w-12 h-12 text-[#00236f]" />
+            <div className="w-14 h-14 bg-white p-1.5 rounded-xl shadow-xs border border-[#dce9ff] flex items-center justify-center">
+              <QrCode className="w-11 h-11 text-[#00236f]" />
             </div>
             <div>
               <h4 className="font-bold text-xs text-[#00236f]">Placa Digital QR para Campo</h4>
               <p className="text-[11px] text-[#444651]">
-                Imprima esta etiqueta resistente al calor y agua para pegarla en el chasis del equipo.
+                Imprima esta etiqueta QR que incluye el HostName <strong>{equipment.hostName || equipment.code}</strong> y enlace al switch <strong>{equipment.switchName || 'LAN'}</strong>.
               </p>
             </div>
           </div>
@@ -127,23 +303,23 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
             <Clock className="w-3.5 h-3.5 text-[#00236f]" />
             Historial de Intervenciones Técnicas
           </h4>
-          <div className="space-y-2 max-h-40 overflow-y-auto">
-            {equipment.history && equipment.history.length > 0 ? (
-              equipment.history.map(h => (
+          <div className="space-y-2 max-h-36 overflow-y-auto">
+            {equipment.maintenanceHistory && equipment.maintenanceHistory.length > 0 ? (
+              equipment.maintenanceHistory.map(h => (
                 <div key={h.id} className="p-3 bg-[#f8f9ff] rounded-xl border border-[#e5eeff] text-xs flex justify-between items-start">
                   <div>
-                    <div className="font-semibold text-[#0b1c30]">{h.description}</div>
+                    <div className="font-semibold text-[#0b1c30]">{h.findings || h.actionsTaken}</div>
                     <div className="text-[10px] text-[#757682]">Técnico: {h.technician}</div>
                   </div>
                   <div className="text-right">
                     <span className="font-bold text-[#00236f]">{h.date}</span>
-                    <div className="text-[10px] text-[#10b981] font-semibold">{h.type}</div>
+                    <div className="text-[10px] text-[#10b981] font-semibold">{h.result}</div>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="p-4 text-center text-xs text-[#757682]">
-                No hay intervenciones previas registradas.
+              <div className="p-3 text-center text-xs text-[#757682] bg-gray-50 rounded-lg">
+                No hay intervenciones previas registradas para este activo.
               </div>
             )}
           </div>
@@ -177,3 +353,4 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
     </div>
   );
 };
+

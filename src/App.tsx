@@ -41,18 +41,41 @@ import { EquipmentDetailModal } from './components/EquipmentDetailModal';
 import { NewEquipmentModal } from './components/NewEquipmentModal';
 import { RegionalAlertsModal } from './components/RegionalAlertsModal';
 import { SharePointDataverseModal } from './components/SharePointDataverseModal';
+import { SharePointStoreSyncModal } from './components/SharePointStoreSyncModal';
 
 export default function App() {
   // Navigation State
   const [currentView, setCurrentView] = useState<string>('dashboard');
 
-  // Core Data State
-  const [stores, setStores] = useState<Store[]>(INITIAL_STORES);
+  // Core Data State with localStorage persistence for synced stores
+  const [stores, setStores] = useState<Store[]>(() => {
+    try {
+      const saved = localStorage.getItem('reliant_cmms_stores_data');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn('Error reading saved stores', e);
+    }
+    return INITIAL_STORES;
+  });
   const [equipments, setEquipments] = useState<Equipment[]>(INITIAL_EQUIPMENTS);
   const [tickets, setTickets] = useState<Ticket[]>(INITIAL_TICKETS);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>(INITIAL_WORK_ORDERS);
   const [reports, setReports] = useState<TechnicalReport[]>(INITIAL_REPORTS);
-  const [users, setUsers] = useState<AppUser[]>(INITIAL_USERS);
+  const [users, setUsers] = useState<AppUser[]>(() => {
+    try {
+      const saved = localStorage.getItem('reliant_cmms_users_data');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn('Error reading saved users', e);
+    }
+    return INITIAL_USERS;
+  });
   const [notifications, setNotifications] = useState<PushNotification[]>(INITIAL_NOTIFICATIONS);
   const [regionalAlerts, setRegionalAlerts] = useState<RegionalAlert[]>(INITIAL_REGIONAL_ALERTS);
 
@@ -66,6 +89,7 @@ export default function App() {
   const [showNewEquipment, setShowNewEquipment] = useState<boolean>(false);
   const [showRegionalAlerts, setShowRegionalAlerts] = useState<boolean>(false);
   const [showM365Sync, setShowM365Sync] = useState<boolean>(false);
+  const [showStoreSharePointSync, setShowStoreSharePointSync] = useState<boolean>(false);
 
   // Responsive Sidebar Collapse State (default to collapsed on tablet screens < 1150px)
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
@@ -197,8 +221,37 @@ export default function App() {
 
   // Add User Handler
   const handleAddUser = (newUser: AppUser) => {
-    setUsers(prev => [newUser, ...prev]);
+    setUsers(prev => {
+      const next = [newUser, ...prev];
+      try {
+        localStorage.setItem('reliant_cmms_users_data', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
     MicrosoftDataService.pushRecord('users', newUser);
+  };
+
+  // Update User Handler
+  const handleUpdateUser = (updatedUser: AppUser) => {
+    setUsers(prev => {
+      const next = prev.map(u => u.id === updatedUser.id ? updatedUser : u);
+      try {
+        localStorage.setItem('reliant_cmms_users_data', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+    MicrosoftDataService.pushRecord('users', updatedUser);
+  };
+
+  // Delete User Handler
+  const handleDeleteUser = (userId: string) => {
+    setUsers(prev => {
+      const next = prev.filter(u => u.id !== userId);
+      try {
+        localStorage.setItem('reliant_cmms_users_data', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
   };
 
   // Broadcast Regional Alert
@@ -242,6 +295,43 @@ export default function App() {
   // Mark all notifications as read
   const handleMarkAllNotifsAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  // Handler for applying stores synced from SharePoint
+  const handleApplySyncedStores = (newStores: Store[], sourceInfo: string) => {
+    setStores(newStores);
+    try {
+      localStorage.setItem('reliant_cmms_stores_data', JSON.stringify(newStores));
+      localStorage.setItem('reliant_cmms_stores_last_sync', new Date().toISOString());
+      localStorage.setItem('reliant_cmms_stores_source', sourceInfo);
+    } catch (e) {
+      console.warn('Error saving stores to localStorage', e);
+    }
+
+    const syncNotif: PushNotification = {
+      id: `notif-sync-${Date.now()}`,
+      title: 'Planilla de Tiendas Sincronizada',
+      message: `Se han integrado ${newStores.length} tiendas exitosamente desde ${sourceInfo}.`,
+      type: 'mantenimiento',
+      severity: 'info',
+      timestamp: new Date().toISOString(),
+      timeAgo: 'Ahora',
+      read: false,
+      linkModule: 'tiendas'
+    };
+    setNotifications(prev => [syncNotif, ...prev]);
+  };
+
+  // Reset stores to default 90 stores
+  const handleResetToDefaultStores = () => {
+    setStores(INITIAL_STORES);
+    try {
+      localStorage.removeItem('reliant_cmms_stores_data');
+      localStorage.removeItem('reliant_cmms_stores_last_sync');
+      localStorage.removeItem('reliant_cmms_stores_source');
+    } catch (e) {
+      console.warn('Error clearing stores cache', e);
+    }
   };
 
   return (
@@ -313,6 +403,7 @@ export default function App() {
               setCurrentView('informes');
             }}
             onOpenRegionalAlerts={() => setShowRegionalAlerts(true)}
+            onOpenSharePointSync={() => setShowStoreSharePointSync(true)}
           />
         )}
 
@@ -351,7 +442,13 @@ export default function App() {
         {currentView === 'usuarios' && (
           <UserDirectoryView
             users={users}
+            stores={stores}
             onAddUser={handleAddUser}
+            onUpdateUser={handleUpdateUser}
+            onDeleteUser={handleDeleteUser}
+            onSelectStore={() => {
+              setCurrentView('tiendas');
+            }}
           />
         )}
       </main>
@@ -444,6 +541,14 @@ export default function App() {
         reports={reports}
         users={users}
         regionalAlerts={regionalAlerts}
+      />
+
+      <SharePointStoreSyncModal
+        isOpen={showStoreSharePointSync}
+        onClose={() => setShowStoreSharePointSync(false)}
+        currentStores={stores}
+        onApplyStores={handleApplySyncedStores}
+        onResetToDefaultStores={handleResetToDefaultStores}
       />
     </div>
   );

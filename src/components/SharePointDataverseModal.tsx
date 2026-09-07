@@ -163,6 +163,36 @@ export const SharePointDataverseModal: React.FC<SharePointDataverseModalProps> =
     URL.revokeObjectURL(url);
   };
 
+  const downloadStoresSharePointCsvTemplate = () => {
+    const headers = ['Cod', 'Tienda', 'Cluster', 'Centro_Costo_SAP', 'G_Zonal', 'Gerente_Tienda', 'Direccion', 'FORMATO', 'IT_Operator', 'Ubigeo', 'Region', 'Provincia', 'Distrito', 'SITUACION', 'Latitud', 'Longitud'];
+    const rows = stores.map(s => [
+      `"${s.codTienda || s.code.replace('T-', '')}"`,
+      `"${s.name.replace(/"/g, '""')}"`,
+      `"${s.cluster || ''}"`,
+      `"${s.centroCostoSap || s.cecoSap || ''}"`,
+      `"${s.gZonal || ''}"`,
+      `"${s.gerenteTienda || s.manager || ''}"`,
+      `"${(s.direccion || s.address || '').replace(/"/g, '""')}"`,
+      `"${s.formato || 'Hiper'}"`,
+      `"${s.itOperator || ''}"`,
+      `"${s.ubigeo !== undefined ? s.ubigeo : ''}"`,
+      `"${s.region}"`,
+      `"${s.provincia || ''}"`,
+      `"${s.distrito || s.city || ''}"`,
+      `"${s.situacion || 'Propia'}"`,
+      `"${s.latitud || ''}"`,
+      `"${s.longitud || ''}"`
+    ]);
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `plantilla_sharepoint_tiendas_tottus.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -368,14 +398,24 @@ export const SharePointDataverseModal: React.FC<SharePointDataverseModalProps> =
                       Envía y valida las tablas completas de inventario, sucursales y órdenes de trabajo en el repositorio corporativo de Microsoft.
                     </p>
                   </div>
-                  <button
-                    onClick={downloadEquipmentCsvTemplate}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-[#dce9ff] text-[#00236f] hover:bg-[#eff4ff] flex items-center gap-1.5 shadow-xs transition-colors shrink-0"
-                    title="Descargar Plantilla CSV para importación masiva en SharePoint o Dataverse"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    Plantilla CSV
-                  </button>
+                  <div className="flex items-center gap-2 flex-wrap shrink-0">
+                    <button
+                      onClick={downloadStoresSharePointCsvTemplate}
+                      className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100 flex items-center gap-1.5 shadow-xs transition-colors shrink-0"
+                      title="Descargar lista de tiendas en formato compatible con SharePoint Lists"
+                    >
+                      <Download className="w-3.5 h-3.5 text-emerald-700" />
+                      Plantilla Tiendas
+                    </button>
+                    <button
+                      onClick={downloadEquipmentCsvTemplate}
+                      className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-white border border-[#dce9ff] text-[#00236f] hover:bg-[#eff4ff] flex items-center gap-1.5 shadow-xs transition-colors shrink-0"
+                      title="Descargar Plantilla CSV para importación masiva en SharePoint o Dataverse"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Plantilla Activos
+                    </button>
+                  </div>
                 </div>
 
                 {isSyncing && (

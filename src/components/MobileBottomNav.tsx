@@ -118,8 +118,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 }`}
               >
                 <Headphones className="w-5 h-5 text-[#fd761a]" />
-                <span className="font-semibold text-xs">Helpdesk</span>
-                <span className="text-[10px] text-[#757682]">12 tickets en curso</span>
+                <span className="font-semibold text-xs">Helpdesk & Repuestos</span>
+                <span className="text-[10px] text-[#757682]">Tickets, repuestos & SAP</span>
               </button>
 
               <button
