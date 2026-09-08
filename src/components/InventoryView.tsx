@@ -26,7 +26,10 @@ import {
   Copy,
   Cpu,
   Layers,
-  ArrowUpDown
+  ArrowUpDown,
+  Edit2,
+  Trash2,
+  Save
 } from 'lucide-react';
 import { Equipment, Store } from '../types';
 import { EQUIPMENT_CATEGORIES } from '../data/mockData';
@@ -37,6 +40,8 @@ interface InventoryViewProps {
   onSelectEquipment: (equipment: Equipment) => void;
   onOpenNewEquipment: () => void;
   onOpenQRScanner: () => void;
+  onUpdateEquipment?: (updatedEq: Equipment) => void;
+  onDeleteEquipment?: (equipmentId: string) => void;
 }
 
 export const InventoryView: React.FC<InventoryViewProps> = ({
@@ -45,9 +50,13 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   onSelectEquipment,
   onOpenNewEquipment,
   onOpenQRScanner,
+  onUpdateEquipment,
+  onDeleteEquipment,
 }) => {
   // Mode toggle: 'general' vs 'enlaces_comunicacion'
   const [activeTab, setActiveTab] = useState<'general' | 'enlaces_comunicacion'>('general');
+  const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('todos');
@@ -253,6 +262,32 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       link.click();
       document.body.removeChild(link);
     }
+  };
+
+  const handleDelete = (eq: Equipment) => {
+    const confirm = window.confirm(`¿Está seguro de eliminar el equipo "${eq.name}" (${eq.code}) de la sucursal ${eq.storeName}? Esta acción no se puede deshacer.`);
+    if (confirm) {
+      if (onDeleteEquipment) {
+        onDeleteEquipment(eq.id);
+      }
+      alert(`Equipo ${eq.code} eliminado correctamente.`);
+    }
+  };
+
+  const handleOpenEdit = (eq: Equipment) => {
+    setEditingEquipment(JSON.parse(JSON.stringify(eq)));
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEquipment) return;
+    if (onUpdateEquipment) {
+      onUpdateEquipment(editingEquipment);
+    }
+    setShowEditModal(false);
+    setEditingEquipment(null);
+    alert(`Equipo ${editingEquipment.code} actualizado correctamente.`);
   };
 
   return (
@@ -850,6 +885,20 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                             >
                               <Eye className="w-3.5 h-3.5" />
                             </button>
+                            <button
+                              onClick={() => handleOpenEdit(eq)}
+                              className="p-1.5 text-[#00236f] hover:bg-[#eff4ff] rounded-lg transition-colors"
+                              title="Modificar Datos del Equipo"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(eq)}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Eliminar Equipo del Inventario"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1125,6 +1174,20 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                             >
                               <Eye className="w-3.5 h-3.5" />
                             </button>
+                            <button
+                              onClick={() => handleOpenEdit(eq)}
+                              className="p-1.5 text-[#00236f] hover:bg-[#eff4ff] rounded-lg transition-colors"
+                              title="Modificar Datos del Equipo"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(eq)}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Eliminar Equipo del Inventario"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1160,6 +1223,247 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 <ChevronRight className="w-4 h-4 text-[#00236f]" />
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Equipment Modal */}
+      {showEditModal && editingEquipment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-5 sm:p-6 space-y-4 max-h-[92vh] overflow-y-auto border border-[#e5eeff]">
+            <div className="flex justify-between items-center pb-3 border-b border-[#e5eeff]">
+              <div>
+                <h3 className="font-bold text-base text-[#00236f] flex items-center gap-2">
+                  <Edit2 className="w-5 h-5" />
+                  Modificar Equipo / Activo {editingEquipment.code}
+                </h3>
+                <p className="text-xs text-[#757682]">
+                  Actualice los datos técnicos, red, switch o estado del activo.
+                </p>
+              </div>
+              <button onClick={() => setShowEditModal(false)} className="text-[#757682] p-1 font-bold hover:text-black">
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Nombre del Equipo / Servicio
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingEquipment.name}
+                    onChange={e => setEditingEquipment({ ...editingEquipment, name: e.target.value })}
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    HostName de Red (DNS)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingEquipment.hostName || ''}
+                    onChange={e => setEditingEquipment({ ...editingEquipment, hostName: e.target.value })}
+                    placeholder="ej. T103-POS01"
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Categoría
+                  </label>
+                  <select
+                    value={editingEquipment.categoryId}
+                    onChange={e => {
+                      const cat = EQUIPMENT_CATEGORIES.find(c => c.id === e.target.value);
+                      setEditingEquipment({
+                        ...editingEquipment,
+                        categoryId: e.target.value,
+                        categoryName: cat?.name || editingEquipment.categoryName
+                      });
+                    }}
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
+                  >
+                    {EQUIPMENT_CATEGORIES.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Marca
+                  </label>
+                  <input
+                    type="text"
+                    value={editingEquipment.brand}
+                    onChange={e => setEditingEquipment({ ...editingEquipment, brand: e.target.value })}
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Modelo
+                  </label>
+                  <input
+                    type="text"
+                    value={editingEquipment.model}
+                    onChange={e => setEditingEquipment({ ...editingEquipment, model: e.target.value })}
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Número de Serie
+                  </label>
+                  <input
+                    type="text"
+                    value={editingEquipment.serialNumber}
+                    onChange={e => setEditingEquipment({ ...editingEquipment, serialNumber: e.target.value })}
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Tienda / Sucursal Asignada
+                  </label>
+                  <select
+                    value={editingEquipment.storeId}
+                    onChange={e => {
+                      const st = stores.find(s => s.id === e.target.value);
+                      if (st) {
+                        setEditingEquipment({
+                          ...editingEquipment,
+                          storeId: st.id,
+                          storeName: st.name
+                        });
+                      }
+                    }}
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
+                  >
+                    {stores.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.code} - {s.name} ({s.region})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Ubicación en Tienda (Sector)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingEquipment.locationInStore}
+                    onChange={e => setEditingEquipment({ ...editingEquipment, locationInStore: e.target.value })}
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Estado Operativo
+                  </label>
+                  <select
+                    value={editingEquipment.status}
+                    onChange={e => setEditingEquipment({ ...editingEquipment, status: e.target.value as any })}
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
+                  >
+                    <option value="operativo">Operativo (Normal)</option>
+                    <option value="mantenimiento">En Mantenimiento</option>
+                    <option value="falla_critica">Falla Crítica</option>
+                    <option value="fuera_servicio">Fuera de Servicio</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Red & Switches */}
+              <div className="p-3 bg-[#f8f9ff] rounded-xl border border-[#dce9ff] space-y-3">
+                <span className="text-xs font-bold text-[#00236f] uppercase block">
+                  Configuración de Enlace & Red
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-[#757682] block mb-1">Dirección IP</label>
+                    <input
+                      type="text"
+                      value={editingEquipment.ipAddress || ''}
+                      onChange={e => setEditingEquipment({ ...editingEquipment, ipAddress: e.target.value })}
+                      placeholder="10.x.x.x"
+                      className="w-full p-2 text-xs bg-white border border-[#c5c5d3] rounded font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-[#757682] block mb-1">Switch de Red</label>
+                    <input
+                      type="text"
+                      value={editingEquipment.switchName || ''}
+                      onChange={e => setEditingEquipment({ ...editingEquipment, switchName: e.target.value })}
+                      placeholder="ej. SW-CORE-01"
+                      className="w-full p-2 text-xs bg-white border border-[#c5c5d3] rounded"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-[#757682] block mb-1">Puerto de Switch</label>
+                    <input
+                      type="text"
+                      value={editingEquipment.puertoSwitch || ''}
+                      onChange={e => setEditingEquipment({ ...editingEquipment, puertoSwitch: e.target.value })}
+                      placeholder="ej. Gi0/12"
+                      className="w-full p-2 text-xs bg-white border border-[#c5c5d3] rounded font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-[#757682] block mb-1">Próximo Mantenimiento</label>
+                    <input
+                      type="date"
+                      value={editingEquipment.nextMaintenance || ''}
+                      onChange={e => setEditingEquipment({ ...editingEquipment, nextMaintenance: e.target.value })}
+                      className="w-full p-2 text-xs bg-white border border-[#c5c5d3] rounded font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-[#e5eeff]">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="flex-1 py-2.5 bg-[#eff4ff] text-[#00236f] font-bold text-xs rounded-lg"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-[#00236f] text-white font-bold text-xs rounded-lg shadow-md hover:bg-[#1e3a8a] flex items-center justify-center gap-1.5"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Guardar Modificación</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

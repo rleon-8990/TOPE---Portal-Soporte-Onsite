@@ -23,7 +23,10 @@ import {
   Check,
   Copy,
   TableProperties,
-  ArrowUpDown
+  ArrowUpDown,
+  Edit2,
+  Trash2,
+  Save
 } from 'lucide-react';
 import { Store, Equipment, Region } from '../types';
 
@@ -34,6 +37,8 @@ interface StoresViewProps {
   onGenerateReportForStore: (store: Store) => void;
   onOpenRegionalAlerts: () => void;
   onOpenSharePointSync?: () => void;
+  onUpdateStore?: (updatedStore: Store) => void;
+  onDeleteStore?: (storeId: string) => void;
 }
 
 export const StoresView: React.FC<StoresViewProps> = ({
@@ -43,12 +48,16 @@ export const StoresView: React.FC<StoresViewProps> = ({
   onGenerateReportForStore,
   onOpenRegionalAlerts,
   onOpenSharePointSync,
+  onUpdateStore,
+  onDeleteStore,
 }) => {
   const [selectedRegion, setSelectedRegion] = useState<string>('todas');
   const [selectedFormat, setSelectedFormat] = useState<string>('todos');
   const [selectedCluster, setSelectedCluster] = useState<string>('todos');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedStoreDetail, setSelectedStoreDetail] = useState<Store | null>(null);
+  const [editingStore, setEditingStore] = useState<Store | null>(null);
+  const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [copiedText, setCopiedText] = useState<string | null>(null);
   const [sortField, setSortField] = useState<keyof Store | 'sapCeco'>('codTienda');
@@ -184,6 +193,38 @@ export const StoresView: React.FC<StoresViewProps> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleDeleteStore = (st: Store) => {
+    const confirm = window.confirm(`¿Está seguro de eliminar la sucursal "${st.name}" (${st.code})? Esta acción afectará el inventario asociado.`);
+    if (confirm) {
+      if (onDeleteStore) {
+        onDeleteStore(st.id);
+      }
+      if (selectedStoreDetail?.id === st.id) {
+        setSelectedStoreDetail(null);
+      }
+      alert(`Sucursal ${st.name} eliminada.`);
+    }
+  };
+
+  const handleOpenEditStore = (st: Store) => {
+    setEditingStore(JSON.parse(JSON.stringify(st)));
+    setShowEditModal(true);
+  };
+
+  const handleSaveEditStore = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStore) return;
+    if (onUpdateStore) {
+      onUpdateStore(editingStore);
+    }
+    if (selectedStoreDetail?.id === editingStore.id) {
+      setSelectedStoreDetail(editingStore);
+    }
+    setShowEditModal(false);
+    setEditingStore(null);
+    alert(`Sucursal ${editingStore.name} actualizada correctamente.`);
   };
 
   return (
@@ -743,6 +784,20 @@ export const StoresView: React.FC<StoresViewProps> = ({
                           >
                             <FileSpreadsheet className="w-3.5 h-3.5" />
                           </button>
+                          <button
+                            onClick={() => handleOpenEditStore(st)}
+                            className="p-1.5 text-[#00236f] hover:bg-[#eff4ff] rounded font-medium text-[11px] border border-[#dce9ff]"
+                            title="Modificar Datos de la Sucursal"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteStore(st)}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded font-medium text-[11px] border border-red-200"
+                            title="Eliminar Sucursal"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -883,6 +938,218 @@ export const StoresView: React.FC<StoresViewProps> = ({
                 <span>Emitir Informe Técnico</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Store Modal */}
+      {showEditModal && editingStore && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-5 sm:p-6 space-y-4 max-h-[92vh] overflow-y-auto border border-[#e5eeff]">
+            <div className="flex justify-between items-center pb-3 border-b border-[#e5eeff]">
+              <div>
+                <h3 className="font-bold text-base text-[#00236f] flex items-center gap-2">
+                  <Edit2 className="w-5 h-5" />
+                  Modificar Sucursal / Tienda {editingStore.name} ({editingStore.code})
+                </h3>
+                <p className="text-xs text-[#757682]">
+                  Actualice los datos maestros de la tienda, Centro de Costos SAP o asignación IT.
+                </p>
+              </div>
+              <button onClick={() => setShowEditModal(false)} className="text-[#757682] p-1 font-bold hover:text-black">
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditStore} className="space-y-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Nombre de Tienda
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingStore.name}
+                    onChange={e => setEditingStore({ ...editingStore, name: e.target.value })}
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Código de Identificación (ej. T-103)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingStore.code}
+                    onChange={e => setEditingStore({ ...editingStore, code: e.target.value })}
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    N° Tienda (Cod. Numérico)
+                  </label>
+                  <input
+                    type="number"
+                    value={editingStore.codTienda || ''}
+                    onChange={e => setEditingStore({ ...editingStore, codTienda: Number(e.target.value) || 0 })}
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Centro de Costo SAP (CECO)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingStore.centroCostoSap || editingStore.cecoSap || ''}
+                    onChange={e => setEditingStore({ ...editingStore, centroCostoSap: e.target.value, cecoSap: e.target.value })}
+                    placeholder="P009100101"
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg font-mono font-bold text-[#00236f]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Cluster
+                  </label>
+                  <input
+                    type="text"
+                    value={editingStore.cluster || 'GLP'}
+                    onChange={e => setEditingStore({ ...editingStore, cluster: e.target.value })}
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg uppercase"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Formato
+                  </label>
+                  <select
+                    value={editingStore.formato || 'Hiper'}
+                    onChange={e => setEditingStore({ ...editingStore, formato: e.target.value })}
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
+                  >
+                    <option value="Hiper">Hiper</option>
+                    <option value="Super">Super</option>
+                    <option value="Express">Express</option>
+                    <option value="Vecino">Vecino</option>
+                    <option value="Power Center">Power Center</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Región
+                  </label>
+                  <select
+                    value={editingStore.region}
+                    onChange={e => setEditingStore({ ...editingStore, region: e.target.value })}
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
+                  >
+                    <option value="Lima y Callao">Lima y Callao</option>
+                    <option value="Zona Norte">Zona Norte</option>
+                    <option value="Zona Sur">Zona Sur</option>
+                    <option value="Zona Centro">Zona Centro</option>
+                    <option value="Zona Oriente">Zona Oriente</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Situación Inmueble
+                  </label>
+                  <select
+                    value={editingStore.situacion || 'Propia'}
+                    onChange={e => setEditingStore({ ...editingStore, situacion: e.target.value })}
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
+                  >
+                    <option value="Propia">Propia</option>
+                    <option value="Arrendada">Arrendada</option>
+                    <option value="Mixta">Mixta</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Gerencia Zonal (G Zonal)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingStore.gZonal || ''}
+                    onChange={e => setEditingStore({ ...editingStore, gZonal: e.target.value })}
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Operador / Técnico IT Responsable
+                  </label>
+                  <input
+                    type="text"
+                    value={editingStore.itOperator || ''}
+                    onChange={e => setEditingStore({ ...editingStore, itOperator: e.target.value })}
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Dirección Física
+                  </label>
+                  <input
+                    type="text"
+                    value={editingStore.direccion || editingStore.address || ''}
+                    onChange={e => setEditingStore({ ...editingStore, direccion: e.target.value, address: e.target.value })}
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Segmento de Red IP
+                  </label>
+                  <input
+                    type="text"
+                    value={editingStore.ipRed || ''}
+                    onChange={e => setEditingStore({ ...editingStore, ipRed: e.target.value })}
+                    placeholder="10.103.0.0/24"
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-[#e5eeff]">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="flex-1 py-2.5 bg-[#eff4ff] text-[#00236f] font-bold text-xs rounded-lg"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-[#00236f] text-white font-bold text-xs rounded-lg shadow-md hover:bg-[#1e3a8a] flex items-center justify-center gap-1.5"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Guardar Modificación</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

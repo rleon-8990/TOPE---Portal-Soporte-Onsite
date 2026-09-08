@@ -214,6 +214,7 @@ export interface Ticket {
 export interface WorkOrder {
   id: string;
   code: string; // WO-8921
+  orderNumber?: string;
   equipmentId: string;
   equipmentCode: string;
   equipmentName: string;
@@ -221,8 +222,10 @@ export interface WorkOrder {
   storeName: string;
   region: Region;
   type: MaintenanceType;
-  status: 'Completado' | 'En Progreso' | 'Programado' | 'Pendiente' | 'Cancelado';
+  status: 'Completado' | 'En Progreso' | 'Programado' | 'Pendiente' | 'Cancelado' | string;
   date: string;
+  scheduledDate?: string;
+  frequency?: MaintenanceFrequency;
   technician: string;
   technicianAvatar?: string;
   priority: 'Baja' | 'Media' | 'Alta' | 'Urgente';
@@ -231,6 +234,14 @@ export interface WorkOrder {
     status: 'ok' | 'observacion' | 'falla' | 'na';
     comment?: string;
   }>;
+  evidenceBefore?: string; // Evidencia fotográfica ANTES
+  evidenceAfter?: string; // Evidencia fotográfica DESPUÉS
+  clientSignature?: string; // Firma digital del cliente / supervisor de tienda
+  clientName?: string;
+  clientRole?: string;
+  technicianSignature?: string; // Firma digital del técnico
+  technicianName?: string;
+  notes?: string;
 }
 
 export interface EvidencePhoto {

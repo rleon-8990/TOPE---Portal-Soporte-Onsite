@@ -178,8 +178,36 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
       }
 
       return true;
+    }).sort((a, b) => {
+      let valA: string = '';
+      let valB: string = '';
+
+      if (sortField === 'codTienda') {
+        const codeA = Number(a.codTienda) || 0;
+        const codeB = Number(b.codTienda) || 0;
+        if (codeA !== codeB) {
+          return sortAsc ? codeA - codeB : codeB - codeA;
+        }
+        valA = (a.tiendaNombre || '').toLowerCase();
+        valB = (b.tiendaNombre || '').toLowerCase();
+      } else if (sortField === 'cargo') {
+        valA = (a.cargo || a.role || '').toLowerCase();
+        valB = (b.cargo || b.role || '').toLowerCase();
+      } else if (sortField === 'assignedRegion') {
+        valA = `${a.assignedRegion || ''} ${a.distrito || ''}`.trim().toLowerCase();
+        valB = `${b.assignedRegion || ''} ${b.distrito || ''}`.trim().toLowerCase();
+      } else if (sortField === 'turno') {
+        valA = `${a.turno || ''} ${a.anexo || ''}`.trim().toLowerCase();
+        valB = `${b.turno || ''} ${b.anexo || ''}`.trim().toLowerCase();
+      } else {
+        valA = (a[sortField as keyof AppUser] ?? '').toString().toLowerCase();
+        valB = (b[sortField as keyof AppUser] ?? '').toString().toLowerCase();
+      }
+
+      const cmp = valA.localeCompare(valB, 'es', { numeric: true, sensitivity: 'base' });
+      return sortAsc ? cmp : -cmp;
     });
-  }, [users, activeTab, searchQuery, selectedStoreFilter, selectedCargoFilter, selectedRegionFilter, selectedStatusFilter]);
+  }, [users, activeTab, searchQuery, selectedStoreFilter, selectedCargoFilter, selectedRegionFilter, selectedStatusFilter, sortField, sortAsc]);
 
   // Metrics Calculation
   const metrics = useMemo(() => {
@@ -788,14 +816,105 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse min-w-[1000px]">
             <thead>
-              <tr className="bg-[#f0f4ff] text-[#00236f] font-bold border-b border-[#dce9ff]">
-                <th className="py-3 px-3.5">CÓD & TIENDA</th>
-                <th className="py-3 px-3.5">COLABORADOR</th>
-                <th className="py-3 px-3.5">CARGO / ROL</th>
-                <th className="py-3 px-3.5">CELULAR & CONTACTO</th>
-                <th className="py-3 px-3.5">CORREO CORPORATIVO</th>
-                <th className="py-3 px-3.5">UBICACIÓN / REGIÓN</th>
-                <th className="py-3 px-3.5 text-center">TURNO / ANEXO</th>
+              <tr className="bg-[#f0f4ff] text-[#00236f] font-bold border-b border-[#dce9ff] select-none">
+                <th
+                  onClick={() => handleSort('codTienda')}
+                  className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors group ${
+                    sortField === 'codTienda' ? 'bg-[#e2edff]' : ''
+                  }`}
+                  title="Ordenar por Código de Tienda (0-9 / 9-0)"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span>CÓD & TIENDA</span>
+                    <span className="text-xs font-bold shrink-0">
+                      {sortField === 'codTienda' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('name')}
+                  className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors group ${
+                    sortField === 'name' ? 'bg-[#e2edff]' : ''
+                  }`}
+                  title="Ordenar por Nombre de Colaborador (A-Z / Z-A)"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span>COLABORADOR</span>
+                    <span className="text-xs font-bold shrink-0">
+                      {sortField === 'name' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('cargo')}
+                  className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors group ${
+                    sortField === 'cargo' ? 'bg-[#e2edff]' : ''
+                  }`}
+                  title="Ordenar por Cargo / Rol (A-Z / Z-A)"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span>CARGO / ROL</span>
+                    <span className="text-xs font-bold shrink-0">
+                      {sortField === 'cargo' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('phone')}
+                  className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors group ${
+                    sortField === 'phone' ? 'bg-[#e2edff]' : ''
+                  }`}
+                  title="Ordenar por Celular (0-9 / 9-0)"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span>CELULAR & CONTACTO</span>
+                    <span className="text-xs font-bold shrink-0">
+                      {sortField === 'phone' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('email')}
+                  className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors group ${
+                    sortField === 'email' ? 'bg-[#e2edff]' : ''
+                  }`}
+                  title="Ordenar por Correo Corporativo (A-Z / Z-A)"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span>CORREO CORPORATIVO</span>
+                    <span className="text-xs font-bold shrink-0">
+                      {sortField === 'email' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('assignedRegion')}
+                  className={`py-3 px-3.5 cursor-pointer hover:bg-[#e2edff] transition-colors group ${
+                    sortField === 'assignedRegion' ? 'bg-[#e2edff]' : ''
+                  }`}
+                  title="Ordenar por Ubicación / Región (A-Z / Z-A)"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span>UBICACIÓN / REGIÓN</span>
+                    <span className="text-xs font-bold shrink-0">
+                      {sortField === 'assignedRegion' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('turno')}
+                  className={`py-3 px-3.5 text-center cursor-pointer hover:bg-[#e2edff] transition-colors group ${
+                    sortField === 'turno' ? 'bg-[#e2edff]' : ''
+                  }`}
+                  title="Ordenar por Turno / Anexo (A-Z / Z-A)"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>TURNO / ANEXO</span>
+                    <span className="text-xs font-bold shrink-0">
+                      {sortField === 'turno' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                    </span>
+                  </div>
+                </th>
                 <th className="py-3 px-3.5 text-center">ACCIONES</th>
               </tr>
             </thead>

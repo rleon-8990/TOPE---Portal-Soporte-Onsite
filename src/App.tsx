@@ -216,6 +216,42 @@ export default function App() {
     MicrosoftDataService.pushRecord('equipments', newEq);
   };
 
+  // Update Equipment Handler
+  const handleUpdateEquipment = (updatedEq: Equipment) => {
+    setEquipments(prev =>
+      prev.map(eq => (eq.id === updatedEq.id ? updatedEq : eq))
+    );
+    MicrosoftDataService.pushRecord('equipments', updatedEq);
+  };
+
+  // Delete Equipment Handler
+  const handleDeleteEquipment = (equipmentId: string) => {
+    setEquipments(prev => prev.filter(eq => eq.id !== equipmentId));
+  };
+
+  // Update Store Handler
+  const handleUpdateStore = (updatedStore: Store) => {
+    setStores(prev => {
+      const next = prev.map(s => (s.id === updatedStore.id ? updatedStore : s));
+      try {
+        localStorage.setItem('reliant_cmms_stores_data', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+    MicrosoftDataService.pushRecord('stores', updatedStore);
+  };
+
+  // Delete Store Handler
+  const handleDeleteStore = (storeId: string) => {
+    setStores(prev => {
+      const next = prev.filter(s => s.id !== storeId);
+      try {
+        localStorage.setItem('reliant_cmms_stores_data', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  };
+
   // Add Ticket Handler
   const handleAddTicket = (newTicket: Ticket) => {
     setTickets(prev => [newTicket, ...prev]);
@@ -286,6 +322,19 @@ export default function App() {
       prev.map(w => (w.id === id ? { ...w, status } : w))
     );
     MicrosoftDataService.pushRecord('workOrders', { id, status });
+  };
+
+  // Update Full Work Order Handler
+  const handleUpdateWorkOrder = (updatedWo: WorkOrder) => {
+    setWorkOrders(prev =>
+      prev.map(w => (w.id === updatedWo.id ? updatedWo : w))
+    );
+    MicrosoftDataService.pushRecord('workOrders', updatedWo);
+  };
+
+  // Delete Work Order Handler
+  const handleDeleteWorkOrder = (workOrderId: string) => {
+    setWorkOrders(prev => prev.filter(w => w.id !== workOrderId));
   };
 
   // Add Technical Report Handler
@@ -538,6 +587,8 @@ export default function App() {
             onSelectEquipment={(eq) => setSelectedEquipmentForDetail(eq)}
             onOpenNewEquipment={() => setShowNewEquipment(true)}
             onOpenQRScanner={() => setShowQRScanner(true)}
+            onUpdateEquipment={handleUpdateEquipment}
+            onDeleteEquipment={handleDeleteEquipment}
           />
         )}
 
@@ -553,6 +604,8 @@ export default function App() {
             }}
             onOpenRegionalAlerts={() => setShowRegionalAlerts(true)}
             onOpenSharePointSync={() => setShowStoreSharePointSync(true)}
+            onUpdateStore={handleUpdateStore}
+            onDeleteStore={handleDeleteStore}
           />
         )}
 
@@ -562,6 +615,8 @@ export default function App() {
             equipments={equipments}
             stores={stores}
             onAddWorkOrder={handleAddWorkOrder}
+            onUpdateWorkOrder={handleUpdateWorkOrder}
+            onDeleteWorkOrder={handleDeleteWorkOrder}
             onUpdateWorkOrderStatus={handleUpdateWorkOrderStatus}
           />
         )}
@@ -571,6 +626,7 @@ export default function App() {
             reports={reports}
             equipments={equipments}
             stores={stores}
+            workOrders={workOrders}
             currentUser={currentUser}
             onAddNewReport={handleAddNewReport}
           />
