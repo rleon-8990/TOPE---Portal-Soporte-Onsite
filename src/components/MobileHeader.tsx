@@ -1,5 +1,5 @@
-import React from 'react';
-import { Bell, QrCode, SlidersHorizontal, AlertTriangle, TableProperties, Zap } from 'lucide-react';
+import React, { useState } from 'react';
+import { Bell, QrCode, SlidersHorizontal, AlertTriangle, TableProperties, Zap, ShieldCheck, LogOut } from 'lucide-react';
 import { AppUser } from '../types';
 
 interface MobileHeaderProps {
@@ -11,6 +11,8 @@ interface MobileHeaderProps {
   onOpenAlertsManager: () => void;
   onOpenM365Sync: () => void;
   onOpenStoreSync?: () => void;
+  onOpenPrivilegesMatrix?: () => void;
+  onLogout?: () => void;
   isAutoSyncActive?: boolean;
 }
 
@@ -23,13 +25,18 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
   onOpenAlertsManager,
   onOpenM365Sync,
   onOpenStoreSync,
+  onOpenPrivilegesMatrix,
+  onLogout,
   isAutoSyncActive = true,
 }) => {
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+
   const getTitle = () => {
     switch (currentView) {
       case 'dashboard': return 'Dashboard';
       case 'inventario': return 'Inventario';
       case 'mantenimiento': return 'Mantenimiento';
+      case 'monitoreo': return 'Asistencia Onsite';
       case 'informes': return 'Informes Técnicos';
       case 'tiendas': return 'Tiendas (90)';
       case 'helpdesk': return 'Helpdesk';
@@ -99,11 +106,60 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
           )}
         </button>
 
-        <img
-          src={currentUser.avatarUrl}
-          alt={currentUser.name}
-          className="w-8 h-8 rounded-full object-cover ring-2 ring-[#00236f]/30 ml-1"
-        />
+        <div className="relative ml-1">
+          <button
+            onClick={() => setShowProfileMenu(!showProfileMenu)}
+            className="relative rounded-full focus:outline-none ring-2 ring-[#00236f]/30"
+            title={`${currentUser.name} (${currentUser.role})`}
+          >
+            <img
+              src={currentUser.avatarUrl}
+              alt={currentUser.name}
+              className="w-8 h-8 rounded-full object-cover"
+            />
+            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#10b981] rounded-full border-2 border-white" />
+          </button>
+
+          {showProfileMenu && (
+            <div className="absolute right-0 top-10 w-64 bg-white rounded-2xl shadow-2xl border border-[#dce9ff] p-3.5 z-50 animate-fadeIn space-y-2.5 text-left">
+              <div className="border-b border-[#e5eeff] pb-2">
+                <div className="font-bold text-xs text-[#00236f] truncate">{currentUser.name}</div>
+                <div className="text-[11px] text-[#007a33] font-semibold">{currentUser.role}</div>
+                <div className="text-[10px] text-[#757682] truncate font-mono">{currentUser.email}</div>
+                <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded-md">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Outlook Corporativo
+                </div>
+              </div>
+
+              {onOpenPrivilegesMatrix && (
+                <button
+                  onClick={() => {
+                    setShowProfileMenu(false);
+                    onOpenPrivilegesMatrix();
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 hover:bg-[#eff4ff] hover:text-[#00236f] flex items-center gap-2 transition-colors"
+                >
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span>Matriz de Privilegios</span>
+                </button>
+              )}
+
+              {onLogout && (
+                <button
+                  onClick={() => {
+                    setShowProfileMenu(false);
+                    onLogout();
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Cerrar Sesión</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

@@ -26,7 +26,8 @@ import {
 import { playNotificationChime } from './utils/helpers';
 import { MicrosoftDataService, AutoSyncConfig } from './services/microsoftDataService';
 import { INITIAL_ATTENDANCE_LOGS, INITIAL_ACTIVE_PRESENCES } from './data/attendanceMockData';
-import { QrCode, AlertTriangle, Bell, CheckCircle2 } from 'lucide-react';
+import { QrCode, AlertTriangle, Bell, CheckCircle2, ShieldCheck, LogOut, ChevronDown, User, ExternalLink } from 'lucide-react';
+import { hasPageAccess, getDefaultViewForRole, getRoleConfig, getAllowedModulesForRole } from './utils/rbac';
 
 // Components
 import { Sidebar } from './components/Sidebar';
@@ -41,6 +42,8 @@ import { HelpdeskView } from './components/HelpdeskView';
 import { UserDirectoryView } from './components/UserDirectoryView';
 import { PersonnelMonitoringView } from './components/PersonnelMonitoringView';
 import { AutoSyncStatusWidget } from './components/AutoSyncStatusWidget';
+import { CorporateLoginView } from './components/CorporateLoginView';
+import { AccessDeniedView } from './components/AccessDeniedView';
 
 // Modals
 import { NotificationModal } from './components/NotificationModal';
@@ -50,6 +53,7 @@ import { NewEquipmentModal } from './components/NewEquipmentModal';
 import { RegionalAlertsModal } from './components/RegionalAlertsModal';
 import { SharePointDataverseModal } from './components/SharePointDataverseModal';
 import { SharePointStoreSyncModal } from './components/SharePointStoreSyncModal';
+import { PrivilegesMatrixModal } from './components/PrivilegesMatrixModal';
 
 export default function App() {
   // Navigation State
@@ -114,8 +118,28 @@ export default function App() {
     return INITIAL_ACTIVE_PRESENCES;
   });
 
-  // Active Current User
-  const [currentUser, setCurrentUser] = useState<AppUser>(INITIAL_USERS[0]);
+  // Authentication & Corporate Session State
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    try {
+      const session = localStorage.getItem('reliant_cmms_auth_session');
+      if (session === 'false') return false;
+      return true;
+    } catch (e) {
+      return true;
+    }
+  });
+
+  // Active Current User (persisted in session)
+  const [currentUser, setCurrentUser] = useState<AppUser>(() => {
+    try {
+      const saved = localStorage.getItem('reliant_cmms_current_user');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.email) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_USERS[0];
+  });
 
   // Modal Visibility States
   const [showNotifications, setShowNotifications] = useState<boolean>(false);
@@ -125,6 +149,42 @@ export default function App() {
   const [showRegionalAlerts, setShowRegionalAlerts] = useState<boolean>(false);
   const [showM365Sync, setShowM365Sync] = useState<boolean>(false);
   const [showStoreSharePointSync, setShowStoreSharePointSync] = useState<boolean>(false);
+  const [showPrivilegesMatrix, setShowPrivilegesMatrix] = useState<boolean>(false);
+  const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
+
+  // Corporate Login / SSO Handlers
+  const handleLoginSuccess = (user: AppUser) => {
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+    try {
+      localStorage.setItem('reliant_cmms_auth_session', 'true');
+      localStorage.setItem('reliant_cmms_current_user', JSON.stringify(user));
+    } catch (e) {}
+
+    // Verify if current view is allowed for this role, redirect if needed
+    if (!hasPageAccess(user.role, currentView)) {
+      setCurrentView(getDefaultViewForRole(user.role));
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setShowUserMenu(false);
+    try {
+      localStorage.setItem('reliant_cmms_auth_session', 'false');
+    } catch (e) {}
+  };
+
+  const handleSwitchUserRole = (targetRole: string) => {
+    const matched = users.find(u => u.role === targetRole);
+    if (matched) {
+      handleLoginSuccess(matched);
+    } else {
+      const updated = { ...currentUser, role: targetRole };
+      handleLoginSuccess(updated);
+    }
+    setShowPrivilegesMatrix(false);
+  };
 
   // Responsive Sidebar Collapse State (default to collapsed on tablet screens < 1150px)
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
@@ -735,6 +795,16 @@ export default function App() {
     }
   };
 
+  // Corporate Login Gate (Single Sign-On Outlook)
+  if (!isAuthenticated) {
+    return (
+      <CorporateLoginView
+        onLoginSuccess={handleLoginSuccess}
+        availableUsers={users}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f8f9ff] text-[#0b1c30] flex font-sans selection:bg-[#00236f] selection:text-white overflow-x-hidden">
       {/* Desktop Sidebar Navigation */}
@@ -748,6 +818,8 @@ export default function App() {
         onOpenNotifications={() => setShowNotifications(true)}
         onOpenAlertsManager={() => setShowRegionalAlerts(true)}
         onOpenM365Sync={() => setShowM365Sync(true)}
+        onOpenPrivilegesMatrix={() => setShowPrivilegesMatrix(true)}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area Wrapper: adapts dynamically to sidebar and uses 100% viewport width */}
@@ -764,6 +836,8 @@ export default function App() {
           onOpenAlertsManager={() => setShowRegionalAlerts(true)}
           onOpenM365Sync={() => setShowM365Sync(true)}
           onOpenStoreSync={() => setShowStoreSharePointSync(true)}
+          onOpenPrivilegesMatrix={() => setShowPrivilegesMatrix(true)}
+          onLogout={handleLogout}
           isAutoSyncActive={autoSyncConfig.enabled}
         />
 
@@ -829,127 +903,224 @@ export default function App() {
                 <span className="absolute top-1 right-1 w-2 h-2 bg-[#ba1a1a] rounded-full ring-2 ring-white" />
               )}
             </button>
+
+            <div className="h-5 w-px bg-[#e5eeff]" />
+
+            {/* Outlook Corporate Profile & RBAC Controls */}
+            <div className="relative">
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-2 pl-2 pr-2.5 py-1 rounded-xl border border-[#dce9ff] bg-[#f8faff] hover:bg-[#eff4ff] transition-all cursor-pointer text-left shadow-xs"
+                title="Perfil y Privilegios"
+              >
+                <div className="relative">
+                  <img
+                    src={currentUser.avatarUrl}
+                    alt={currentUser.name}
+                    className="w-7 h-7 rounded-full object-cover ring-1 ring-[#00236f]/40"
+                  />
+                  <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border border-white" />
+                </div>
+                <div className="hidden xl:block text-left">
+                  <div className="text-xs font-bold text-[#00236f] leading-tight truncate max-w-[120px]">
+                    {currentUser.name}
+                  </div>
+                  <div className="text-[10px] text-[#007a33] font-semibold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <span>{currentUser.role}</span>
+                  </div>
+                </div>
+                <ChevronDown className="w-3.5 h-3.5 text-[#757682]" />
+              </button>
+
+              {showUserMenu && (
+                <div className="absolute right-0 top-11 w-72 bg-white rounded-2xl shadow-2xl border border-[#dce9ff] p-3.5 z-50 animate-fadeIn space-y-3">
+                  <div className="border-b border-[#e5eeff] pb-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#007a33] bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Outlook Conectado
+                      </span>
+                      <span className="text-[10px] text-[#757682] font-semibold">
+                        {getAllowedModulesForRole(currentUser.role).length}/8 módulos
+                      </span>
+                    </div>
+                    <div className="font-bold text-xs text-[#00236f] mt-1.5">{currentUser.name}</div>
+                    <div className="text-[11px] text-[#525e75] font-mono truncate">{currentUser.email}</div>
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${getRoleConfig(currentUser.role).badgeColor}`}>
+                        {currentUser.role}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        setShowPrivilegesMatrix(true);
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-[#00236f] hover:bg-[#eff4ff] flex items-center justify-between transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                        <span>Matriz de Privilegios</span>
+                      </div>
+                      <span className="text-[10px] bg-[#eff4ff] text-[#00236f] px-1.5 py-0.5 rounded font-bold border border-[#c4dcff]">
+                        RBAC
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        handleLogout();
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Cerrar Sesión Corporativa Outlook</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
-        {/* Main Content Area: uses full screen width on desktop, comfortably padded, never overflows */}
+        {/* Main Content Area: Protected by Role-Based Access Control (RBAC) */}
         <main className="flex-1 pt-20 md:pt-6 px-3.5 sm:px-6 lg:px-8 xl:px-10 w-full min-w-0 pb-12">
-        {currentView === 'dashboard' && (
-          <DashboardView
-            currentUser={currentUser}
-            tickets={tickets}
-            workOrders={workOrders}
-            stores={stores}
-            onNavigate={setCurrentView}
-            onOpenNewTicket={() => setCurrentView('helpdesk')}
-            onOpenQRScanner={() => setShowQRScanner(true)}
-            onOpenAlertsManager={() => setShowRegionalAlerts(true)}
-            onSelectTicket={(t) => {
-              setCurrentView('helpdesk');
-            }}
-          />
-        )}
+          {!hasPageAccess(currentUser.role, currentView) ? (
+            <AccessDeniedView
+              currentView={currentView}
+              currentUser={currentUser}
+              onNavigateToAllowed={(targetView) => setCurrentView(targetView)}
+              onOpenPrivilegesModal={() => setShowPrivilegesMatrix(true)}
+              onChangeAccount={handleLogout}
+            />
+          ) : (
+            <>
+              {currentView === 'dashboard' && (
+                <DashboardView
+                  currentUser={currentUser}
+                  tickets={tickets}
+                  workOrders={workOrders}
+                  stores={stores}
+                  onNavigate={setCurrentView}
+                  onOpenNewTicket={() => setCurrentView('helpdesk')}
+                  onOpenQRScanner={() => setShowQRScanner(true)}
+                  onOpenAlertsManager={() => setShowRegionalAlerts(true)}
+                  onSelectTicket={(t) => {
+                    setCurrentView('helpdesk');
+                  }}
+                />
+              )}
 
-        {currentView === 'inventario' && (
-          <InventoryView
-            equipments={equipments}
-            stores={stores}
-            onSelectEquipment={(eq) => setSelectedEquipmentForDetail(eq)}
-            onOpenNewEquipment={() => setShowNewEquipment(true)}
-            onOpenQRScanner={() => setShowQRScanner(true)}
-            onUpdateEquipment={handleUpdateEquipment}
-            onDeleteEquipment={handleDeleteEquipment}
-          />
-        )}
+              {currentView === 'inventario' && (
+                <InventoryView
+                  equipments={equipments}
+                  stores={stores}
+                  onSelectEquipment={(eq) => setSelectedEquipmentForDetail(eq)}
+                  onOpenNewEquipment={() => setShowNewEquipment(true)}
+                  onOpenQRScanner={() => setShowQRScanner(true)}
+                  onUpdateEquipment={handleUpdateEquipment}
+                  onDeleteEquipment={handleDeleteEquipment}
+                />
+              )}
 
-        {currentView === 'tiendas' && (
-          <StoresView
-            stores={stores}
-            equipments={equipments}
-            onSelectStore={(st) => {
-              setCurrentView('inventario');
-            }}
-            onGenerateReportForStore={(st) => {
-              setCurrentView('informes');
-            }}
-            onOpenRegionalAlerts={() => setShowRegionalAlerts(true)}
-            onOpenSharePointSync={() => setShowStoreSharePointSync(true)}
-            onUpdateStore={handleUpdateStore}
-            onDeleteStore={handleDeleteStore}
-          />
-        )}
+              {currentView === 'tiendas' && (
+                <StoresView
+                  stores={stores}
+                  equipments={equipments}
+                  onSelectStore={(st) => {
+                    setCurrentView('inventario');
+                  }}
+                  onGenerateReportForStore={(st) => {
+                    setCurrentView('informes');
+                  }}
+                  onOpenRegionalAlerts={() => setShowRegionalAlerts(true)}
+                  onOpenSharePointSync={() => setShowStoreSharePointSync(true)}
+                  onUpdateStore={handleUpdateStore}
+                  onDeleteStore={handleDeleteStore}
+                />
+              )}
 
-        {currentView === 'mantenimiento' && (
-          <MaintenanceView
-            workOrders={workOrders}
-            equipments={equipments}
-            stores={stores}
-            onAddWorkOrder={handleAddWorkOrder}
-            onUpdateWorkOrder={handleUpdateWorkOrder}
-            onDeleteWorkOrder={handleDeleteWorkOrder}
-            onUpdateWorkOrderStatus={handleUpdateWorkOrderStatus}
-          />
-        )}
+              {currentView === 'mantenimiento' && (
+                <MaintenanceView
+                  workOrders={workOrders}
+                  equipments={equipments}
+                  stores={stores}
+                  onAddWorkOrder={handleAddWorkOrder}
+                  onUpdateWorkOrder={handleUpdateWorkOrder}
+                  onDeleteWorkOrder={handleDeleteWorkOrder}
+                  onUpdateWorkOrderStatus={handleUpdateWorkOrderStatus}
+                />
+              )}
 
-        {currentView === 'monitoreo' && (
-          <PersonnelMonitoringView
-            logs={attendanceLogs}
-            presences={activePresences}
-            stores={stores}
-            users={users}
-            currentUser={currentUser}
-            onAddLog={handleAddAttendanceLog}
-            onUpdateLog={handleUpdateAttendanceLog}
-            onDeleteLog={handleDeleteAttendanceLog}
-            onQuickCheckIn={handleQuickCheckIn}
-            onQuickCheckOut={handleQuickCheckOut}
-            onQuickTransfer={handleQuickTransfer}
-          />
-        )}
+              {currentView === 'monitoreo' && (
+                <PersonnelMonitoringView
+                  logs={attendanceLogs}
+                  presences={activePresences}
+                  stores={stores}
+                  users={users}
+                  currentUser={currentUser}
+                  onAddLog={handleAddAttendanceLog}
+                  onUpdateLog={handleUpdateAttendanceLog}
+                  onDeleteLog={handleDeleteAttendanceLog}
+                  onQuickCheckIn={handleQuickCheckIn}
+                  onQuickCheckOut={handleQuickCheckOut}
+                  onQuickTransfer={handleQuickTransfer}
+                />
+              )}
 
-        {currentView === 'informes' && (
-          <TechnicalReportsView
-            reports={reports}
-            equipments={equipments}
-            stores={stores}
-            workOrders={workOrders}
-            currentUser={currentUser}
-            onAddNewReport={handleAddNewReport}
-          />
-        )}
+              {currentView === 'informes' && (
+                <TechnicalReportsView
+                  reports={reports}
+                  equipments={equipments}
+                  stores={stores}
+                  workOrders={workOrders}
+                  currentUser={currentUser}
+                  onAddNewReport={handleAddNewReport}
+                />
+              )}
 
-        {currentView === 'helpdesk' && (
-          <HelpdeskView
-            tickets={tickets}
-            equipments={equipments}
-            stores={stores}
-            currentUser={currentUser}
-            onAddTicket={handleAddTicket}
-            onUpdateTicketStatus={handleUpdateTicketStatus}
-            onAssignTechnician={handleAssignTechnician}
-          />
-        )}
+              {currentView === 'helpdesk' && (
+                <HelpdeskView
+                  tickets={tickets}
+                  equipments={equipments}
+                  stores={stores}
+                  currentUser={currentUser}
+                  onAddTicket={handleAddTicket}
+                  onUpdateTicketStatus={handleUpdateTicketStatus}
+                  onAssignTechnician={handleAssignTechnician}
+                />
+              )}
 
-        {currentView === 'usuarios' && (
-          <UserDirectoryView
-            users={users}
-            stores={stores}
-            onAddUser={handleAddUser}
-            onUpdateUser={handleUpdateUser}
-            onDeleteUser={handleDeleteUser}
-            onSelectStore={() => {
-              setCurrentView('tiendas');
-            }}
-          />
-        )}
-      </main>
+              {currentView === 'usuarios' && (
+                <UserDirectoryView
+                  users={users}
+                  stores={stores}
+                  onAddUser={handleAddUser}
+                  onUpdateUser={handleUpdateUser}
+                  onDeleteUser={handleDeleteUser}
+                  onSelectStore={() => {
+                    setCurrentView('tiendas');
+                  }}
+                />
+              )}
+            </>
+          )}
+        </main>
 
-      {/* Mobile Bottom Navigation */}
-      <MobileBottomNav
-        currentView={currentView}
-        onSelectView={setCurrentView}
-        onOpenAlertsManager={() => setShowRegionalAlerts(true)}
-      />
+        {/* Mobile Bottom Navigation */}
+        <MobileBottomNav
+          currentView={currentView}
+          onSelectView={setCurrentView}
+          onOpenAlertsManager={() => setShowRegionalAlerts(true)}
+          currentUser={currentUser}
+          onOpenPrivilegesMatrix={() => setShowPrivilegesMatrix(true)}
+          onLogout={handleLogout}
+        />
       </div>
 
       {/* Floating Live Push Toast Notification Banner */}
@@ -1040,6 +1211,13 @@ export default function App() {
         currentStores={stores}
         onApplyStores={handleApplySyncedStores}
         onResetToDefaultStores={handleResetToDefaultStores}
+      />
+
+      <PrivilegesMatrixModal
+        isOpen={showPrivilegesMatrix}
+        onClose={() => setShowPrivilegesMatrix(false)}
+        currentUser={currentUser}
+        onSwitchUserRole={handleSwitchUserRole}
       />
     </div>
   );

@@ -14,9 +14,11 @@ import {
   SlidersHorizontal,
   TableProperties,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ShieldCheck
 } from 'lucide-react';
 import { AppUser } from '../types';
+import { hasPageAccess, getRoleConfig, getAllowedModulesForRole } from '../utils/rbac';
 
 interface SidebarProps {
   currentView: string;
@@ -26,6 +28,8 @@ interface SidebarProps {
   onOpenNotifications: () => void;
   onOpenAlertsManager: () => void;
   onOpenM365Sync: () => void;
+  onOpenPrivilegesMatrix?: () => void;
+  onLogout?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }
@@ -38,10 +42,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenNotifications,
   onOpenAlertsManager,
   onOpenM365Sync,
+  onOpenPrivilegesMatrix,
+  onLogout,
   isCollapsed = false,
   onToggleCollapse,
 }) => {
-  const navItems = [
+  const allNavItems = [
     { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard },
     { id: 'inventario', label: 'Inventario', icon: Boxes },
     { id: 'mantenimiento', label: 'Mantenimiento', icon: Wrench },
@@ -51,6 +57,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'helpdesk', label: 'Helpdesk & Repuestos', icon: Headphones },
     { id: 'usuarios', label: 'Directorio', icon: Users },
   ];
+
+  // Filter modules according to the current user's role privileges
+  const allowedNavItems = allNavItems.filter(item => 
+    hasPageAccess(currentUser.role, item.id)
+  );
+
+  const roleConfig = getRoleConfig(currentUser.role);
+  const totalAllowed = getAllowedModulesForRole(currentUser.role).length;
 
   return (
     <aside
@@ -105,22 +119,46 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* User Profile Card */}
-      <div className={`my-3 rounded-xl bg-[#eff4ff] border border-[#dce9ff] flex items-center transition-all ${
-        isCollapsed ? 'mx-2 p-2 justify-center' : 'mx-3 p-3.5 gap-3'
+      <div className={`my-3 rounded-xl bg-[#eff4ff] border border-[#dce9ff] flex flex-col transition-all ${
+        isCollapsed ? 'mx-2 p-2 items-center' : 'mx-3 p-3 gap-2.5'
       }`}>
-        <div className="relative shrink-0" title={`${currentUser.name} (${currentUser.role})`}>
-          <img
-            src={currentUser.avatarUrl}
-            alt={currentUser.name}
-            className="w-10 h-10 rounded-full object-cover ring-2 ring-[#00236f]/20"
-          />
-          <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#10b981] rounded-full border-2 border-white" />
+        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
+          <div className="relative shrink-0" title={`${currentUser.name} (${currentUser.role})`}>
+            <img
+              src={currentUser.avatarUrl}
+              alt={currentUser.name}
+              className="w-10 h-10 rounded-full object-cover ring-2 ring-[#00236f]/20"
+            />
+            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#10b981] rounded-full border-2 border-white" />
+          </div>
+          {!isCollapsed && (
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold text-xs text-[#0b1c30] truncate">{currentUser.name}</div>
+              <div className="text-[11px] text-[#007a33] font-bold truncate flex items-center gap-1">
+                <span>{currentUser.role}</span>
+              </div>
+              <div className="text-[10px] text-[#525e75] truncate font-mono">{currentUser.email}</div>
+            </div>
+          )}
         </div>
+
+        {/* Outlook Corporate Status & Privileges Badge */}
         {!isCollapsed && (
-          <div className="min-w-0 flex-1">
-            <div className="font-semibold text-xs text-[#0b1c30] truncate">{currentUser.name}</div>
-            <div className="text-[11px] text-[#4059aa] font-medium truncate">{currentUser.role}</div>
-            <div className="text-[10px] text-[#757682] truncate">{currentUser.assignedRegion}</div>
+          <div className="pt-2 border-t border-[#dce9ff]/60 flex items-center justify-between text-[10px]">
+            <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Outlook Conectado
+            </span>
+            {onOpenPrivilegesMatrix && (
+              <button
+                onClick={onOpenPrivilegesMatrix}
+                className="text-[#00236f] hover:underline font-bold inline-flex items-center gap-0.5 cursor-pointer"
+                title="Ver matriz de permisos por rol"
+              >
+                <span>{totalAllowed}/8 módulos</span>
+                <ShieldCheck className="w-3 h-3 text-[#00236f]" />
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -128,11 +166,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Navigation List */}
       <nav className="flex-1 px-2.5 py-2 space-y-1 overflow-y-auto overflow-x-hidden">
         {!isCollapsed && (
-          <div className="px-3 pb-1 text-[10px] font-bold text-[#757682] uppercase tracking-wider">
-            Módulos Principales
+          <div className="px-3 pb-1 text-[10px] font-bold text-[#757682] uppercase tracking-wider flex items-center justify-between">
+            <span>Módulos Permitidos</span>
+            <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-normal">
+              {allowedNavItems.length}
+            </span>
           </div>
         )}
-        {navItems.map(item => {
+        {allowedNavItems.map(item => {
           const Icon = item.icon;
           const isActive = currentView === item.id;
           return (
@@ -169,7 +210,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {!isCollapsed && (
           <div className="pt-4 px-3 pb-1 text-[10px] font-bold text-[#757682] uppercase tracking-wider">
-            Integración & Base de Datos
+            Integración & Seguridad
           </div>
         )}
 
@@ -191,6 +232,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
         </button>
+
+        {/* Privileges Matrix Button */}
+        {onOpenPrivilegesMatrix && (
+          <button
+            onClick={onOpenPrivilegesMatrix}
+            title={isCollapsed ? "Matriz de Privilegios RBAC" : undefined}
+            className={`w-full flex items-center rounded-lg text-xs font-semibold transition-colors text-slate-700 hover:text-[#00236f] hover:bg-[#eff4ff] border border-transparent hover:border-[#dce9ff] ${
+              isCollapsed ? 'justify-center p-3' : 'gap-3 px-3.5 py-2'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-600" />
+            {!isCollapsed && (
+              <div className="text-left flex-1 min-w-0">
+                <div className="truncate font-semibold">Matriz de Privilegios</div>
+                <div className="text-[10px] font-normal text-[#757682]">
+                  Roles & Permisos
+                </div>
+              </div>
+            )}
+          </button>
+        )}
 
         <button
           onClick={onOpenAlertsManager}
@@ -228,15 +290,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-2.5 border-t border-[#e5eeff]">
         <button
           onClick={() => {
-            alert('Modo demostración activo. Sesión de Administrador.');
+            if (onLogout) {
+              onLogout();
+            } else {
+              window.location.reload();
+            }
           }}
-          title={isCollapsed ? "Cerrar Sesión" : undefined}
-          className={`w-full flex items-center rounded-lg text-xs font-medium text-[#757682] hover:text-[#ba1a1a] hover:bg-[#ffdad6]/30 transition-colors ${
+          title={isCollapsed ? "Cerrar Sesión Corporativa Outlook" : undefined}
+          className={`w-full flex items-center rounded-lg text-xs font-semibold text-[#757682] hover:text-[#ba1a1a] hover:bg-[#ffdad6]/30 transition-colors cursor-pointer ${
             isCollapsed ? 'justify-center p-2.5' : 'gap-2.5 px-3 py-2'
           }`}
         >
-          <LogOut className="w-4 h-4 shrink-0" />
-          {!isCollapsed && <span>Cerrar Sesión</span>}
+          <LogOut className="w-4 h-4 shrink-0 text-[#ba1a1a]" />
+          {!isCollapsed && <span>Cerrar Sesión Outlook</span>}
         </button>
       </div>
     </aside>
