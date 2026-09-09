@@ -8,6 +8,7 @@ import {
   Store,
   Headphones,
   Users,
+  UserCheck,
   AlertTriangle,
   X
 } from 'lucide-react';
@@ -94,6 +95,20 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-2.5 pt-1">
+              <button
+                onClick={() => {
+                  onSelectView('monitoreo');
+                  setShowMoreMenu(false);
+                }}
+                className={`p-3.5 rounded-xl text-left border flex flex-col gap-1 transition-colors ${
+                  currentView === 'monitoreo' ? 'bg-[#eff4ff] border-[#00236f] text-[#00236f]' : 'bg-[#f8f9ff] border-[#e5eeff] text-[#444651]'
+                }`}
+              >
+                <UserCheck className="w-5 h-5 text-emerald-600" />
+                <span className="font-semibold text-xs">Asistencia & Personal</span>
+                <span className="text-[10px] text-[#757682]">Monitoreo en tiendas & log</span>
+              </button>
+
               <button
                 onClick={() => {
                   onSelectView('tiendas');

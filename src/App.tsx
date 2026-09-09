@@ -17,10 +17,15 @@ import {
   TechnicalReport,
   AppUser,
   PushNotification,
-  RegionalAlert
+  RegionalAlert,
+  AttendanceLog,
+  ActivePersonnelPresence,
+  AttendanceEventType,
+  AttendanceMotive
 } from './types';
 import { playNotificationChime } from './utils/helpers';
 import { MicrosoftDataService, AutoSyncConfig } from './services/microsoftDataService';
+import { INITIAL_ATTENDANCE_LOGS, INITIAL_ACTIVE_PRESENCES } from './data/attendanceMockData';
 import { QrCode, AlertTriangle, Bell, CheckCircle2 } from 'lucide-react';
 
 // Components
@@ -34,6 +39,7 @@ import { MaintenanceView } from './components/MaintenanceView';
 import { TechnicalReportsView } from './components/TechnicalReportsView';
 import { HelpdeskView } from './components/HelpdeskView';
 import { UserDirectoryView } from './components/UserDirectoryView';
+import { PersonnelMonitoringView } from './components/PersonnelMonitoringView';
 import { AutoSyncStatusWidget } from './components/AutoSyncStatusWidget';
 
 // Modals
@@ -80,6 +86,33 @@ export default function App() {
   });
   const [notifications, setNotifications] = useState<PushNotification[]>(INITIAL_NOTIFICATIONS);
   const [regionalAlerts, setRegionalAlerts] = useState<RegionalAlert[]>(INITIAL_REGIONAL_ALERTS);
+
+  // Attendance & Presence Monitoring State with persistence
+  const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLog[]>(() => {
+    try {
+      const saved = localStorage.getItem('reliant_cmms_attendance_logs');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn('Error reading saved attendance logs', e);
+    }
+    return INITIAL_ATTENDANCE_LOGS;
+  });
+
+  const [activePresences, setActivePresences] = useState<ActivePersonnelPresence[]>(() => {
+    try {
+      const saved = localStorage.getItem('reliant_cmms_active_presences');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn('Error reading saved active presences', e);
+    }
+    return INITIAL_ACTIVE_PRESENCES;
+  });
 
   // Active Current User
   const [currentUser, setCurrentUser] = useState<AppUser>(INITIAL_USERS[0]);
@@ -378,6 +411,242 @@ export default function App() {
     });
   };
 
+  // Attendance & Presence Handlers
+  const handleAddAttendanceLog = (newLogData: Partial<AttendanceLog>, updatePresence = true) => {
+    const fullLog: AttendanceLog = {
+      id: newLogData.id || `att-log-${Date.now()}`,
+      userId: newLogData.userId || currentUser.id,
+      userName: newLogData.userName || currentUser.name,
+      userRole: newLogData.userRole || currentUser.role,
+      userCargo: newLogData.userCargo || currentUser.cargo || currentUser.role,
+      userPhone: newLogData.userPhone || currentUser.phone,
+      userAvatar: newLogData.userAvatar || currentUser.avatarUrl,
+      eventType: newLogData.eventType || 'ingreso',
+      storeId: newLogData.storeId || stores[0].id,
+      storeCode: newLogData.storeCode || stores[0].codTienda,
+      storeName: newLogData.storeName || stores[0].name,
+      storeRegion: newLogData.storeRegion || stores[0].region,
+      targetStoreId: newLogData.targetStoreId,
+      targetStoreCode: newLogData.targetStoreCode,
+      targetStoreName: newLogData.targetStoreName,
+      targetStoreRegion: newLogData.targetStoreRegion,
+      timestamp: newLogData.timestamp || new Date().toISOString(),
+      timeFormatted: newLogData.timeFormatted || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+      dateFormatted: newLogData.dateFormatted || new Date().toISOString().split('T')[0],
+      motive: newLogData.motive || 'soporte_onsite',
+      motiveDetail: newLogData.motiveDetail || '',
+      ticketId: newLogData.ticketId,
+      workOrderId: newLogData.workOrderId,
+      notes: newLogData.notes,
+      durationMinutes: newLogData.durationMinutes,
+      durationFormatted: newLogData.durationFormatted,
+      verifiedLocation: newLogData.verifiedLocation ?? true,
+      registeredBy: newLogData.registeredBy || currentUser.name,
+      source: newLogData.source || 'manual',
+      sourceDetail: newLogData.sourceDetail,
+      coordinates: newLogData.coordinates
+    };
+
+    setAttendanceLogs(prev => {
+      const next = [fullLog, ...prev];
+      try {
+        localStorage.setItem('reliant_cmms_attendance_logs', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+
+    if (updatePresence) {
+      setActivePresences(prev => {
+        const existingIdx = prev.findIndex(p => p.userId === fullLog.userId);
+        let updatedList = [...prev];
+
+        if (fullLog.eventType === 'ingreso') {
+          const newPresence: ActivePersonnelPresence = {
+            userId: fullLog.userId,
+            userName: fullLog.userName,
+            userRole: fullLog.userRole,
+            userCargo: fullLog.userCargo,
+            userPhone: fullLog.userPhone,
+            userAvatar: fullLog.userAvatar,
+            status: 'en_tienda',
+            currentStoreId: fullLog.storeId,
+            currentStoreCode: fullLog.storeCode,
+            currentStoreName: fullLog.storeName,
+            currentStoreRegion: fullLog.storeRegion,
+            checkInTime: fullLog.timeFormatted,
+            checkInDate: fullLog.dateFormatted,
+            motive: fullLog.motive,
+            motiveDetail: fullLog.motiveDetail,
+            activeTicketOrWo: fullLog.ticketId || fullLog.workOrderId,
+            lastEventTime: fullLog.timeFormatted,
+            todayLogsCount: (existingIdx >= 0 ? prev[existingIdx].todayLogsCount : 0) + 1
+          };
+
+          if (existingIdx >= 0) {
+            updatedList[existingIdx] = newPresence;
+          } else {
+            updatedList.unshift(newPresence);
+          }
+        } else if (fullLog.eventType === 'salida') {
+          if (existingIdx >= 0) {
+            updatedList[existingIdx] = {
+              ...prev[existingIdx],
+              status: 'jornada_finalizada',
+              currentStoreId: undefined,
+              currentStoreCode: undefined,
+              currentStoreName: undefined,
+              lastEventTime: `${fullLog.timeFormatted} (Salida de T-${fullLog.storeCode})`,
+              todayLogsCount: prev[existingIdx].todayLogsCount + 1
+            };
+          }
+        } else if (fullLog.eventType === 'traslado') {
+          const newPresence: ActivePersonnelPresence = {
+            userId: fullLog.userId,
+            userName: fullLog.userName,
+            userRole: fullLog.userRole,
+            userCargo: fullLog.userCargo,
+            userPhone: fullLog.userPhone,
+            userAvatar: fullLog.userAvatar,
+            status: 'en_traslado',
+            currentStoreId: undefined,
+            fromStoreId: fullLog.storeId,
+            fromStoreCode: fullLog.storeCode,
+            fromStoreName: fullLog.storeName,
+            toStoreId: fullLog.targetStoreId,
+            toStoreCode: fullLog.targetStoreCode,
+            toStoreName: fullLog.targetStoreName,
+            departureTime: fullLog.timeFormatted,
+            motive: fullLog.motive,
+            motiveDetail: fullLog.motiveDetail,
+            lastEventTime: `${fullLog.timeFormatted} (Traslado)`,
+            todayLogsCount: (existingIdx >= 0 ? prev[existingIdx].todayLogsCount : 0) + 1
+          };
+
+          if (existingIdx >= 0) {
+            updatedList[existingIdx] = newPresence;
+          } else {
+            updatedList.unshift(newPresence);
+          }
+        }
+
+        try {
+          localStorage.setItem('reliant_cmms_active_presences', JSON.stringify(updatedList));
+        } catch (e) {}
+        return updatedList;
+      });
+    }
+  };
+
+  const handleUpdateAttendanceLog = (updated: AttendanceLog) => {
+    setAttendanceLogs(prev => {
+      const next = prev.map(l => l.id === updated.id ? updated : l);
+      try {
+        localStorage.setItem('reliant_cmms_attendance_logs', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  };
+
+  const handleDeleteAttendanceLog = (id: string) => {
+    setAttendanceLogs(prev => {
+      const next = prev.filter(l => l.id !== id);
+      try {
+        localStorage.setItem('reliant_cmms_attendance_logs', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  };
+
+  const handleQuickCheckIn = (userId: string, storeId: string, motive: AttendanceMotive, detail?: string) => {
+    const user = users.find(u => u.id === userId) || currentUser;
+    const store = stores.find(s => s.id === storeId) || stores[0];
+    const now = new Date();
+    const timeFormatted = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+    handleAddAttendanceLog({
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      userCargo: user.cargo || user.role,
+      userPhone: user.phone,
+      userAvatar: user.avatarUrl,
+      eventType: 'ingreso',
+      storeId: store.id,
+      storeCode: store.codTienda,
+      storeName: store.name,
+      storeRegion: store.region,
+      timestamp: now.toISOString(),
+      timeFormatted,
+      dateFormatted: now.toISOString().split('T')[0],
+      motive,
+      motiveDetail: detail || 'Ingreso registrado en tienda',
+      verifiedLocation: true,
+      registeredBy: currentUser.name
+    }, true);
+  };
+
+  const handleQuickCheckOut = (userId: string, notes?: string) => {
+    const presence = activePresences.find(p => p.userId === userId);
+    if (!presence) return;
+    const now = new Date();
+    const timeFormatted = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+    handleAddAttendanceLog({
+      userId: presence.userId,
+      userName: presence.userName,
+      userRole: presence.userRole,
+      userCargo: presence.userCargo,
+      userPhone: presence.userPhone,
+      userAvatar: presence.userAvatar,
+      eventType: 'salida',
+      storeId: presence.currentStoreId || stores[0].id,
+      storeCode: presence.currentStoreCode || stores[0].codTienda,
+      storeName: presence.currentStoreName || stores[0].name,
+      storeRegion: presence.currentStoreRegion || stores[0].region,
+      timestamp: now.toISOString(),
+      timeFormatted,
+      dateFormatted: now.toISOString().split('T')[0],
+      motive: presence.motive || 'soporte_onsite',
+      motiveDetail: 'Salida de tienda registrada',
+      notes: notes || 'Fin de permanencia en tienda',
+      verifiedLocation: true,
+      registeredBy: currentUser.name
+    }, true);
+  };
+
+  const handleQuickTransfer = (userId: string, targetStoreId: string, motiveDetail?: string) => {
+    const presence = activePresences.find(p => p.userId === userId);
+    const targetStore = stores.find(s => s.id === targetStoreId);
+    if (!presence || !targetStore) return;
+    const now = new Date();
+    const timeFormatted = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+    handleAddAttendanceLog({
+      userId: presence.userId,
+      userName: presence.userName,
+      userRole: presence.userRole,
+      userCargo: presence.userCargo,
+      userPhone: presence.userPhone,
+      userAvatar: presence.userAvatar,
+      eventType: 'traslado',
+      storeId: presence.currentStoreId || stores[0].id,
+      storeCode: presence.currentStoreCode || stores[0].codTienda,
+      storeName: presence.currentStoreName || stores[0].name,
+      storeRegion: presence.currentStoreRegion || stores[0].region,
+      targetStoreId: targetStore.id,
+      targetStoreCode: targetStore.codTienda,
+      targetStoreName: targetStore.name,
+      targetStoreRegion: targetStore.region,
+      timestamp: now.toISOString(),
+      timeFormatted,
+      dateFormatted: now.toISOString().split('T')[0],
+      motive: 'soporte_onsite',
+      motiveDetail: motiveDetail || `Traslado hacia T-${targetStore.codTienda} ${targetStore.name}`,
+      verifiedLocation: true,
+      registeredBy: currentUser.name
+    }, true);
+  };
+
   // Broadcast Regional Alert
   const handleBroadcastAlert = (newAlert: RegionalAlert) => {
     setRegionalAlerts(prev => [newAlert, ...prev]);
@@ -508,6 +777,7 @@ export default function App() {
                 {currentView === 'dashboard' ? 'Panel General' :
                  currentView === 'inventario' ? 'Inventario de Activos' :
                  currentView === 'mantenimiento' ? 'Mantenimiento & OTs' :
+                 currentView === 'monitoreo' ? 'Asistencia & Monitoreo Onsite' :
                  currentView === 'informes' ? 'Informes Técnicos' :
                  currentView === 'tiendas' ? 'Sucursales (90)' :
                  currentView === 'helpdesk' ? 'Helpdesk & Repuestos' :
@@ -618,6 +888,22 @@ export default function App() {
             onUpdateWorkOrder={handleUpdateWorkOrder}
             onDeleteWorkOrder={handleDeleteWorkOrder}
             onUpdateWorkOrderStatus={handleUpdateWorkOrderStatus}
+          />
+        )}
+
+        {currentView === 'monitoreo' && (
+          <PersonnelMonitoringView
+            logs={attendanceLogs}
+            presences={activePresences}
+            stores={stores}
+            users={users}
+            currentUser={currentUser}
+            onAddLog={handleAddAttendanceLog}
+            onUpdateLog={handleUpdateAttendanceLog}
+            onDeleteLog={handleDeleteAttendanceLog}
+            onQuickCheckIn={handleQuickCheckIn}
+            onQuickCheckOut={handleQuickCheckOut}
+            onQuickTransfer={handleQuickTransfer}
           />
         )}
 

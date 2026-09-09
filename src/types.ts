@@ -335,6 +335,12 @@ export interface AppUser {
   anexo?: string; // Anexo telefónico interno
   turno?: string; // ej. Turno Mañana, Turno Tarde, Completo
   distrito?: string;
+
+  // Enrolamiento GeoVictoria & Asistencia
+  dni?: string;
+  geoVictoriaId?: string;
+  geoVictoriaEnrolled?: boolean;
+  geoVictoriaMethod?: 'facial' | 'huella' | 'app_gps' | 'pin';
 }
 
 export interface PushNotification {
@@ -370,3 +376,155 @@ export interface RegionalAlertConfig {
 }
 
 export type RegionalAlert = RegionalAlertConfig;
+
+// ==========================================
+// Control de Asistencia & Monitoreo de Personal en Tiendas
+// ==========================================
+
+export type AttendanceEventType = 'ingreso' | 'salida' | 'traslado';
+
+export type PersonnelStatus = 'en_tienda' | 'en_traslado' | 'jornada_finalizada' | 'disponible';
+
+export type AttendanceSource = 'geovictoria_facial' | 'geovictoria_huella' | 'geovictoria_app' | 'gps_geocerca' | 'manual';
+
+export type AttendanceMotive =
+  | 'mantenimiento_preventivo'
+  | 'atencion_averia'
+  | 'inventario_equipos'
+  | 'soporte_onsite'
+  | 'inspeccion'
+  | 'otro';
+
+export interface AttendanceLog {
+  id: string;
+  userId: string;
+  userName: string;
+  userRole?: string;
+  userCargo?: string;
+  userPhone?: string;
+  userAvatar?: string;
+  eventType: AttendanceEventType;
+  
+  // Tienda origen / actual
+  storeId: string;
+  storeCode: string | number;
+  storeName: string;
+  storeRegion: Region;
+  
+  // En caso de traslado
+  targetStoreId?: string;
+  targetStoreCode?: string | number;
+  targetStoreName?: string;
+  targetStoreRegion?: Region;
+  
+  timestamp: string; // ISO string e.g. 2026-09-09T08:30:00
+  timeFormatted: string; // e.g. '08:30 AM'
+  dateFormatted: string; // e.g. '2026-09-09'
+  
+  motive: AttendanceMotive;
+  motiveDetail?: string; // e.g. 'Atención de Ticket TK-1024' or 'Revisión preventiva POS'
+  workOrderId?: string;
+  ticketId?: string;
+  
+  notes?: string;
+  durationMinutes?: number; // Minutos de permanencia calculados en caso de salida
+  durationFormatted?: string; // e.g. '2h 45m'
+  
+  verifiedLocation?: boolean;
+  registeredBy?: string;
+
+  // Automatización: GeoVictoria o GPS Geocerca
+  source?: AttendanceSource;
+  sourceDetail?: string; // ej. 'Reloj Biométrico Facial T-103' o 'Geocerca Móvil (Radio 120m)'
+  geoVictoriaPunchId?: string;
+  coordinates?: { lat: number; lng: number; accuracy?: number };
+}
+
+export interface ActivePersonnelPresence {
+  userId: string;
+  userName: string;
+  userRole: string;
+  userCargo?: string;
+  userPhone: string;
+  userAvatar?: string;
+  status: PersonnelStatus;
+  
+  // Si está en tienda
+  currentStoreId?: string;
+  currentStoreCode?: string | number;
+  currentStoreName?: string;
+  currentStoreRegion?: Region;
+  checkInTime?: string;
+  checkInDate?: string;
+  
+  // Si está en traslado
+  fromStoreId?: string;
+  fromStoreCode?: string | number;
+  fromStoreName?: string;
+  toStoreId?: string;
+  toStoreCode?: string | number;
+  toStoreName?: string;
+  departureTime?: string;
+  
+  motive?: AttendanceMotive;
+  motiveDetail?: string;
+  activeTicketOrWo?: string;
+  lastEventTime?: string;
+  todayLogsCount?: number;
+
+  // Origen de presencia
+  source?: AttendanceSource;
+  coordinates?: { lat: number; lng: number };
+}
+
+export interface GeoVictoriaConfig {
+  enabled: boolean;
+  apiUrl: string;
+  apiKey: string;
+  apiSecret: string;
+  companyCode: string;
+  autoSyncIntervalMinutes: number;
+  webhookEndpoint: string;
+  webhookSecret: string;
+  autoCheckInOnPunch: boolean;
+  lastSyncTimestamp: string | null;
+  lastSyncStatus: 'connected' | 'syncing' | 'idle' | 'error';
+  lastSyncMessage?: string;
+  syncedTodayCount: number;
+}
+
+export interface GeoVictoriaPunchRecord {
+  id: string;
+  rutDni: string;
+  colaboradorNombre: string;
+  colaboradorId?: string;
+  fechaHora: string;
+  horaFormato: string;
+  tipo: 'ENTRADA' | 'SALIDA';
+  dispositivo: string;
+  metodo: 'reconocimiento_facial' | 'huella_dactilar' | 'app_geocerca' | 'pin';
+  codTienda: number | string;
+  nombreTienda: string;
+  latitud?: number;
+  longitud?: number;
+  estado: 'sincronizado' | 'pendiente' | 'descartado';
+  cmmsLogId?: string;
+}
+
+export interface GeofencingConfig {
+  enabled: boolean;
+  radiusMeters: number;
+  autoCheckIn: boolean;
+  autoCheckOut: boolean;
+  highAccuracy: boolean;
+  soundAlerts: boolean;
+  activeTracking: boolean;
+  lastGpsLat?: number;
+  lastGpsLng?: number;
+  lastGpsAccuracy?: number;
+  lastGpsTimestamp?: string;
+  nearestStoreCode?: string | number;
+  nearestStoreName?: string;
+  distanceToNearestMeters?: number;
+  isInsideGeofence?: boolean;
+}
