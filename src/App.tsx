@@ -21,13 +21,18 @@ import {
   AttendanceLog,
   ActivePersonnelPresence,
   AttendanceEventType,
-  AttendanceMotive
+  AttendanceMotive,
+  LoginAuditRecord,
+  DeviceCustodyItem,
+  StoreColaborador
 } from './types';
+import { INITIAL_LOGIN_AUDIT_LOGS } from './data/loginAuditData';
+import { INITIAL_DEVICE_CUSTODY_ITEMS, INITIAL_COLABORADORES, FALABELLA_AI_MONITORING_URL, playScannerBeep } from './data/deviceCustodyData';
 import { playNotificationChime } from './utils/helpers';
 import { MicrosoftDataService, AutoSyncConfig } from './services/microsoftDataService';
 import { INITIAL_ATTENDANCE_LOGS, INITIAL_ACTIVE_PRESENCES } from './data/attendanceMockData';
-import { QrCode, AlertTriangle, Bell, CheckCircle2, ShieldCheck, LogOut, ChevronDown, User, ExternalLink } from 'lucide-react';
-import { hasPageAccess, getDefaultViewForRole, getRoleConfig, getAllowedModulesForRole } from './utils/rbac';
+import { QrCode, AlertTriangle, Bell, CheckCircle2, ShieldCheck, LogOut, ChevronDown, User, ExternalLink, Send, Smartphone } from 'lucide-react';
+import { hasPageAccess, getDefaultViewForRole, getRoleConfig, getAllowedModulesForRole, APP_MODULES } from './utils/rbac';
 
 // Components
 import { Sidebar } from './components/Sidebar';
@@ -41,9 +46,11 @@ import { TechnicalReportsView } from './components/TechnicalReportsView';
 import { HelpdeskView } from './components/HelpdeskView';
 import { UserDirectoryView } from './components/UserDirectoryView';
 import { PersonnelMonitoringView } from './components/PersonnelMonitoringView';
+import { DeviceCustodyView } from './components/DeviceCustodyView';
 import { AutoSyncStatusWidget } from './components/AutoSyncStatusWidget';
 import { CorporateLoginView } from './components/CorporateLoginView';
 import { AccessDeniedView } from './components/AccessDeniedView';
+import { QuickEmailDispatcher } from './components/QuickEmailDispatcher';
 
 // Modals
 import { NotificationModal } from './components/NotificationModal';
@@ -152,8 +159,307 @@ export default function App() {
   const [showPrivilegesMatrix, setShowPrivilegesMatrix] = useState<boolean>(false);
   const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
 
+  // Login Audit Records State (persisted in session)
+  const [loginAuditLogs, setLoginAuditLogs] = useState<LoginAuditRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('tottus_cmms_login_audit');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_LOGIN_AUDIT_LOGS;
+  });
+
+  const handleRecordLoginAudit = (record: LoginAuditRecord) => {
+    setLoginAuditLogs(prev => {
+      const updated = [record, ...prev];
+      try {
+        localStorage.setItem('tottus_cmms_login_audit', JSON.stringify(updated.slice(0, 100)));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
+  const handleClearLoginAuditLogs = () => {
+    setLoginAuditLogs([]);
+    try {
+      localStorage.removeItem('tottus_cmms_login_audit');
+    } catch (e) {}
+  };
+
+  // Device Custody State (PDAs and Mobile Printers)
+  const [deviceCustodyItems, setDeviceCustodyItems] = useState<DeviceCustodyItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('tottus_device_custody_data');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_DEVICE_CUSTODY_ITEMS;
+  });
+
+  const [storeColaboradores, setStoreColaboradores] = useState<StoreColaborador[]>(() => {
+    try {
+      const saved = localStorage.getItem('tottus_store_colaboradores_data');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_COLABORADORES;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('tottus_device_custody_data', JSON.stringify(deviceCustodyItems));
+    } catch (e) {}
+  }, [deviceCustodyItems]);
+
+  const handleRegisterLoan = (device: DeviceCustodyItem, borrower: StoreColaborador, notes?: string) => {
+    const now = new Date();
+    const timeFormatted = now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+    const dateFormatted = now.toLocaleDateString('es-PE');
+
+    const historyItem = {
+      id: `hist-${Date.now()}`,
+      action: 'entrega' as const,
+      timestamp: now.toISOString(),
+      timeFormatted,
+      dateFormatted,
+      fotocheck: borrower.fotocheck,
+      borrowerName: borrower.name,
+      cargo: borrower.cargo,
+      area: borrower.area,
+      cctvOfficer: currentUser.name,
+      conditionOnReturn: 'conforme' as const,
+      notes: notes || 'Entregado operativo desde casillero CCTV'
+    };
+
+    setDeviceCustodyItems(prev => prev.map(d => {
+      if (d.id === device.id) {
+        return {
+          ...d,
+          status: 'en_uso',
+          currentBorrower: {
+            fotocheck: borrower.fotocheck,
+            dni: borrower.dni,
+            name: borrower.name,
+            cargo: borrower.cargo,
+            area: borrower.area,
+            phone: borrower.phone,
+            avatar: borrower.avatar,
+            borrowedAt: now.toISOString(),
+            borrowedTimeFormatted: timeFormatted,
+            borrowedDateFormatted: dateFormatted,
+            releasedByCctvAgent: currentUser.name
+          },
+          hoursInUse: 0.1,
+          isOverdue: false,
+          loanHistory: [historyItem, ...(d.loanHistory || [])],
+          updatedAt: now.toISOString()
+        };
+      }
+      return d;
+    }));
+
+    const newNotif: PushNotification = {
+      id: `notif-${Date.now()}`,
+      title: `Préstamo de ${device.equipmentCode}`,
+      message: `${device.deviceType} entregado a ${borrower.name} (${borrower.area}) en T-${device.storeCode}.`,
+      type: 'ticket',
+      severity: 'info',
+      timestamp: now.toISOString(),
+      timeAgo: 'Hace un momento',
+      read: false
+    };
+    setNotifications(prev => [newNotif, ...prev]);
+  };
+
+  const handleRegisterReturn = (device: DeviceCustodyItem, condition: 'conforme' | 'con_falla', notes?: string) => {
+    const now = new Date();
+    const timeFormatted = now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+    const dateFormatted = now.toLocaleDateString('es-PE');
+
+    const borrower = device.currentBorrower;
+
+    const historyItem = {
+      id: `hist-${Date.now()}`,
+      action: 'devolucion' as const,
+      timestamp: now.toISOString(),
+      timeFormatted,
+      dateFormatted,
+      fotocheck: borrower?.fotocheck || 'S/F',
+      borrowerName: borrower?.name || 'Colaborador',
+      cargo: borrower?.cargo,
+      area: borrower?.area || 'Piso de venta',
+      cctvOfficer: currentUser.name,
+      conditionOnReturn: condition,
+      notes: notes || (condition === 'conforme' ? 'Devuelto conforme a casillero CCTV' : 'Devuelto con observación técnica')
+    };
+
+    setDeviceCustodyItems(prev => prev.map(d => {
+      if (d.id === device.id) {
+        return {
+          ...d,
+          status: condition === 'con_falla' ? 'con_falla' : 'en_custodia',
+          currentBorrower: undefined,
+          hoursInUse: 0,
+          isOverdue: false,
+          loanHistory: [historyItem, ...(d.loanHistory || [])],
+          updatedAt: now.toISOString()
+        };
+      }
+      return d;
+    }));
+
+    const newNotif: PushNotification = {
+      id: `notif-${Date.now()}`,
+      title: `Retorno de ${device.equipmentCode}`,
+      message: `${device.equipmentCode} retornado a casillero CCTV (${condition === 'conforme' ? 'Conforme' : 'Con Falla'}).`,
+      type: condition === 'conforme' ? 'ticket' : 'falla_critica',
+      severity: condition === 'conforme' ? 'exito' : 'advertencia',
+      timestamp: now.toISOString(),
+      timeAgo: 'Hace un momento',
+      read: false
+    };
+    setNotifications(prev => [newNotif, ...prev]);
+  };
+
+  const handleReportIncident = (device: DeviceCustodyItem, incident: {
+    fallaType: string;
+    description: string;
+    falabellaTicketCode: string;
+    createHelpdeskTicket: boolean;
+  }) => {
+    const now = new Date();
+    const timeFormatted = now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+    const dateFormatted = now.toLocaleDateString('es-PE');
+
+    const borrower = device.currentBorrower;
+
+    const historyItem = {
+      id: `hist-${Date.now()}`,
+      action: 'reporte_falla' as const,
+      timestamp: now.toISOString(),
+      timeFormatted,
+      dateFormatted,
+      fotocheck: borrower?.fotocheck || 'S/F',
+      borrowerName: borrower?.name || currentUser.name,
+      cargo: borrower?.cargo || currentUser.role,
+      area: borrower?.area || 'Prevención / CCTV',
+      cctvOfficer: currentUser.name,
+      conditionOnReturn: 'danado' as const,
+      notes: `Falla: ${incident.fallaType}`,
+      incidentDetail: incident.description,
+      falabellaTicketCode: incident.falabellaTicketCode
+    };
+
+    const newTicketCode = incident.falabellaTicketCode || `FAL-AI-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    // Update custody device state
+    setDeviceCustodyItems(prev => prev.map(d => {
+      if (d.id === device.id) {
+        return {
+          ...d,
+          status: 'con_falla',
+          currentBorrower: undefined,
+          hoursInUse: 0,
+          isOverdue: false,
+          lastIncident: {
+            reportedAt: `${dateFormatted} ${timeFormatted}`,
+            reportedBy: currentUser.name,
+            fallaType: incident.fallaType,
+            description: incident.description,
+            falabellaTicketUrl: 'https://ai-monitoring.falabella.com/login',
+            falabellaTicketCode: newTicketCode
+          },
+          loanHistory: [historyItem, ...(d.loanHistory || [])],
+          notes: `Retenido por avería. Reportado en Falabella AI-Monitoring: ${newTicketCode}`,
+          updatedAt: now.toISOString()
+        };
+      }
+      return d;
+    }));
+
+    // If requested, synchronize and create Ticket in Helpdesk CMMS
+    if (incident.createHelpdeskTicket) {
+      const targetStore = stores.find(s => s.id === device.storeId);
+      const storeRegion = targetStore?.region || 'Región 1 - Lima Norte';
+
+      const newHelpdeskTicket: Ticket = {
+        id: `tk-cust-${Date.now()}`,
+        code: `TK-${Math.floor(1000 + Math.random() * 9000)}`,
+        title: `Avería de ${device.equipmentCode} (${device.model}) - ${incident.fallaType}`,
+        description: `${incident.description}. Reportado por custodia CCTV. Portal Falabella AI-Monitoring: ${newTicketCode}`,
+        priority: 'Alta',
+        status: 'En Progreso',
+        storeId: device.storeId,
+        storeName: device.storeName,
+        storeCode: String(device.storeCode),
+        region: storeRegion,
+        reportedBy: currentUser.name,
+        assignedTo: 'DMS PERU S.A.C / Zebra',
+        createdAt: 'Hace un momento',
+        slaDueIn: '24 horas',
+        ticketJR: newTicketCode,
+        proveedorServicio: 'DMS PERU S.A.C',
+        numeroSerie: device.serialNumber,
+        modelo: device.model,
+        detalleTicket: incident.description,
+        tipoEquipo: device.deviceType,
+        presupuestoMes: now.toLocaleString('es-PE', { month: 'long', year: 'numeric' }),
+        fechaInicio: dateFormatted,
+        commentsCount: 1,
+        comments: [
+          {
+            id: `c-${Date.now()}`,
+            author: currentUser.name,
+            text: `Ticket generado automáticamente desde Custodia CCTV. Enlace oficial: https://ai-monitoring.falabella.com/login (Código Falabella: ${newTicketCode})`,
+            timestamp: 'Justo ahora',
+            isInternal: false
+          }
+        ]
+      };
+
+      setTickets(prev => [newHelpdeskTicket, ...prev]);
+    }
+
+    const newNotif: PushNotification = {
+      id: `notif-${Date.now()}`,
+      title: `Incidencia Registrada: ${device.equipmentCode}`,
+      message: `Equipo retenido en T-${device.storeCode}. Ticket Falabella: ${newTicketCode}`,
+      type: 'falla_critica',
+      severity: 'advertencia',
+      timestamp: now.toISOString(),
+      timeAgo: 'Hace un momento',
+      read: false
+    };
+    setNotifications(prev => [newNotif, ...prev]);
+  };
+
   // Corporate Login / SSO Handlers
   const handleLoginSuccess = (user: AppUser) => {
+    // Strict directory check: is web access enabled?
+    if (user.webAccessEnabled === false) {
+      alert(`Acceso denegado: El usuario ${user.name} (${user.email}) se encuentra inhabilitado en el Directorio.`);
+      return;
+    }
+
+    // Update user in directory with login timestamp and counter
+    setUsers(prev => prev.map(u => {
+      if (u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase()) {
+        return {
+          ...u,
+          lastLoginAt: 'Ahora',
+          lastLoginIp: user.lastLoginIp || '10.24.180.45 [Red Corporativa]',
+          loginCount: (u.loginCount || 0) + 1
+        };
+      }
+      return u;
+    }));
+
     setCurrentUser(user);
     setIsAuthenticated(true);
     try {
@@ -376,6 +682,19 @@ export default function App() {
     MicrosoftDataService.pushRecord('tickets', { id: ticketId, status });
   };
 
+  // Update Ticket Full Handler
+  const handleUpdateTicket = (updatedTicket: Ticket) => {
+    setTickets(prev =>
+      prev.map(t => (t.id === updatedTicket.id ? updatedTicket : t))
+    );
+    MicrosoftDataService.pushRecord('tickets', updatedTicket);
+  };
+
+  // Delete Ticket Handler
+  const handleDeleteTicket = (ticketId: string) => {
+    setTickets(prev => prev.filter(t => t.id !== ticketId));
+  };
+
   // Assign Technician
   const handleAssignTechnician = (ticketId: string, technician: string) => {
     setTickets(prev =>
@@ -407,6 +726,37 @@ export default function App() {
     };
     setWorkOrders(prev => [fullWo, ...prev]);
     MicrosoftDataService.pushRecord('workOrders', fullWo);
+  };
+
+  // Add Bulk Work Orders Handler (Programación Masiva con Plantilla)
+  const handleAddBulkWorkOrders = (newWos: Partial<WorkOrder>[]) => {
+    const fullWos: WorkOrder[] = newWos.map((newWo, idx) => ({
+      id: newWo.id || `wo-bulk-${Date.now()}-${idx}`,
+      code: newWo.code || `OT-CAMP-${Math.floor(2000 + idx * 10 + Math.random() * 9)}`,
+      orderNumber: newWo.code || `OT-CAMP-${Math.floor(2000 + idx * 10 + Math.random() * 9)}`,
+      equipmentId: newWo.equipmentId || equipments[0]?.id || 'eq-gen',
+      equipmentCode: newWo.equipmentCode || 'EQ-GEN',
+      equipmentName: newWo.equipmentName || 'Mantenimiento Integral de Equipos Críticos',
+      storeId: newWo.storeId || stores[0]?.id || 'store-001',
+      storeName: newWo.storeName || stores[0]?.name || 'Tienda Tottus',
+      region: newWo.region || 'Lima y Callao',
+      type: newWo.type || 'preventivo',
+      frequency: newWo.frequency || 'semestral',
+      status: 'Programado',
+      date: newWo.date || new Date().toISOString().split('T')[0],
+      scheduledDate: newWo.scheduledDate || newWo.date || new Date().toISOString().split('T')[0],
+      technician: newWo.technician || 'Cuadrilla Especializada por Región',
+      priority: newWo.priority || 'Media',
+      notes: newWo.notes,
+      checklist: newWo.checklist || [
+        { item: 'Inspección visual de componentes y conexionado', status: 'na' },
+        { item: 'Pruebas de aislamiento eléctrico y verificación térmica', status: 'na' },
+        { item: 'Limpieza técnica y lubricación de partes móviles', status: 'na' },
+        { item: 'Prueba funcional operativa y firma de conformidad', status: 'na' }
+      ]
+    }));
+    setWorkOrders(prev => [...fullWos, ...prev]);
+    fullWos.forEach(wo => MicrosoftDataService.pushRecord('workOrders', wo));
   };
 
   // Update Work Order Status
@@ -801,6 +1151,8 @@ export default function App() {
       <CorporateLoginView
         onLoginSuccess={handleLoginSuccess}
         availableUsers={users}
+        onRecordAuditLog={handleRecordLoginAudit}
+        loginAuditLogs={loginAuditLogs}
       />
     );
   }
@@ -877,6 +1229,36 @@ export default function App() {
             <div className="h-5 w-px bg-[#e5eeff]" />
 
             {/* Quick action buttons */}
+            {hasPageAccess(currentUser.role, 'custodia') && (
+              <button
+                onClick={() => setCurrentView('custodia')}
+                className={`p-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-semibold ${
+                  currentView === 'custodia'
+                    ? 'bg-[#00236f] text-white'
+                    : 'text-[#00236f] bg-[#eff4ff] hover:bg-[#dce9ff]'
+                }`}
+                title="Custodia CCTV & Monitoreo de PDAs e Impresoras"
+              >
+                <Smartphone className="w-4 h-4" />
+                <span className="hidden xl:inline text-[11px] font-bold">Custodia CCTV</span>
+              </button>
+            )}
+
+            {hasPageAccess(currentUser.role, 'despachador') && (
+              <button
+                onClick={() => setCurrentView('despachador')}
+                className={`p-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-semibold ${
+                  currentView === 'despachador'
+                    ? 'bg-[#00236f] text-white'
+                    : 'text-[#00236f] bg-[#eff4ff] hover:bg-[#dce9ff]'
+                }`}
+                title="Despachador Rápido de Correos"
+              >
+                <Send className="w-4 h-4" />
+                <span className="hidden xl:inline text-[11px] font-bold">Despacho Correos</span>
+              </button>
+            )}
+
             <button
               onClick={() => setShowQRScanner(true)}
               className="p-1.5 rounded-lg text-[#00236f] bg-[#eff4ff] hover:bg-[#dce9ff] transition-colors"
@@ -942,7 +1324,7 @@ export default function App() {
                         Outlook Conectado
                       </span>
                       <span className="text-[10px] text-[#757682] font-semibold">
-                        {getAllowedModulesForRole(currentUser.role).length}/8 módulos
+                        {getAllowedModulesForRole(currentUser.role).length}/{Object.keys(APP_MODULES).length} módulos
                       </span>
                     </div>
                     <div className="font-bold text-xs text-[#00236f] mt-1.5">{currentUser.name}</div>
@@ -1050,10 +1432,31 @@ export default function App() {
                   workOrders={workOrders}
                   equipments={equipments}
                   stores={stores}
+                  users={users}
+                  currentUser={currentUser}
                   onAddWorkOrder={handleAddWorkOrder}
+                  onAddBulkWorkOrders={handleAddBulkWorkOrders}
                   onUpdateWorkOrder={handleUpdateWorkOrder}
                   onDeleteWorkOrder={handleDeleteWorkOrder}
                   onUpdateWorkOrderStatus={handleUpdateWorkOrderStatus}
+                />
+              )}
+
+              {currentView === 'custodia' && (
+                <DeviceCustodyView
+                  devices={deviceCustodyItems}
+                  stores={stores}
+                  colaboradores={storeColaboradores}
+                  currentUser={currentUser}
+                  equipments={equipments}
+                  onAddDevice={(dev) => setDeviceCustodyItems(prev => [dev, ...prev])}
+                  onUpdateDevice={(dev) => setDeviceCustodyItems(prev => prev.map(d => d.id === dev.id ? dev : d))}
+                  onDeleteDevice={(id) => setDeviceCustodyItems(prev => prev.filter(d => d.id !== id))}
+                  onRegisterLoan={handleRegisterLoan}
+                  onRegisterReturn={handleRegisterReturn}
+                  onReportIncident={handleReportIncident}
+                  onNavigateToHelpdesk={() => setCurrentView('helpdesk')}
+                  onNavigateToInventory={() => setCurrentView('inventario')}
                 />
               )}
 
@@ -1091,6 +1494,8 @@ export default function App() {
                   stores={stores}
                   currentUser={currentUser}
                   onAddTicket={handleAddTicket}
+                  onUpdateTicket={handleUpdateTicket}
+                  onDeleteTicket={handleDeleteTicket}
                   onUpdateTicketStatus={handleUpdateTicketStatus}
                   onAssignTechnician={handleAssignTechnician}
                 />
@@ -1103,9 +1508,20 @@ export default function App() {
                   onAddUser={handleAddUser}
                   onUpdateUser={handleUpdateUser}
                   onDeleteUser={handleDeleteUser}
+                  loginAuditLogs={loginAuditLogs}
+                  onRecordLoginAudit={handleRecordLoginAudit}
+                  onClearLoginAuditLogs={handleClearLoginAuditLogs}
+                  currentUser={currentUser}
                   onSelectStore={() => {
                     setCurrentView('tiendas');
                   }}
+                />
+              )}
+
+              {currentView === 'despachador' && (
+                <QuickEmailDispatcher
+                  currentUser={currentUser}
+                  onBackToDashboard={() => setCurrentView('dashboard')}
                 />
               )}
             </>

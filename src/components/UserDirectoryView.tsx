@@ -28,9 +28,16 @@ import {
   Smartphone,
   CheckCircle2,
   X,
-  ArrowUpDown
+  ArrowUpDown,
+  Lock,
+  Unlock,
+  Key,
+  ShieldAlert,
+  History
 } from 'lucide-react';
-import { AppUser, Store, Region } from '../types';
+import { AppUser, Store, Region, LoginAuditRecord } from '../types';
+import { DirectoryPrivilegesTab } from './DirectoryPrivilegesTab';
+import { DirectoryLoginAuditTab } from './DirectoryLoginAuditTab';
 
 interface UserDirectoryViewProps {
   users: AppUser[];
@@ -39,6 +46,10 @@ interface UserDirectoryViewProps {
   onUpdateUser?: (user: AppUser) => void;
   onDeleteUser?: (userId: string) => void;
   onSelectStore?: (store: Store) => void;
+  loginAuditLogs?: LoginAuditRecord[];
+  onRecordLoginAudit?: (record: LoginAuditRecord) => void;
+  onClearLoginAuditLogs?: () => void;
+  currentUser?: AppUser;
 }
 
 export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
@@ -47,10 +58,15 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
   onAddUser,
   onUpdateUser,
   onDeleteUser,
-  onSelectStore
+  onSelectStore,
+  loginAuditLogs = [],
+  onRecordLoginAudit,
+  onClearLoginAuditLogs,
+  currentUser
 }) => {
   // Navigation tabs
-  const [activeTab, setActiveTab] = useState<'todos' | 'tienda' | 'especialistas'>('todos');
+  const [activeTab, setActiveTab] = useState<'todos' | 'tienda' | 'especialistas' | 'privilegios' | 'auditoria_logins'>('todos');
+  const [auditFilterEmail, setAuditFilterEmail] = useState<string>('');
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
@@ -93,9 +109,27 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
   const [specialty, setSpecialty] = useState('');
   const [turno, setTurno] = useState('Completo');
   const [status, setStatus] = useState<'disponible' | 'en_servicio' | 'ausente'>('disponible');
+  const [userRole, setUserRole] = useState('Gerente de Tienda');
+  const [webAccessEnabled, setWebAccessEnabled] = useState(true);
 
   // Sync notice state
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
+
+  // Quick toggle for web access from directory
+  const handleToggleWebAccess = (user: AppUser) => {
+    if (!onUpdateUser) return;
+    const currentStatus = user.webAccessEnabled !== false;
+    const newStatus = !currentStatus;
+    const updatedUser: AppUser = {
+      ...user,
+      webAccessEnabled: newStatus
+    };
+    onUpdateUser(updatedUser);
+    setSyncNotice(
+      `Acceso web ${newStatus ? 'HABILITADO' : 'SUSPENDIDO'} para ${user.name} (${user.email})`
+    );
+    setTimeout(() => setSyncNotice(null), 3500);
+  };
 
   // Available unique stores from props
   const sortedStores = useMemo(() => {
@@ -252,6 +286,8 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
     setPhone('+51 9');
     setAnexo('');
     setCargo('Gerente de Tienda');
+    setUserRole('Gerente de Tienda');
+    setWebAccessEnabled(true);
     const firstStore = sortedStores[0];
     if (firstStore) {
       setSelectedStoreCode(String(firstStore.codTienda));
@@ -275,6 +311,8 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
     setPhone(user.phone);
     setAnexo(user.anexo || '');
     setCargo(user.cargo || user.role || 'Gerente de Tienda');
+    setUserRole(user.role || user.cargo || 'Gerente de Tienda');
+    setWebAccessEnabled(user.webAccessEnabled !== false);
     setSelectedStoreCode(user.codTienda ? String(user.codTienda) : '');
     setAssignedRegion(user.assignedRegion || 'Lima y Callao');
     setSpecialty(user.specialty || '');
@@ -300,7 +338,8 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
         phone: phone.trim(),
         anexo: anexo.trim() || undefined,
         cargo: cargo.trim(),
-        role: (cargo.trim() as any),
+        role: (userRole || cargo.trim()) as any,
+        webAccessEnabled: webAccessEnabled,
         userType,
         codTienda: userType === 'tienda' && storeObj ? storeObj.codTienda : undefined,
         tiendaNombre: userType === 'tienda' && storeObj ? storeObj.name : undefined,
@@ -328,7 +367,8 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
         phone: phone.trim(),
         anexo: anexo.trim() || undefined,
         cargo: cargo.trim(),
-        role: (cargo.trim() as any),
+        role: (userRole || cargo.trim()) as any,
+        webAccessEnabled: webAccessEnabled,
         userType,
         codTienda: userType === 'tienda' && storeObj ? storeObj.codTienda : undefined,
         tiendaNombre: userType === 'tienda' && storeObj ? storeObj.name : undefined,
@@ -665,8 +705,63 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
             {metrics.specialistUsers}
           </span>
         </button>
+
+        <button
+          onClick={() => {
+            setActiveTab('privilegios');
+          }}
+          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'privilegios'
+              ? 'bg-purple-800 text-white shadow-xs'
+              : 'bg-white text-[#444651] hover:bg-purple-50 border border-[#dce9ff]'
+          }`}
+        >
+          <Shield className="w-3.5 h-3.5 text-purple-300" />
+          <span>Privilegios & Acceso Web</span>
+          <span className="bg-white/20 px-1.5 py-0.2 rounded-full text-[10px]">
+            RBAC
+          </span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab('auditoria_logins');
+          }}
+          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'auditoria_logins'
+              ? 'bg-amber-600 text-white shadow-xs'
+              : 'bg-white text-[#444651] hover:bg-amber-50 border border-[#dce9ff]'
+          }`}
+        >
+          <History className="w-3.5 h-3.5 text-amber-300" />
+          <span>Auditoría de Logins</span>
+          {loginAuditLogs && loginAuditLogs.length > 0 && (
+            <span className="bg-white/20 px-1.5 py-0.2 rounded-full text-[10px]">
+              {loginAuditLogs.length}
+            </span>
+          )}
+        </button>
       </div>
 
+      {activeTab === 'privilegios' ? (
+        <DirectoryPrivilegesTab
+          users={users}
+          onUpdateUser={onUpdateUser}
+          onNavigateToAudit={(email) => {
+            setAuditFilterEmail(email || '');
+            setActiveTab('auditoria_logins');
+          }}
+        />
+      ) : activeTab === 'auditoria_logins' ? (
+        <DirectoryLoginAuditTab
+          loginAuditLogs={loginAuditLogs || []}
+          users={users}
+          currentUser={currentUser}
+          onClearLogs={onClearLoginAuditLogs}
+          initialFilterEmail={auditFilterEmail}
+        />
+      ) : (
+        <>
       {/* Filter Toolbar */}
       <div className="bg-white p-3.5 rounded-xl border border-[#dce9ff] shadow-xs space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
@@ -915,13 +1010,14 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
                     </span>
                   </div>
                 </th>
+                <th className="py-3 px-3.5 text-center">ACCESO WEB</th>
                 <th className="py-3 px-3.5 text-center">ACCIONES</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f0f4ff]">
               {paginatedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-[#757682]">
+                  <td colSpan={9} className="py-12 text-center text-[#757682]">
                     <div className="max-w-md mx-auto space-y-2">
                       <Users className="w-8 h-8 text-[#a3b3d1] mx-auto" />
                       <p className="font-semibold text-[#0b1c30]">
@@ -1108,6 +1204,35 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
                         </div>
                       </td>
 
+                      {/* ACCESO WEB */}
+                      <td className="py-3 px-3.5 text-center whitespace-nowrap">
+                        <button
+                          onClick={() => handleToggleWebAccess(user)}
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer transition-all shadow-2xs ${
+                            user.webAccessEnabled !== false
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
+                              : 'bg-rose-100 text-rose-800 border border-rose-300 hover:bg-rose-200'
+                          }`}
+                          title={
+                            user.webAccessEnabled !== false
+                              ? 'Habilitado para ingresar con Outlook. Click para inhabilitar.'
+                              : 'Inhabilitado (Acceso web bloqueado). Click para habilitar.'
+                          }
+                        >
+                          {user.webAccessEnabled !== false ? (
+                            <>
+                              <Unlock className="w-3 h-3 text-emerald-600" />
+                              <span>Habilitado</span>
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="w-3 h-3 text-rose-600" />
+                              <span>Bloqueado</span>
+                            </>
+                          )}
+                        </button>
+                      </td>
+
                       {/* ACCIONES */}
                       <td className="py-3 px-3.5 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1">
@@ -1165,6 +1290,8 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
           </div>
         </div>
       </div>
+      </>
+      )}
 
       {/* Modal: Registrar o Editar Colaborador en Agenda */}
       {showModal && (
@@ -1436,6 +1563,52 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
                   <option value="en_servicio">🔵 En Servicio / Turno Activo</option>
                   <option value="ausente">🟡 Ausente / Licencia / Descanso</option>
                 </select>
+              </div>
+
+              {/* Rol y Privilegios en la Web (Seguridad Corporativa) */}
+              <div className="p-3.5 bg-[#f0f4ff] rounded-xl border border-[#dce9ff] space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[#00236f]">
+                  <Shield className="w-4 h-4 text-[#00236f]" />
+                  <span>Privilegios & Acceso Web Corporativo</span>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Rol Asignado en Plataforma
+                  </label>
+                  <select
+                    value={userRole}
+                    onChange={e => setUserRole(e.target.value)}
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg text-[#0b1c30] font-semibold focus:ring-1 focus:ring-[#00236f]"
+                  >
+                    <option value="Administrador">Administrador General (Acceso Total)</option>
+                    <option value="Supervisor Regional">Supervisor Regional</option>
+                    <option value="IT Operator">IT Operator Onsite</option>
+                    <option value="Jefe de Mantenimiento">Jefe de Mantenimiento</option>
+                    <option value="Gerente de Tienda">Gerente de Tienda</option>
+                    <option value="Técnico Especialista">Técnico Especialista</option>
+                    <option value="Técnico de Campo">Técnico de Campo</option>
+                    <option value="Auditor / Consulta">Auditor / Solo Consulta</option>
+                  </select>
+                </div>
+
+                {/* Switch Acceso Web */}
+                <label className="flex items-start gap-2.5 cursor-pointer pt-1">
+                  <input
+                    type="checkbox"
+                    checked={webAccessEnabled}
+                    onChange={e => setWebAccessEnabled(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 text-[#00236f] rounded border-[#c5c5d3] focus:ring-[#00236f]"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-[#0b1c30] block">
+                      Habilitar Acceso al Portal Web CMMS
+                    </span>
+                    <span className="text-[11px] text-[#757682] leading-tight block">
+                      Requisito de seguridad: Si no está habilitado en directorio, el usuario no podrá iniciar sesión con su cuenta Outlook (@tottus.com.pe) y el sistema bloqueará el ingreso registrando el intento en auditoría.
+                    </span>
+                  </div>
+                </label>
               </div>
 
               {/* Botones de Acción */}

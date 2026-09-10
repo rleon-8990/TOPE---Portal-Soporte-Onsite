@@ -13,19 +13,31 @@ import {
   EyeOff,
   Sparkles,
   ExternalLink,
-  Laptop
+  Laptop,
+  ShieldAlert,
+  UserX,
+  History,
+  X,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  Info
 } from 'lucide-react';
-import { AppUser } from '../types';
+import { AppUser, LoginAuditRecord } from '../types';
 import { isCorporateEmail, getRoleConfig } from '../utils/rbac';
 
 interface CorporateLoginViewProps {
   onLoginSuccess: (user: AppUser) => void;
   availableUsers: AppUser[];
+  onRecordAuditLog?: (record: LoginAuditRecord) => void;
+  loginAuditLogs?: LoginAuditRecord[];
 }
 
 export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
   onLoginSuccess,
-  availableUsers
+  availableUsers,
+  onRecordAuditLog,
+  loginAuditLogs = []
 }) => {
   // State for form
   const [email, setEmail] = useState<string>('rleon@tottus.com.pe');
@@ -33,8 +45,15 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [rememberMe, setRememberMe] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [blockedDetail, setBlockedDetail] = useState<{
+    type: 'not_found' | 'disabled';
+    email: string;
+    userName?: string;
+    message: string;
+  } | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
   const [showMsalModal, setShowMsalModal] = useState<boolean>(false);
+  const [showAuditModal, setShowAuditModal] = useState<boolean>(false);
   const [msalStep, setMsalStep] = useState<'prompt' | 'authorizing' | 'success'>('prompt');
   const [selectedUserForMsal, setSelectedUserForMsal] = useState<AppUser | null>(null);
 
@@ -44,59 +63,106 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
       label: 'Administrador General (8/8 Módulos)',
       user: availableUsers.find(u => u.email === 'rleon@tottus.com.pe') || availableUsers[0],
       roleBadge: 'Administrador',
-      accessBadge: 'Acceso Total (8 Módulos)'
+      accessBadge: 'Acceso Total (8 Módulos)',
+      statusBadge: 'Habilitado en Directorio'
     },
     {
       label: 'Supervisor Regional (7/8 Módulos)',
-      user: availableUsers.find(u => u.role.includes('Supervisor')) || availableUsers[3],
+      user: availableUsers.find(u => u.role?.includes('Supervisor')) || availableUsers[3],
       roleBadge: 'Supervisor Regional',
-      accessBadge: 'Supervisión y Tiendas (7 Módulos)'
+      accessBadge: 'Supervisión y Tiendas (7 Módulos)',
+      statusBadge: 'Habilitado en Directorio'
     },
     {
-      label: 'Técnico Especialista / IT Operator (5/8 Módulos)',
-      user: availableUsers.find(u => u.email === 'rleon.ti@tottus.com.pe' || u.role.includes('Operator')) || availableUsers[1],
-      roleBadge: 'IT Operator / Especialista',
-      accessBadge: 'Operativo & OTs (5 Módulos)'
+      label: 'IT Operator en Tienda Megaplaza (5/8 Módulos)',
+      user: availableUsers.find(u => u.email === 'jbravo@tottus.com.pe' || u.role?.includes('Operator')) || availableUsers[1],
+      roleBadge: 'IT Operator',
+      accessBadge: 'Operativo & OTs (5 Módulos)',
+      statusBadge: 'Habilitado en Directorio'
     },
     {
       label: 'Gerente de Tienda (4/8 Módulos)',
-      user: availableUsers.find(u => u.role.includes('Gerente de Tienda')) || availableUsers[6],
+      user: availableUsers.find(u => u.role?.includes('Gerente de Tienda') || u.email === 'rpaz@tottus.com.pe') || availableUsers[6],
       roleBadge: 'Gerente Tienda',
-      accessBadge: 'Tienda T-103 (4 Módulos)'
-    },
-    {
-      label: 'Jefe de Mantenimiento (6/8 Módulos)',
-      user: availableUsers.find(u => u.role.includes('Jefe de Mantenimiento')) || availableUsers[7],
-      roleBadge: 'Mantenimiento',
-      accessBadge: 'Técnico y Equipos (6 Módulos)'
+      accessBadge: 'Tienda T-103 (4 Módulos)',
+      statusBadge: 'Habilitado en Directorio'
     }
   ];
 
-  const handleCorporateLogin = (targetUser?: AppUser) => {
+  const handleCorporateLogin = (targetUser?: AppUser, forceUnregisteredEmail?: string) => {
     setError(null);
-    const userToAuth = targetUser || availableUsers.find(u => u.email.toLowerCase() === email.toLowerCase()) || {
-      id: `usr-ext-${Date.now()}`,
-      name: email.split('@')[0].replace('.', ' ').replace(/\b\w/g, l => l.toUpperCase()),
-      email: email.toLowerCase(),
-      role: 'IT Operator',
-      cargo: 'Soporte Informático Onsite',
-      phone: '+51 999 000 123',
-      assignedRegion: 'Lima y Callao' as const,
-      avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
-      status: 'disponible' as const,
-      userType: 'tienda' as const,
-      codTienda: 103,
-      tiendaNombre: 'Megaplaza'
-    };
+    setBlockedDetail(null);
 
-    if (!targetUser) {
-      if (!isCorporateEmail(email)) {
-        setError('El dominio ingresado no es un correo corporativo válido. Utilice su cuenta @tottus.com.pe, @falabella.com o @reliant-cmms.pe.');
-        return;
-      }
+    const emailToTest = (forceUnregisteredEmail || (targetUser ? targetUser.email : email)).trim().toLowerCase();
+
+    if (!isCorporateEmail(emailToTest)) {
+      setError('El dominio ingresado no es un correo corporativo válido. Utilice su cuenta @tottus.com.pe, @falabella.com o @reliant-cmms.pe.');
+      return;
     }
 
-    setSelectedUserForMsal(userToAuth);
+    // 1. REGLA ESTRICTA: El usuario DEBE estar registrado en el Directorio (availableUsers)
+    const existingUser = targetUser || availableUsers.find(u => u.email.toLowerCase() === emailToTest);
+
+    if (!existingUser) {
+      // Registrar intento bloqueado en auditoría
+      const blockedRecord: LoginAuditRecord = {
+        id: `audit-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        timeAgo: 'Justo ahora',
+        userEmail: emailToTest,
+        userName: 'Cuenta No Registrada',
+        userRole: 'Sin Privilegios',
+        status: 'bloqueado_no_en_directorio',
+        ipAddress: '190.237.14.88 [Red Pública / Móvil]',
+        deviceInfo: navigator.userAgent.includes('Mobile') ? 'Safari Mobile / iPhone' : 'Chrome 128 / Windows',
+        locationOrStore: 'Acceso Denegado',
+        notes: 'Intento de login rechazado: El usuario no figura en el Directorio Corporativo de Sistemas.'
+      };
+      if (onRecordAuditLog) {
+        onRecordAuditLog(blockedRecord);
+      }
+
+      setError(`⛔ Cuenta No Autorizada: El correo "${emailToTest}" no se encuentra registrado en el Directorio Corporativo.`);
+      setBlockedDetail({
+        type: 'not_found',
+        email: emailToTest,
+        message: 'Por políticas de seguridad de Hipermercados Tottus, solo colaboradores dados de alta previamente en el Directorio de Sistemas por el Administrador (rleon@tottus.com.pe) pueden ingresar al portal.'
+      });
+      return;
+    }
+
+    // 2. REGLA ESTRICTA: Verificar si el usuario está HABILITADO para acceso web (webAccessEnabled !== false)
+    if (existingUser.webAccessEnabled === false) {
+      // Registrar intento bloqueado por inhabilitación
+      const blockedRecord: LoginAuditRecord = {
+        id: `audit-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        timeAgo: 'Justo ahora',
+        userEmail: existingUser.email,
+        userName: existingUser.name,
+        userRole: existingUser.role,
+        status: 'bloqueado_inhabilitado',
+        ipAddress: '10.24.180.99 [LAN Tienda/Corp]',
+        deviceInfo: navigator.userAgent.includes('Mobile') ? 'Dispositivo Móvil' : 'Navegador Web / Windows',
+        locationOrStore: existingUser.tiendaNombre ? `T-${existingUser.codTienda} ${existingUser.tiendaNombre}` : 'Sede Central',
+        notes: `Intento de login rechazado: El usuario está registrado pero sus privilegios web están suspendidos en Directorio.`
+      };
+      if (onRecordAuditLog) {
+        onRecordAuditLog(blockedRecord);
+      }
+
+      setError(`🔒 Acceso Web Deshabilitado: La cuenta "${existingUser.email}" está registrada pero sus privilegios de ingreso han sido suspendidos.`);
+      setBlockedDetail({
+        type: 'disabled',
+        email: existingUser.email,
+        userName: existingUser.name,
+        message: `El usuario ${existingUser.name} (${existingUser.role}) tiene su switch de "Acceso Web" apagado en el Directorio de Personal. Contacte al Administrador de Sistemas para reactivar sus permisos.`
+      });
+      return;
+    }
+
+    // 3. Usuario registrado y habilitado -> Proceder con autenticación MSAL / Outlook
+    setSelectedUserForMsal(existingUser);
     setShowMsalModal(true);
     setMsalStep('prompt');
   };
@@ -107,8 +173,34 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
       setMsalStep('success');
       setTimeout(() => {
         if (selectedUserForMsal) {
+          // Registrar login exitoso en Auditoría de Accesos
+          const successRecord: LoginAuditRecord = {
+            id: `audit-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            timeAgo: 'Justo ahora',
+            userEmail: selectedUserForMsal.email,
+            userName: selectedUserForMsal.name,
+            userRole: selectedUserForMsal.role,
+            status: 'exitoso',
+            ipAddress: selectedUserForMsal.email === 'rleon@tottus.com.pe' ? '10.24.180.45 [Red Sede Central]' : '10.24.103.15 [LAN Tienda]',
+            deviceInfo: 'Chrome 128 · Windows 11 Enterprise (Entra ID)',
+            locationOrStore: selectedUserForMsal.tiendaNombre ? `T-${selectedUserForMsal.codTienda} ${selectedUserForMsal.tiendaNombre}` : 'Sede Central San Isidro',
+            notes: `Inicio de sesión exitoso con cuenta corporativa Outlook (${selectedUserForMsal.role})`
+          };
+          if (onRecordAuditLog) {
+            onRecordAuditLog(successRecord);
+          }
+
+          const updatedUser: AppUser = {
+            ...selectedUserForMsal,
+            lastLoginAt: new Date().toLocaleString('es-PE'),
+            lastLoginIp: successRecord.ipAddress,
+            loginDevice: successRecord.deviceInfo,
+            loginCount: (selectedUserForMsal.loginCount || 0) + 1
+          };
+
           setShowMsalModal(false);
-          onLoginSuccess(selectedUserForMsal);
+          onLoginSuccess(updatedUser);
         }
       }, 900);
     }, 1200);
@@ -208,22 +300,53 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
                 <h3 className="text-xl font-bold text-[#00236f] tracking-tight">
                   Iniciar Sesión Institucional
                 </h3>
-                <span className="text-[10px] font-semibold text-[#007a33] bg-[#007a33]/10 px-2 py-0.5 rounded-md">
-                  Falabella ID
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-semibold text-[#007a33] bg-[#007a33]/10 px-2 py-0.5 rounded-md">
+                    Falabella ID
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAuditModal(true)}
+                    className="text-[10px] font-semibold text-[#00236f] bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors cursor-pointer"
+                    title="Ver registro de auditoría de logins"
+                  >
+                    <History className="w-3 h-3 text-[#00236f]" />
+                    <span>Auditoría Logins ({loginAuditLogs.length})</span>
+                  </button>
+                </div>
               </div>
               <p className="text-xs text-[#525e75] mt-1">
-                Ingrese sus credenciales de Microsoft 365 o inicie con su cuenta corporativa detectada.
+                Ingrese sus credenciales de Microsoft 365. <strong>Solo usuarios registrados y habilitados en el Directorio tienen autorización de acceso.</strong>
               </p>
             </div>
 
-            {/* Error Message */}
+            {/* Error Message & Detailed Security Block Card */}
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-xs text-red-800 animate-fadeIn">
-                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <span className="font-semibold block">Acceso no autorizado</span>
-                  <span>{error}</span>
+              <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl space-y-2 animate-fadeIn text-xs text-red-900">
+                <div className="flex items-start gap-2.5">
+                  <ShieldAlert className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <span className="font-bold block text-red-900">{error}</span>
+                    {blockedDetail && (
+                      <p className="text-[11px] text-red-700 mt-1 leading-relaxed">
+                        {blockedDetail.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-white/80 p-2.5 rounded-lg border border-red-200/60 text-[11px] flex items-center justify-between text-red-800">
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-red-600" />
+                    <span>Intento registrado en la Auditoría de Seguridad</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAuditModal(true)}
+                    className="underline font-semibold hover:text-red-950 cursor-pointer"
+                  >
+                    Ver detalle en Auditoría
+                  </button>
                 </div>
               </div>
             )}
@@ -377,6 +500,70 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
                   );
                 })}
               </div>
+
+              {/* SECURITY TEST SCENARIOS (DEMONSTRATION OF RESTRICTIONS) */}
+              <div className="pt-2.5 space-y-1.5">
+                <div className="flex items-center justify-between text-[10px] text-[#757682]">
+                  <span className="font-semibold text-slate-700 flex items-center gap-1">
+                    <ShieldAlert className="w-3 h-3 text-amber-600" />
+                    Probar Validación de Restricciones del Directorio:
+                  </span>
+                  <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.2 rounded font-mono">
+                    Whitelist Enforcement
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const disabledTestUser: AppUser = {
+                        ...(availableUsers[1] || availableUsers[0]),
+                        id: 'usr-disabled-test',
+                        name: 'Pedro Morales',
+                        email: 'pedro.morales@tottus.com.pe',
+                        role: 'Técnico de Campo',
+                        webAccessEnabled: false,
+                        status: 'ausente'
+                      };
+                      handleCorporateLogin(disabledTestUser);
+                    }}
+                    className="p-2 rounded-lg border border-red-200 bg-red-50/60 hover:bg-red-100/70 transition-all text-left flex items-center gap-2 cursor-pointer group"
+                    title="Simula un usuario en el directorio con el switch de Acceso Web apagado"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-red-100 text-red-700 flex items-center justify-center shrink-0">
+                      <Lock className="w-3 h-3" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[11px] font-bold text-red-900 truncate">
+                        Probar Usuario Inhabilitado
+                      </div>
+                      <div className="text-[9px] text-red-700 truncate">
+                        pedro.morales@tottus (Acceso apagado)
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCorporateLogin(undefined, 'externo.proveedor@tottus.com.pe')}
+                    className="p-2 rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 transition-all text-left flex items-center gap-2 cursor-pointer group"
+                    title="Simula un intento de login con un correo que NO está dado de alta en el Directorio"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center shrink-0">
+                      <UserX className="w-3 h-3" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[11px] font-bold text-slate-800 truncate">
+                        Probar No Registrado en Directorio
+                      </div>
+                      <div className="text-[9px] text-slate-600 truncate">
+                        externo.proveedor@tottus.com.pe
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
             </div>
 
           </div>
@@ -493,6 +680,174 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
             <div className="bg-[#f9fafb] px-5 py-2.5 border-t border-slate-100 text-[10px] text-slate-400 flex items-center justify-between">
               <span>Tenant ID: tottus-corp.onmicrosoft.com</span>
               <span>TLS 1.3 Seguro</span>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Login Audit Log Inspection Modal */}
+      {showAuditModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[88vh] shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-slideUp">
+            
+            {/* Modal Header */}
+            <div className="bg-[#00236f] text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                  <History className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">
+                    Auditoría de Inicios de Sesión y Control de Acceso Web
+                  </h3>
+                  <p className="text-[11px] text-white/70">
+                    Registro de eventos de autenticación, IPs, dispositivos y validación de directorio en tiempo real
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAuditModal(false)}
+                className="w-7 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+              
+              {/* Informative Banner */}
+              <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3 text-blue-900">
+                <Info className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-semibold text-xs text-blue-950">
+                    Monitoreo de Cuentas Institucionales (@tottus.com.pe)
+                  </p>
+                  <p className="text-[11px] text-blue-800 leading-relaxed">
+                    Si un usuario intenta conectarse desde otra máquina o con otra cuenta (incluso si intentan iniciar sesión con <strong>rleon@tottus.com.pe</strong>), el sistema audita la IP de origen, el dispositivo y el resultado. Si la cuenta no está dada de alta en el Directorio o está deshabilitada, el acceso se bloquea de forma inmediata.
+                  </p>
+                </div>
+              </div>
+
+              {/* Metrics Row */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Total Intentos</div>
+                  <div className="text-xl font-extrabold text-[#00236f] mt-0.5">{loginAuditLogs.length}</div>
+                </div>
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                  <div className="text-[10px] text-emerald-700 font-semibold uppercase tracking-wider">Logins Exitosos</div>
+                  <div className="text-xl font-extrabold text-emerald-700 mt-0.5">
+                    {loginAuditLogs.filter(l => l.status === 'exitoso').length}
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
+                  <div className="text-[10px] text-amber-800 font-semibold uppercase tracking-wider">No en Directorio</div>
+                  <div className="text-xl font-extrabold text-amber-700 mt-0.5">
+                    {loginAuditLogs.filter(l => l.status === 'bloqueado_no_en_directorio').length}
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200">
+                  <div className="text-[10px] text-red-800 font-semibold uppercase tracking-wider">Inhabilitados</div>
+                  <div className="text-xl font-extrabold text-red-700 mt-0.5">
+                    {loginAuditLogs.filter(l => l.status === 'bloqueado_inhabilitado').length}
+                  </div>
+                </div>
+              </div>
+
+              {/* Audit Table */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                <div className="bg-slate-100 px-4 py-2.5 font-bold text-slate-700 text-[11px] border-b border-slate-200 flex items-center justify-between">
+                  <span>Eventos Recientes de Autenticación</span>
+                  <span className="text-[10px] font-normal text-slate-500 font-mono">
+                    {loginAuditLogs.length} registros en memoria
+                  </span>
+                </div>
+
+                <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
+                  {loginAuditLogs.length === 0 ? (
+                    <div className="p-6 text-center text-slate-400">
+                      No hay registros de auditoría de login en esta sesión.
+                    </div>
+                  ) : (
+                    loginAuditLogs.map((record) => {
+                      const isSuccess = record.status === 'exitoso';
+                      const isNotInDir = record.status === 'bloqueado_no_en_directorio';
+                      const isRleon = record.userEmail.includes('rleon@');
+
+                      return (
+                        <div
+                          key={record.id}
+                          className={`p-3 transition-colors ${
+                            isRleon ? 'bg-amber-50/40 hover:bg-amber-50/80' : 'hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                            <div className="flex items-center gap-2">
+                              {isSuccess ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                                  <CheckCircle className="w-3 h-3" /> Exitoso
+                                </span>
+                              ) : isNotInDir ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+                                  <UserX className="w-3 h-3" /> No en Directorio
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">
+                                  <Lock className="w-3 h-3" /> Inhabilitado
+                                </span>
+                              )}
+
+                              <span className="font-bold text-slate-900 text-xs">{record.userName}</span>
+                              <span className="text-[11px] text-slate-500 font-mono">({record.userEmail})</span>
+                              {isRleon && (
+                                <span className="text-[9px] font-bold bg-[#00236f] text-white px-1.5 py-0.2 rounded">
+                                  Cuenta Admin
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="text-[10px] text-slate-500 flex items-center gap-2">
+                              <span>{record.timeAgo || new Date(record.timestamp).toLocaleTimeString()}</span>
+                              <span>•</span>
+                              <span className="font-mono text-slate-600 font-semibold">{record.ipAddress}</span>
+                            </div>
+                          </div>
+
+                          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-600">
+                            <span>💻 {record.deviceInfo}</span>
+                            <span>📍 {record.locationOrStore}</span>
+                            <span>🛡️ Rol: {record.userRole}</span>
+                          </div>
+
+                          {record.notes && (
+                            <div className="mt-1 text-[10px] text-slate-500 italic bg-white/70 px-2 py-1 rounded border border-slate-100">
+                              {record.notes}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between text-xs">
+              <span className="text-[11px] text-slate-500">
+                La administración de privilegios y switches de acceso se gestiona dentro del <strong>Directorio</strong>.
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowAuditModal(false)}
+                className="px-4 py-1.5 bg-[#00236f] text-white font-bold rounded-lg hover:bg-[#1e3a8a] transition-colors cursor-pointer text-xs"
+              >
+                Cerrar Auditoría
+              </button>
             </div>
 
           </div>

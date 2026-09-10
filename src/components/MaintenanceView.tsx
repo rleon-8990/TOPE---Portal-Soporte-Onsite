@@ -26,17 +26,24 @@ import {
   RotateCcw,
   Sparkles,
   Layers,
-  ZoomIn
+  ZoomIn,
+  Mail,
+  Send
 } from 'lucide-react';
-import { WorkOrder, Equipment, Store, MaintenanceType, MaintenanceFrequency, WorkOrderStatus } from '../types';
+import { WorkOrder, Equipment, Store, MaintenanceType, MaintenanceFrequency, WorkOrderStatus, AppUser } from '../types';
 import { INITIAL_USERS } from '../data/mockData';
 import { SignaturePad } from './SignaturePad';
+import { MaintenanceSchedulerModal } from './MaintenanceSchedulerModal';
+import { StoreEmailNotificationModal } from './StoreEmailNotificationModal';
 
 interface MaintenanceViewProps {
   workOrders: WorkOrder[];
   equipments: Equipment[];
   stores: Store[];
+  users?: AppUser[];
+  currentUser?: AppUser;
   onAddWorkOrder: (newWo: Partial<WorkOrder>) => void;
+  onAddBulkWorkOrders?: (newWos: Partial<WorkOrder>[]) => void;
   onUpdateWorkOrder?: (updatedWo: WorkOrder) => void;
   onDeleteWorkOrder?: (id: string) => void;
   onUpdateWorkOrderStatus: (id: string, status: WorkOrderStatus) => void;
@@ -78,7 +85,10 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({
   workOrders,
   equipments,
   stores,
+  users = INITIAL_USERS,
+  currentUser,
   onAddWorkOrder,
+  onAddBulkWorkOrders,
   onUpdateWorkOrder,
   onDeleteWorkOrder,
   onUpdateWorkOrderStatus,
@@ -87,6 +97,11 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<'todos' | WorkOrderStatus>('todos');
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewModal, setShowNewModal] = useState(false);
+  const [showSchedulerModal, setShowSchedulerModal] = useState(false);
+  const [schedulerMode, setSchedulerMode] = useState<'individual' | 'masivo'>('individual');
+  const [showStoreEmailModal, setShowStoreEmailModal] = useState(false);
+  const [storeEmailTargetId, setStoreEmailTargetId] = useState<string | undefined>(undefined);
+  const [storeEmailTargetWo, setStoreEmailTargetWo] = useState<WorkOrder | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedWoDetail, setSelectedWoDetail] = useState<WorkOrder | null>(null);
   const [editingWo, setEditingWo] = useState<WorkOrder | null>(null);
@@ -379,16 +394,47 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setNewChecklistItems([...CHECKLIST_PRESETS.general]);
-            setShowNewModal(true);
-          }}
-          className="bg-[#00236f] text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-md shadow-[#00236f]/20 hover:bg-[#1e3a8a] transition-all flex items-center gap-1.5 shrink-0 active:scale-95 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Programar Mantenimiento</span>
-        </button>
+        <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+          {/* Botón Enviar Aviso por Correo */}
+          <button
+            onClick={() => {
+              setStoreEmailTargetId(undefined);
+              setStoreEmailTargetWo(null);
+              setShowStoreEmailModal(true);
+            }}
+            className="bg-white border border-[#b4c8f0] text-[#00236f] px-3.5 py-2 rounded-lg text-xs font-semibold hover:bg-[#eff4ff] transition-all flex items-center gap-1.5 shrink-0 active:scale-95 shadow-2xs"
+            title="Enviar aviso por correo a la tienda seleccionando destinatarios del directorio"
+          >
+            <Mail className="w-4 h-4 text-[#fd761a]" />
+            <span>Aviso a Tienda</span>
+          </button>
+
+          {/* Botón Programación Masiva con Plantilla */}
+          <button
+            onClick={() => {
+              setSchedulerMode('masivo');
+              setShowSchedulerModal(true);
+            }}
+            className="bg-[#fd761a] text-white px-3.5 py-2 rounded-lg text-xs font-semibold shadow-md shadow-[#fd761a]/20 hover:bg-[#e0630d] transition-all flex items-center gap-1.5 shrink-0 active:scale-95"
+            title="Programación masiva para todas las tiendas (90) con plantilla institucional"
+          >
+            <Layers className="w-4 h-4" />
+            <span>Programación Masiva (90 Tiendas)</span>
+          </button>
+
+          {/* Botón Programación Individual */}
+          <button
+            onClick={() => {
+              setSchedulerMode('individual');
+              setShowSchedulerModal(true);
+            }}
+            className="bg-[#00236f] text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-md shadow-[#00236f]/20 hover:bg-[#1e3a8a] transition-all flex items-center gap-1.5 shrink-0 active:scale-95"
+            title="Programar mantenimiento individual"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Programar Orden</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Controls Bar */}
@@ -700,7 +746,7 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({
                         </span>
                       </td>
 
-                      {/* ACCIONES: Checklist, Modificar, Eliminar */}
+                      {/* ACCIONES: Checklist, Enviar Correo a Tienda, Modificar, Eliminar */}
                       <td className="py-3 px-3.5 text-center whitespace-nowrap" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-1">
                           <button
@@ -709,6 +755,17 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({
                             title="Abrir checklist de inspección y evidencias"
                           >
                             Checklist
+                          </button>
+                          <button
+                            onClick={() => {
+                              setStoreEmailTargetId(wo.storeId);
+                              setStoreEmailTargetWo(wo);
+                              setShowStoreEmailModal(true);
+                            }}
+                            className="p-1 rounded border border-[#b4c8f0] text-[#00236f] bg-white hover:bg-[#00236f] hover:text-white transition-colors"
+                            title="Enviar aviso por correo a la tienda (Directorio de Destinatarios)"
+                          >
+                            <Mail className="w-3.5 h-3.5 text-[#fd761a]" />
                           </button>
                           <button
                             onClick={() => handleOpenEdit(wo)}
@@ -1121,7 +1178,21 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({
                 ))}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStoreEmailTargetId(selectedWoDetail.storeId);
+                    setStoreEmailTargetWo(selectedWoDetail);
+                    setShowStoreEmailModal(true);
+                  }}
+                  className="px-3 py-2 bg-white border border-[#b4c8f0] text-[#00236f] hover:bg-[#eff4ff] text-xs font-semibold rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors"
+                  title="Enviar correo de notificación al personal de la tienda desde el directorio"
+                >
+                  <Mail className="w-3.5 h-3.5 text-[#fd761a]" />
+                  <span>Aviso por Correo a Tienda</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => handleDelete(selectedWoDetail)}
@@ -1143,6 +1214,34 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal de Programación (Individual y Masiva con Plantilla y Correo Integrado) */}
+      <MaintenanceSchedulerModal
+        isOpen={showSchedulerModal}
+        onClose={() => setShowSchedulerModal(false)}
+        stores={stores}
+        equipments={equipments}
+        users={users}
+        currentUser={currentUser}
+        onAddWorkOrder={onAddWorkOrder}
+        onAddBulkWorkOrders={onAddBulkWorkOrders}
+        defaultMode={schedulerMode}
+      />
+
+      {/* Modal de Enviar Correo a Tienda con Destinatarios del Directorio */}
+      <StoreEmailNotificationModal
+        isOpen={showStoreEmailModal}
+        onClose={() => {
+          setShowStoreEmailModal(false);
+          setStoreEmailTargetId(undefined);
+          setStoreEmailTargetWo(null);
+        }}
+        stores={stores}
+        users={users}
+        currentUser={currentUser}
+        initialStoreId={storeEmailTargetId}
+        initialWorkOrder={storeEmailTargetWo}
+      />
 
       {/* Program New Work Order Modal */}
       {showNewModal && (

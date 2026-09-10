@@ -1990,6 +1990,11 @@ export const INITIAL_USERS: AppUser[] = [
     activeTicketsCount: 3,
     userType: 'especialista',
     cargo: 'Director de Mantenimiento & Operaciones',
+    webAccessEnabled: true,
+    lastLoginAt: 'Hoy, 08:30 AM',
+    lastLoginIp: '10.24.180.45 [Red Central]',
+    loginDevice: 'Chrome 128 / Windows 11',
+    loginCount: 142
   },
   {
     id: 'usr-2',
@@ -2005,6 +2010,10 @@ export const INITIAL_USERS: AppUser[] = [
     activeTicketsCount: 4,
     userType: 'especialista',
     cargo: 'Especialista Frío & Climatización',
+    webAccessEnabled: true,
+    lastLoginAt: 'Ayer, 16:20 PM',
+    lastLoginIp: '10.24.103.22 [LAN Tienda]',
+    loginCount: 56
   },
   {
     id: 'usr-3',
@@ -2020,6 +2029,10 @@ export const INITIAL_USERS: AppUser[] = [
     activeTicketsCount: 2,
     userType: 'especialista',
     cargo: 'Especialista Electromecánico',
+    webAccessEnabled: true,
+    lastLoginAt: 'Hace 3 días',
+    lastLoginIp: '10.24.201.12 [LAN Norte]',
+    loginCount: 38
   },
   {
     id: 'usr-4',
@@ -2035,6 +2048,29 @@ export const INITIAL_USERS: AppUser[] = [
     activeTicketsCount: 1,
     userType: 'especialista',
     cargo: 'Supervisora Regional Sur',
+    webAccessEnabled: true,
+    lastLoginAt: 'Hoy, 09:15 AM',
+    lastLoginIp: '10.24.316.10 [LAN Arequipa]',
+    loginCount: 94
+  },
+  {
+    id: 'usr-disabled-1',
+    name: 'Pedro Morales (Inhabilitado)',
+    email: 'pedro.morales@tottus.com.pe',
+    role: 'Técnico de Campo',
+    specialty: 'Soporte Preventivo Nivel 1',
+    phone: '+51 955 889 001',
+    assignedRegion: 'Lima y Callao',
+    assignedStoresCount: 0,
+    avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
+    status: 'ausente',
+    activeTicketsCount: 0,
+    userType: 'especialista',
+    cargo: 'Técnico de Soporte Terreno (Baja Temporal)',
+    webAccessEnabled: false,
+    lastLoginAt: 'Acceso Web Bloqueado',
+    lastLoginIp: '190.237.14.88 [Rechazado]',
+    loginCount: 0
   },
   {
     id: 'usr-5',

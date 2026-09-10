@@ -341,6 +341,32 @@ export interface AppUser {
   geoVictoriaId?: string;
   geoVictoriaEnrolled?: boolean;
   geoVictoriaMethod?: 'facial' | 'huella' | 'app_gps' | 'pin';
+
+  // Control de Acceso Web & Habilitación en Directorio
+  webAccessEnabled?: boolean; // true = permitido para ingresar al portal web; false = bloqueado
+  lastLoginAt?: string; // Fecha y hora del último login registrado
+  lastLoginIp?: string; // Dirección IP del último login
+  loginDevice?: string; // Dispositivo / Navegador registrado
+  loginCount?: number; // Total de inicios de sesión exitosos
+}
+
+export interface LoginAuditRecord {
+  id: string;
+  timestamp: string;
+  timeAgo?: string;
+  userEmail?: string;
+  userName: string;
+  userRole?: string;
+  email?: string;
+  role?: string;
+  status: 'exitoso' | 'bloqueado_no_en_directorio' | 'bloqueado_inhabilitado' | 'success' | 'blocked_not_in_directory' | 'blocked_disabled';
+  ipAddress: string;
+  deviceInfo?: string;
+  device?: string;
+  locationOrStore?: string;
+  storeName?: string;
+  notes?: string;
+  reason?: string;
 }
 
 export interface PushNotification {
@@ -528,3 +554,132 @@ export interface GeofencingConfig {
   distanceToNearestMeters?: number;
   isInsideGeofence?: boolean;
 }
+
+// ==========================================
+// Despachador Rápido de Correos (Email Dispatcher)
+// ==========================================
+
+export interface EmailRecipient {
+  id: string;
+  name: string;
+  email: string;
+  storeName?: string;
+  roleOrGroup?: string;
+  category: 'tiendas' | 'cajas' | 'prevencion' | 'zonales' | 'gerentes' | 'complementaria' | 'vip';
+  selected: boolean;
+}
+
+export interface EmailTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+  category?: string;
+}
+
+export interface EmailDispatchRecord {
+  id: string;
+  timestamp: string;
+  templateName: string;
+  subject: string;
+  totalRecipients: number;
+  successfulSends: number;
+  failedSends: number;
+  scheduledFor?: string;
+  frequency: 'una_vez' | 'diario' | 'semanal' | 'mensual';
+  status: 'completado' | 'programado' | 'en_progreso' | 'error';
+  senderEmail: string;
+  senderName: string;
+  recipientsSummary: string;
+}
+
+// ==========================================
+// Custodia & Monitoreo de PDAs e Impresoras (CCTV / Prevención)
+// ==========================================
+
+export type DeviceCustodyStatus = 'en_custodia' | 'en_uso' | 'con_falla' | 'en_reparacion';
+
+export type DeviceType = 'PDA' | 'Impresora Portátil' | 'Scanner Anillo' | 'Batería Repuesto' | 'Otros';
+
+export interface DeviceBorrower {
+  fotocheck: string; // Fotocheck ID o DNI
+  dni?: string;
+  name: string;
+  cargo: string;
+  area: string; // Picking Ecommerce / Cajas / Reposición / Perecibles / Auditoría / Almacén / Prevención
+  phone?: string;
+  avatar?: string;
+  borrowedAt: string; // ISO timestamp
+  borrowedTimeFormatted: string; // e.g. "08:15 AM"
+  borrowedDateFormatted: string; // e.g. "10/09/2026"
+  releasedByCctvAgent: string; // Operador de Prevención / CCTV
+  expectedReturnTime?: string; // e.g. "17:00"
+}
+
+export interface DeviceLoanHistoryItem {
+  id: string;
+  action: 'entrega' | 'devolucion' | 'reporte_falla';
+  timestamp: string;
+  timeFormatted: string;
+  dateFormatted: string;
+  fotocheck: string;
+  borrowerName: string;
+  cargo?: string;
+  area: string;
+  cctvOfficer: string;
+  conditionOnReturn?: 'conforme' | 'con_falla' | 'danado' | 'bateria_baja';
+  notes?: string;
+  incidentDetail?: string;
+  falabellaTicketCode?: string;
+  helpdeskTicketId?: string;
+}
+
+export interface DeviceCustodyItem {
+  id: string;
+  storeId: string;
+  storeCode: string | number;
+  storeName: string;
+  equipmentId?: string; // Enlace a Inventory Equipment
+  equipmentCode: string; // e.g. 'PDA-T103-01' o 'PRN-T103-02'
+  deviceType: DeviceType;
+  brand: string; // Zebra, Honeywell, etc.
+  model: string; // TC26, TC21, ZQ520, ZQ320, MC3300, etc.
+  serialNumber: string;
+  macAddress?: string;
+  ipAddress?: string;
+  barcode: string; // Código de barras para escaneo o QR
+  status: DeviceCustodyStatus;
+  batteryLevel?: number; // 0 - 100%
+  hasHolster?: boolean; // Funda / Grip pistola
+  hasStrap?: boolean; // Correa de hombro / cinturón
+  currentBorrower?: DeviceBorrower;
+  hoursInUse?: number;
+  isOverdue?: boolean; // Excede 8 horas de turno
+  lastIncident?: {
+    reportedAt: string;
+    reportedBy: string;
+    fallaType: string;
+    description: string;
+    falabellaTicketUrl: string; // https://ai-monitoring.falabella.com/login
+    falabellaTicketCode?: string;
+    helpdeskTicketId?: string;
+    ticketJR?: string;
+  };
+  loanHistory: DeviceLoanHistoryItem[];
+  locationInStore?: string; // e.g. 'Casillero CCTV N° 04'
+  notes?: string;
+  updatedAt: string;
+}
+
+export interface StoreColaborador {
+  fotocheck: string;
+  dni: string;
+  name: string;
+  cargo: string;
+  area: string;
+  storeCode: string | number;
+  storeName: string;
+  phone?: string;
+  avatar?: string;
+}
+

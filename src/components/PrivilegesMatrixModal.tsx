@@ -15,7 +15,8 @@ import {
   UserPlus,
   Info,
   Lock,
-  ArrowRight
+  ArrowRight,
+  Send
 } from 'lucide-react';
 import { AppUser } from '../types';
 import { APP_MODULES, ROLE_CONFIGS, getRoleConfig, hasPageAccess } from '../utils/rbac';
@@ -51,6 +52,7 @@ export const PrivilegesMatrixModal: React.FC<PrivilegesMatrixModalProps> = ({
       case 'tiendas': return Store;
       case 'helpdesk': return Headphones;
       case 'usuarios': return Users;
+      case 'despachador': return Send;
       default: return LayoutDashboard;
     }
   };

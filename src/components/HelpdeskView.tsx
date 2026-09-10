@@ -33,10 +33,17 @@ import {
   CheckCircle,
   Clock4,
   ExternalLink,
-  Tag
+  Tag,
+  ArrowUpDown,
+  ChevronUp,
+  ChevronDown,
+  Edit2,
+  Trash2,
+  AlertCircle
 } from 'lucide-react';
 import { Ticket, Equipment, Store, AppUser, TicketStatus, TicketPriority } from '../types';
 import { INITIAL_USERS } from '../data/mockData';
+import { TicketEditModal } from './TicketEditModal';
 
 interface HelpdeskViewProps {
   tickets: Ticket[];
@@ -44,6 +51,8 @@ interface HelpdeskViewProps {
   stores: Store[];
   currentUser: AppUser;
   onAddTicket: (newTicket: Ticket) => void;
+  onUpdateTicket?: (updatedTicket: Ticket) => void;
+  onDeleteTicket?: (ticketId: string) => void;
   onUpdateTicketStatus: (ticketId: string, status: TicketStatus) => void;
   onAssignTechnician: (ticketId: string, technician: string) => void;
 }
@@ -54,6 +63,8 @@ export const HelpdeskView: React.FC<HelpdeskViewProps> = ({
   stores,
   currentUser,
   onAddTicket,
+  onUpdateTicket,
+  onDeleteTicket,
   onUpdateTicketStatus,
   onAssignTechnician,
 }) => {
@@ -72,6 +83,15 @@ export const HelpdeskView: React.FC<HelpdeskViewProps> = ({
   const [showNewModal, setShowNewModal] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 12;
+
+  // Sorting state for columns
+  const [sortField, setSortField] = useState<string>('fechaInicio');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Edit and Delete state
+  const [showEditModal, setShowEditModal] = useState<boolean>(false);
+  const [ticketToEdit, setTicketToEdit] = useState<Ticket | null>(null);
+  const [ticketToDelete, setTicketToDelete] = useState<Ticket | null>(null);
 
   // Comment state inside drawer
   const [newCommentText, setNewCommentText] = useState<string>('');
@@ -199,11 +219,206 @@ export const HelpdeskView: React.FC<HelpdeskViewProps> = ({
     });
   }, [tickets, selectedStatusFilter, selectedProviderFilter, selectedMonthFilter, selectedStoreFilter, searchQuery]);
 
-  const totalPages = Math.ceil(filteredTickets.length / itemsPerPage) || 1;
-  const paginatedTickets = filteredTickets.slice(
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  const sortedTickets = useMemo(() => {
+    const list = [...filteredTickets];
+    if (!sortField) return list;
+
+    return list.sort((a, b) => {
+      let valA: any = '';
+      let valB: any = '';
+
+      switch (sortField) {
+        case 'ticketJR':
+          valA = a.ticketJR || a.code || a.ticketNumber || '';
+          valB = b.ticketJR || b.code || b.ticketNumber || '';
+          break;
+        case 'proveedorServicio':
+          valA = a.proveedorServicio || '';
+          valB = b.proveedorServicio || '';
+          break;
+        case 'ticketProveedor':
+          valA = a.ticketProveedor || '';
+          valB = b.ticketProveedor || '';
+          break;
+        case 'fechaInicio':
+          valA = a.fechaInicio || a.createdAt || '';
+          valB = b.fechaInicio || b.createdAt || '';
+          break;
+        case 'codTiendaNum': {
+          valA = Number(a.codTiendaNum || a.storeCode?.replace(/\D/g, '') || 0);
+          valB = Number(b.codTiendaNum || b.storeCode?.replace(/\D/g, '') || 0);
+          return sortDirection === 'asc' ? valA - valB : valB - valA;
+        }
+        case 'tiendaNombre':
+          valA = a.tiendaNombre || a.storeName || '';
+          valB = b.tiendaNombre || b.storeName || '';
+          break;
+        case 'cecoSap':
+          valA = a.cecoSap || '';
+          valB = b.cecoSap || '';
+          break;
+        case 'idEquipo':
+          valA = a.idEquipo || '';
+          valB = b.idEquipo || '';
+          break;
+        case 'ipAddress':
+          valA = a.ipAddress || '';
+          valB = b.ipAddress || '';
+          break;
+        case 'tipoEquipo':
+          valA = a.tipoEquipo || a.equipmentName || '';
+          valB = b.tipoEquipo || b.equipmentName || '';
+          break;
+        case 'marca':
+          valA = a.marca || '';
+          valB = b.marca || '';
+          break;
+        case 'modelo':
+          valA = a.modelo || '';
+          valB = b.modelo || '';
+          break;
+        case 'numeroSerie':
+          valA = a.numeroSerie || '';
+          valB = b.numeroSerie || '';
+          break;
+        case 'detalleTicket':
+          valA = a.detalleTicket || a.title || '';
+          valB = b.detalleTicket || b.title || '';
+          break;
+        case 'contacto':
+          valA = a.contacto || a.reportedBy || '';
+          valB = b.contacto || b.reportedBy || '';
+          break;
+        case 'celular':
+          valA = a.celular || '';
+          valB = b.celular || '';
+          break;
+        case 'estadoTicket':
+          valA = a.estadoTicket || a.status || '';
+          valB = b.estadoTicket || b.status || '';
+          break;
+        case 'direccionFiscal':
+          valA = a.direccionFiscal || '';
+          valB = b.direccionFiscal || '';
+          break;
+        case 'fechaCierre':
+          valA = a.fechaCierre || '';
+          valB = b.fechaCierre || '';
+          break;
+        case 'observaciones':
+          valA = a.observaciones || '';
+          valB = b.observaciones || '';
+          break;
+        case 'creadoPor':
+          valA = a.creadoPor || a.assignedTo || '';
+          valB = b.creadoPor || b.assignedTo || '';
+          break;
+        case 'pdf':
+          valA = a.tienePdf || 'SI';
+          valB = b.tienePdf || 'SI';
+          break;
+        case 'partNumberRepuesto':
+          valA = a.partNumberRepuesto || '';
+          valB = b.partNumberRepuesto || '';
+          break;
+        case 'descripcionPartNumber':
+          valA = a.descripcionPartNumber || '';
+          valB = b.descripcionPartNumber || '';
+          break;
+        case 'cotizacion':
+          valA = a.cotizacion || '';
+          valB = b.cotizacion || '';
+          break;
+        case 'precio': {
+          valA = a.precio !== undefined && a.precio !== null ? Number(a.precio) : -1;
+          valB = b.precio !== undefined && b.precio !== null ? Number(b.precio) : -1;
+          return sortDirection === 'asc' ? valA - valB : valB - valA;
+        }
+        case 'solped':
+          valA = a.solped || '';
+          valB = b.solped || '';
+          break;
+        case 'ordenCompra':
+          valA = a.ordenCompra || '';
+          valB = b.ordenCompra || '';
+          break;
+        case 'hes':
+          valA = a.hes || '';
+          valB = b.hes || '';
+          break;
+        case 'presupuestoMes':
+          valA = a.presupuestoMes || '';
+          valB = b.presupuestoMes || '';
+          break;
+        default:
+          valA = (a as any)[sortField] || '';
+          valB = (b as any)[sortField] || '';
+      }
+
+      if (typeof valA === 'string' && typeof valB === 'string') {
+        const cmp = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
+        return sortDirection === 'asc' ? cmp : -cmp;
+      }
+      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredTickets, sortField, sortDirection]);
+
+  const totalPages = Math.ceil(sortedTickets.length / itemsPerPage) || 1;
+  const paginatedTickets = sortedTickets.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  const renderSortableHeader = (
+    field: string,
+    label: string,
+    extraClasses: string = '',
+    align: 'left' | 'center' | 'right' = 'left'
+  ) => {
+    const isActive = sortField === field;
+    return (
+      <th
+        onClick={() => handleSort(field)}
+        className={`py-2.5 px-3 cursor-pointer select-none transition-colors hover:bg-black/25 group ${extraClasses}`}
+        title={`Ordenar por ${label} (${isActive && sortDirection === 'asc' ? 'Descendente' : 'Ascendente'})`}
+      >
+        <div
+          className={`flex items-center gap-1.5 ${
+            align === 'center'
+              ? 'justify-center'
+              : align === 'right'
+              ? 'justify-end'
+              : 'justify-start'
+          }`}
+        >
+          <span className="whitespace-nowrap">{label}</span>
+          <span className="shrink-0 inline-flex items-center">
+            {isActive ? (
+              sortDirection === 'asc' ? (
+                <ChevronUp className="w-3.5 h-3.5 text-amber-300 font-bold" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 text-amber-300 font-bold" />
+              )
+            ) : (
+              <ArrowUpDown className="w-3 h-3 opacity-40 group-hover:opacity-100 transition-opacity text-white/80" />
+            )}
+          </span>
+        </div>
+      </th>
+    );
+  };
 
   const handleExportCSV = () => {
     const headers = [
@@ -436,6 +651,40 @@ export const HelpdeskView: React.FC<HelpdeskViewProps> = ({
         </div>
       </div>
 
+      {/* CORPORATE FALABELLA AI-MONITORING PORTAL BANNER FOR INCIDENTS */}
+      <div className="bg-gradient-to-r from-[#007a33]/15 via-[#007a33]/5 to-white p-4 rounded-2xl border-2 border-[#007a33] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#007a33] text-white flex items-center justify-center font-bold text-lg shadow-xs shrink-0">
+            F
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-sm text-[#004f21]">
+                Portal de Incidencias Falabella AI-Monitoring
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#007a33] text-white">
+                Requerido
+              </span>
+            </div>
+            <p className="text-xs text-[#2c3e50] mt-0.5">
+              Para incidencias de equipos y hardware con proveedores o soporte local, active este link para registrar el ticket correspondiente:
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <a
+            href="https://ai-monitoring.falabella.com/login"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 bg-[#007a33] hover:bg-[#005c26] text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all hover:scale-[1.02] cursor-pointer"
+          >
+            <span>Abrir Falabella AI-Monitoring</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      </div>
+
       {/* Corporate KPIs / Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div className="bg-white p-3.5 rounded-xl border border-[#dce9ff] shadow-xs">
@@ -537,9 +786,29 @@ export const HelpdeskView: React.FC<HelpdeskViewProps> = ({
             </button>
           </div>
 
-          <span className="text-xs text-[#757682]">
-            Mostrando <strong>{filteredTickets.length}</strong> registros encontrados
-          </span>
+          <div className="flex items-center gap-3">
+            {sortField && (
+              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-[#eff4ff] rounded-lg text-[11px] text-[#00236f] border border-[#dce9ff]">
+                <ArrowUpDown className="w-3 h-3 text-[#00236f]" />
+                <span>Orden: <strong>{sortField}</strong> ({sortDirection === 'asc' ? 'Ascendente ↑' : 'Descendente ↓'})</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSortField('fechaInicio');
+                    setSortDirection('desc');
+                    setCurrentPage(1);
+                  }}
+                  className="ml-1 text-[#757682] hover:text-red-600 font-bold px-1"
+                  title="Restablecer orden por defecto"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+            <span className="text-xs text-[#757682]">
+              Mostrando <strong>{filteredTickets.length}</strong> registros encontrados
+            </span>
+          </div>
         </div>
 
         {/* Filter Inputs Grid */}
@@ -623,38 +892,38 @@ export const HelpdeskView: React.FC<HelpdeskViewProps> = ({
             <table className="w-full text-left text-xs border-collapse min-w-[2400px]">
               <thead>
                 <tr className="bg-[#5c246f] text-white font-bold border-b border-[#471856] text-[11px] uppercase tracking-wider">
-                  <th className="py-2.5 px-3 sticky left-0 z-20 bg-[#5c246f] shadow-r min-w-[120px]">TICKET JR</th>
-                  <th className="py-2.5 px-3 min-w-[150px]">PROVEEDOR</th>
-                  <th className="py-2.5 px-3 min-w-[110px]">TICKET PROVEEDOR</th>
-                  <th className="py-2.5 px-3 min-w-[100px]">FECHA INICIO</th>
-                  <th className="py-2.5 px-2.5 text-center min-w-[60px]">COD</th>
-                  <th className="py-2.5 px-3 min-w-[140px]">TIENDA</th>
-                  <th className="py-2.5 px-3 min-w-[110px]">CECO SAP</th>
-                  <th className="py-2.5 px-3 min-w-[100px]">ID EQUIPO</th>
-                  <th className="py-2.5 px-3 min-w-[110px]">IP</th>
-                  <th className="py-2.5 px-3 min-w-[150px]">EQUIPO</th>
-                  <th className="py-2.5 px-3 min-w-[100px]">MARCA</th>
-                  <th className="py-2.5 px-3 min-w-[100px]">MODELO</th>
-                  <th className="py-2.5 px-3 min-w-[130px]">N° SERIE</th>
-                  <th className="py-2.5 px-3 min-w-[200px]">DETALLE DE TICKET</th>
-                  <th className="py-2.5 px-3 min-w-[120px]">CONTACTO</th>
-                  <th className="py-2.5 px-3 min-w-[120px]">CELULAR</th>
-                  <th className="py-2.5 px-3 text-center min-w-[140px]">ESTADO TICKET</th>
-                  <th className="py-2.5 px-3 min-w-[220px]">DIRECCIÓN FISCAL</th>
-                  <th className="py-2.5 px-3 min-w-[130px]">FECHA CIERRE</th>
-                  <th className="py-2.5 px-3 min-w-[150px]">OBSERVACIONES</th>
-                  <th className="py-2.5 px-3 min-w-[130px]">Creado por</th>
-                  <th className="py-2.5 px-2.5 text-center min-w-[60px]">pdf?</th>
+                  {renderSortableHeader('ticketJR', 'TICKET JR', 'sticky left-0 z-20 bg-[#5c246f] shadow-r min-w-[130px]')}
+                  {renderSortableHeader('proveedorServicio', 'PROVEEDOR', 'min-w-[150px]')}
+                  {renderSortableHeader('ticketProveedor', 'TICKET PROVEEDOR', 'min-w-[130px]')}
+                  {renderSortableHeader('fechaInicio', 'FECHA INICIO', 'min-w-[110px]')}
+                  {renderSortableHeader('codTiendaNum', 'COD', 'text-center min-w-[70px]', 'center')}
+                  {renderSortableHeader('tiendaNombre', 'TIENDA', 'min-w-[150px]')}
+                  {renderSortableHeader('cecoSap', 'CECO SAP', 'min-w-[120px]')}
+                  {renderSortableHeader('idEquipo', 'ID EQUIPO', 'min-w-[110px]')}
+                  {renderSortableHeader('ipAddress', 'IP', 'min-w-[110px]')}
+                  {renderSortableHeader('tipoEquipo', 'EQUIPO', 'min-w-[150px]')}
+                  {renderSortableHeader('marca', 'MARCA', 'min-w-[110px]')}
+                  {renderSortableHeader('modelo', 'MODELO', 'min-w-[110px]')}
+                  {renderSortableHeader('numeroSerie', 'N° SERIE', 'min-w-[130px]')}
+                  {renderSortableHeader('detalleTicket', 'DETALLE DE TICKET', 'min-w-[200px]')}
+                  {renderSortableHeader('contacto', 'CONTACTO', 'min-w-[130px]')}
+                  {renderSortableHeader('celular', 'CELULAR', 'min-w-[120px]')}
+                  {renderSortableHeader('estadoTicket', 'ESTADO TICKET', 'text-center min-w-[140px]', 'center')}
+                  {renderSortableHeader('direccionFiscal', 'DIRECCIÓN FISCAL', 'min-w-[220px]')}
+                  {renderSortableHeader('fechaCierre', 'FECHA CIERRE', 'min-w-[130px]')}
+                  {renderSortableHeader('observaciones', 'OBSERVACIONES', 'min-w-[160px]')}
+                  {renderSortableHeader('creadoPor', 'Creado por', 'min-w-[140px]')}
+                  {renderSortableHeader('pdf', 'pdf?', 'text-center min-w-[70px]', 'center')}
                   {/* Bloque Repuestos y Presupuestos */}
-                  <th className="py-2.5 px-3 bg-[#4a1859] min-w-[130px]">Part Number</th>
-                  <th className="py-2.5 px-3 bg-[#4a1859] min-w-[240px]">Descripción Part Number</th>
-                  <th className="py-2.5 px-3 bg-[#4a1859] min-w-[120px]">Cotización</th>
-                  <th className="py-2.5 px-3 bg-[#4a1859] text-right min-w-[90px]">Precio ($)</th>
-                  <th className="py-2.5 px-3 bg-[#3c1348] min-w-[110px]">Solped</th>
-                  <th className="py-2.5 px-3 bg-[#3c1348] min-w-[110px]">Orden de Compra</th>
-                  <th className="py-2.5 px-3 bg-[#3c1348] min-w-[110px]">HES</th>
-                  <th className="py-2.5 px-3 bg-[#3c1348] min-w-[120px]">Presupuesto Mes</th>
-                  <th className="py-2.5 px-3 text-center min-w-[90px] sticky right-0 z-20 bg-[#5c246f]">Acción</th>
+                  {renderSortableHeader('partNumberRepuesto', 'Part Number', 'bg-[#4a1859] min-w-[130px]')}
+                  {renderSortableHeader('descripcionPartNumber', 'Descripción Part Number', 'bg-[#4a1859] min-w-[240px]')}
+                  {renderSortableHeader('cotizacion', 'Cotización', 'bg-[#4a1859] min-w-[120px]')}
+                  {renderSortableHeader('precio', 'Precio ($)', 'bg-[#4a1859] text-right min-w-[100px]', 'right')}
+                  {renderSortableHeader('solped', 'Solped', 'bg-[#3c1348] min-w-[110px]')}
+                  {renderSortableHeader('ordenCompra', 'Orden de Compra', 'bg-[#3c1348] min-w-[120px]')}
+                  {renderSortableHeader('hes', 'HES', 'bg-[#3c1348] min-w-[110px]')}
+                  {renderSortableHeader('presupuestoMes', 'Presupuesto Mes', 'bg-[#3c1348] min-w-[130px]')}
+                  <th className="py-2.5 px-3 text-center min-w-[110px] sticky right-0 z-20 bg-[#5c246f]">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e5eeff] font-mono text-[11px]">
@@ -838,12 +1107,32 @@ export const HelpdeskView: React.FC<HelpdeskViewProps> = ({
 
                         {/* Acción */}
                         <td className="py-2.5 px-3 text-center sticky right-0 z-10 bg-inherit shadow-l whitespace-nowrap" onClick={e => e.stopPropagation()}>
-                          <button
-                            onClick={() => setSelectedTicket(t)}
-                            className="px-2.5 py-1 bg-[#eff4ff] text-[#00236f] hover:bg-[#dce9ff] rounded font-bold text-[10px] transition-colors"
-                          >
-                            Ver Ficha
-                          </button>
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => setSelectedTicket(t)}
+                              className="px-2 py-1 bg-[#eff4ff] text-[#00236f] hover:bg-[#dce9ff] rounded font-bold text-[10px] transition-colors"
+                              title="Ver Ficha Detallada"
+                            >
+                              Ver Ficha
+                            </button>
+                            <button
+                              onClick={() => {
+                                setTicketToEdit(t);
+                                setShowEditModal(true);
+                              }}
+                              className="p-1 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors"
+                              title="Editar registro"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => setTicketToDelete(t)}
+                              className="p-1 text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200 transition-colors"
+                              title="Eliminar registro"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -858,18 +1147,18 @@ export const HelpdeskView: React.FC<HelpdeskViewProps> = ({
             <table className="w-full text-left text-xs border-collapse min-w-[1400px]">
               <thead>
                 <tr className="bg-[#00236f] text-white font-bold border-b border-[#00174a] text-[11px] uppercase tracking-wider">
-                  <th className="py-3 px-3.5">TICKET JR / COD</th>
-                  <th className="py-3 px-3.5">TIENDA & CECO</th>
-                  <th className="py-3 px-3.5">EQUIPO & SERIE</th>
-                  <th className="py-3 px-3.5">PART NUMBER REPUESTO</th>
-                  <th className="py-3 px-3.5">DESCRIPCIÓN DEL REPUESTO</th>
-                  <th className="py-3 px-3.5">COTIZACIÓN N°</th>
-                  <th className="py-3 px-3.5 text-right">PRECIO ($)</th>
-                  <th className="py-3 px-3.5 bg-[#001b57]">SOLPED</th>
-                  <th className="py-3 px-3.5 bg-[#001b57]">ORDEN DE COMPRA</th>
-                  <th className="py-3 px-3.5 bg-[#001b57]">HES SAP</th>
-                  <th className="py-3 px-3.5 bg-[#001b57]">PRESUPUESTO MES</th>
-                  <th className="py-3 px-3.5 text-center">FICHA</th>
+                  {renderSortableHeader('ticketJR', 'TICKET JR / COD', 'min-w-[140px]')}
+                  {renderSortableHeader('tiendaNombre', 'TIENDA & CECO', 'min-w-[160px]')}
+                  {renderSortableHeader('tipoEquipo', 'EQUIPO & SERIE', 'min-w-[160px]')}
+                  {renderSortableHeader('partNumberRepuesto', 'PART NUMBER REPUESTO', 'min-w-[140px]')}
+                  {renderSortableHeader('descripcionPartNumber', 'DESCRIPCIÓN DEL REPUESTO', 'min-w-[220px]')}
+                  {renderSortableHeader('cotizacion', 'COTIZACIÓN N°', 'min-w-[130px]')}
+                  {renderSortableHeader('precio', 'PRECIO ($)', 'text-right min-w-[100px]', 'right')}
+                  {renderSortableHeader('solped', 'SOLPED', 'bg-[#001b57] min-w-[110px]')}
+                  {renderSortableHeader('ordenCompra', 'ORDEN DE COMPRA', 'bg-[#001b57] min-w-[130px]')}
+                  {renderSortableHeader('hes', 'HES SAP', 'bg-[#001b57] min-w-[110px]')}
+                  {renderSortableHeader('presupuestoMes', 'PRESUPUESTO MES', 'bg-[#001b57] min-w-[130px]')}
+                  <th className="py-3 px-3.5 text-center min-w-[110px]">ACCIONES</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e5eeff] font-mono text-xs">
@@ -938,12 +1227,32 @@ export const HelpdeskView: React.FC<HelpdeskViewProps> = ({
                       </td>
 
                       <td className="py-3 px-3.5 text-center whitespace-nowrap font-sans" onClick={e => e.stopPropagation()}>
-                        <button
-                          onClick={() => setSelectedTicket(t)}
-                          className="px-2.5 py-1 bg-[#eff4ff] text-[#00236f] hover:bg-[#dce9ff] rounded font-bold text-[11px] transition-colors"
-                        >
-                          Detalle
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => setSelectedTicket(t)}
+                            className="px-2 py-1 bg-[#eff4ff] text-[#00236f] hover:bg-[#dce9ff] rounded font-bold text-[11px] transition-colors"
+                            title="Ver Ficha Detalle"
+                          >
+                            Detalle
+                          </button>
+                          <button
+                            onClick={() => {
+                              setTicketToEdit(t);
+                              setShowEditModal(true);
+                            }}
+                            className="p-1 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors"
+                            title="Editar registro y SAP"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setTicketToDelete(t)}
+                            className="p-1 text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200 transition-colors"
+                            title="Eliminar registro"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -956,15 +1265,15 @@ export const HelpdeskView: React.FC<HelpdeskViewProps> = ({
           {subView === 'gestion' && (
             <table className="w-full text-left text-xs border-collapse min-w-[900px]">
               <thead>
-                <tr className="bg-[#f0f4ff] text-[#00236f] font-bold border-b border-[#dce9ff]">
-                  <th className="py-3 px-3.5 w-28">TICKET JR</th>
-                  <th className="py-3 px-3.5">TIENDA / SEDE</th>
-                  <th className="py-3 px-3.5">EQUIPO & SERIE</th>
-                  <th className="py-3 px-3.5">ASUNTO / FALLA REPORTADA</th>
-                  <th className="py-3 px-3.5">PROVEEDOR</th>
-                  <th className="py-3 px-3.5">TÉCNICO ASIGNADO</th>
-                  <th className="py-3 px-3.5 text-center">ESTADO</th>
-                  <th className="py-3 px-3.5 text-center w-24">DETALLE</th>
+                <tr className="bg-[#f0f4ff] text-[#00236f] font-bold border-b border-[#dce9ff] text-[11px] uppercase tracking-wider">
+                  {renderSortableHeader('ticketJR', 'TICKET JR', 'w-32')}
+                  {renderSortableHeader('tiendaNombre', 'TIENDA / SEDE', 'min-w-[140px]')}
+                  {renderSortableHeader('tipoEquipo', 'EQUIPO & SERIE', 'min-w-[140px]')}
+                  {renderSortableHeader('detalleTicket', 'ASUNTO / FALLA REPORTADA', 'min-w-[180px]')}
+                  {renderSortableHeader('proveedorServicio', 'PROVEEDOR', 'min-w-[130px]')}
+                  {renderSortableHeader('creadoPor', 'TÉCNICO ASIGNADO', 'min-w-[140px]')}
+                  {renderSortableHeader('estadoTicket', 'ESTADO', 'text-center min-w-[120px]', 'center')}
+                  <th className="py-3 px-3.5 text-center min-w-[110px]">ACCIONES</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f0f4ff]">
@@ -1030,12 +1339,32 @@ export const HelpdeskView: React.FC<HelpdeskViewProps> = ({
                       </td>
 
                       <td className="py-3 px-3.5 text-center whitespace-nowrap" onClick={e => e.stopPropagation()}>
-                        <button
-                          onClick={() => setSelectedTicket(t)}
-                          className="px-2.5 py-1 bg-[#eff4ff] text-[#00236f] hover:bg-[#dce9ff] rounded font-bold text-[11px] transition-colors"
-                        >
-                          Gestionar
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => setSelectedTicket(t)}
+                            className="px-2 py-1 bg-[#eff4ff] text-[#00236f] hover:bg-[#dce9ff] rounded font-bold text-[11px] transition-colors"
+                            title="Gestionar Ticket"
+                          >
+                            Gestionar
+                          </button>
+                          <button
+                            onClick={() => {
+                              setTicketToEdit(t);
+                              setShowEditModal(true);
+                            }}
+                            className="p-1 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors"
+                            title="Editar registro"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setTicketToDelete(t)}
+                            className="p-1 text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200 transition-colors"
+                            title="Eliminar registro"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -1329,11 +1658,33 @@ export const HelpdeskView: React.FC<HelpdeskViewProps> = ({
               </form>
             </div>
 
-            {/* Modal Footer */}
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#e5eeff]">
+            {/* Modal Footer with Edit and Delete options */}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-2 pt-2 border-t border-[#e5eeff]">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTicketToEdit(selectedTicket);
+                    setShowEditModal(true);
+                  }}
+                  className="flex-1 sm:flex-none px-3.5 py-2 bg-[#00236f] text-white hover:bg-[#1e3a8a] font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span>Editar Registro</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTicketToDelete(selectedTicket)}
+                  className="flex-1 sm:flex-none px-3.5 py-2 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Eliminar</span>
+                </button>
+              </div>
+
               <button
                 onClick={() => setSelectedTicket(null)}
-                className="px-5 py-2 bg-[#eff4ff] text-[#00236f] font-bold text-xs rounded-xl hover:bg-[#dce9ff]"
+                className="w-full sm:w-auto px-5 py-2 bg-[#eff4ff] text-[#00236f] font-bold text-xs rounded-xl hover:bg-[#dce9ff]"
               >
                 Cerrar Ficha
               </button>
@@ -1644,6 +1995,78 @@ export const HelpdeskView: React.FC<HelpdeskViewProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Ticket Modal */}
+      {showEditModal && ticketToEdit && (
+        <TicketEditModal
+          ticket={ticketToEdit}
+          stores={stores}
+          equipments={equipments}
+          currentUser={currentUser}
+          onClose={() => {
+            setShowEditModal(false);
+            setTicketToEdit(null);
+          }}
+          onSave={updatedTicket => {
+            if (onUpdateTicket) {
+              onUpdateTicket(updatedTicket);
+            }
+            if (selectedTicket?.id === updatedTicket.id) {
+              setSelectedTicket(updatedTicket);
+            }
+            setShowEditModal(false);
+            setTicketToEdit(null);
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {ticketToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-red-200 text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-[#0b1c30]">
+                ¿Eliminar registro de ticket?
+              </h3>
+              <p className="text-xs text-[#757682] mt-1">
+                Esta acción eliminará el ticket <strong className="text-red-700 font-mono">{ticketToDelete.ticketJR || ticketToDelete.code || ticketToDelete.ticketNumber}</strong> de la planilla.
+              </p>
+            </div>
+            <div className="bg-red-50 p-3 rounded-xl text-[11px] text-red-800 text-left space-y-1">
+              <div><strong>Sede / Tienda:</strong> {ticketToDelete.tiendaNombre || ticketToDelete.storeName}</div>
+              <div><strong>Falla / Detalle:</strong> {ticketToDelete.detalleTicket || ticketToDelete.title}</div>
+              <div><strong>Equipo:</strong> {ticketToDelete.tipoEquipo || ticketToDelete.equipmentName} ({ticketToDelete.marca} {ticketToDelete.modelo})</div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setTicketToDelete(null)}
+                className="flex-1 py-2.5 bg-[#f0f4ff] text-[#444651] font-bold text-xs rounded-xl hover:bg-[#dce9ff]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onDeleteTicket) {
+                    onDeleteTicket(ticketToDelete.id);
+                  }
+                  if (selectedTicket?.id === ticketToDelete.id) {
+                    setSelectedTicket(null);
+                  }
+                  setTicketToDelete(null);
+                }}
+                className="flex-1 py-2.5 bg-red-600 text-white font-bold text-xs rounded-xl hover:bg-red-700 shadow-md transition-colors"
+              >
+                Sí, Eliminar
+              </button>
+            </div>
           </div>
         </div>
       )}

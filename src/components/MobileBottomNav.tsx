@@ -12,7 +12,9 @@ import {
   AlertTriangle,
   X,
   ShieldCheck,
-  LogOut
+  LogOut,
+  Send,
+  Smartphone
 } from 'lucide-react';
 import { AppUser } from '../types';
 import { hasPageAccess } from '../utils/rbac';
@@ -114,6 +116,22 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-2.5 pt-1">
+              {hasPageAccess(currentUser.role, 'custodia') && (
+                <button
+                  onClick={() => {
+                    onSelectView('custodia');
+                    setShowMoreMenu(false);
+                  }}
+                  className={`p-3.5 rounded-xl text-left border flex flex-col gap-1 transition-colors ${
+                    currentView === 'custodia' ? 'bg-[#eff4ff] border-[#00236f] text-[#00236f]' : 'bg-[#f8f9ff] border-[#e5eeff] text-[#444651]'
+                  }`}
+                >
+                  <Smartphone className="w-5 h-5 text-[#00236f]" />
+                  <span className="font-semibold text-xs">Custodia PDAs & CCTV</span>
+                  <span className="text-[10px] text-[#757682]">Monitoreo & Fotocheck</span>
+                </button>
+              )}
+
               {hasPageAccess(currentUser.role, 'monitoreo') && (
                 <button
                   onClick={() => {
@@ -191,6 +209,22 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   <Users className="w-5 h-5 text-[#4059aa]" />
                   <span className="font-semibold text-xs">Directorio</span>
                   <span className="text-[10px] text-[#757682]">Técnicos & Supervisores</span>
+                </button>
+              )}
+
+              {hasPageAccess(currentUser.role, 'despachador') && (
+                <button
+                  onClick={() => {
+                    onSelectView('despachador');
+                    setShowMoreMenu(false);
+                  }}
+                  className={`p-3.5 rounded-xl text-left border flex flex-col gap-1 transition-colors ${
+                    currentView === 'despachador' ? 'bg-[#eff4ff] border-[#00236f] text-[#00236f]' : 'bg-[#f8f9ff] border-[#e5eeff] text-[#444651]'
+                  }`}
+                >
+                  <Send className="w-5 h-5 text-[#0052cc]" />
+                  <span className="font-semibold text-xs">Despacho Correos</span>
+                  <span className="text-[10px] text-[#757682]">Avisos masivos & Outlook</span>
                 </button>
               )}
 

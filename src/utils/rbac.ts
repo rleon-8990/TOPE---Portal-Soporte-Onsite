@@ -58,12 +58,26 @@ export const APP_MODULES: Record<string, ModulePermission> = {
     requiredRoles: ['Administrador', 'Administrador General', 'Supervisor Regional', 'Técnico Especialista', 'IT Operator', 'Gerente de Tienda', 'Jefe de Tienda', 'Jefe de Mantenimiento'],
     category: 'operativo'
   },
+  custodia: {
+    id: 'custodia',
+    name: 'Custodia CCTV & Equipos Móviles',
+    description: 'Monitoreo de PDAs e impresoras en tiendas, escaneo ágil con fotocheck, equipos en uso vs. casillero e incidencias Falabella AI-Monitoring.',
+    requiredRoles: ['Administrador', 'Administrador General', 'Supervisor Regional', 'Técnico Especialista', 'IT Operator', 'Gerente de Tienda', 'Jefe de Tienda', 'Jefe de Mantenimiento'],
+    category: 'operativo'
+  },
   usuarios: {
     id: 'usuarios',
     name: 'Directorio y Agenda Corporativa',
     description: 'Agenda telefónica de tiendas, anexo interno, gerentes, IT operators y cuadrillas de soporte.',
     requiredRoles: ['Administrador', 'Administrador General'],
     category: 'administrativo'
+  },
+  despachador: {
+    id: 'despachador',
+    name: 'Despachador Rápido de Correos',
+    description: 'Notificaciones masivas, avisos de mantenimiento y circulares operativas mediante Microsoft 365 Exchange.',
+    requiredRoles: ['Administrador', 'Administrador General', 'Supervisor Regional', 'Jefe de Mantenimiento', 'IT Operator'],
+    category: 'operativo'
   }
 };
 
@@ -84,7 +98,7 @@ export const ROLE_CONFIGS: Record<string, RoleConfig> = {
     role: 'Administrador',
     label: 'Administrador General',
     description: 'Acceso irrestricto a todos los módulos del portal, sincronización M365 y administración de personal.',
-    allowedModules: ['dashboard', 'inventario', 'mantenimiento', 'monitoreo', 'informes', 'tiendas', 'helpdesk', 'usuarios'],
+    allowedModules: ['dashboard', 'inventario', 'mantenimiento', 'monitoreo', 'informes', 'tiendas', 'helpdesk', 'usuarios', 'despachador'],
     badgeColor: 'bg-indigo-100 text-indigo-800 border-indigo-200',
     accessLevel: 'total',
     canManageM365: true,
@@ -95,7 +109,7 @@ export const ROLE_CONFIGS: Record<string, RoleConfig> = {
     role: 'Administrador General',
     label: 'Administrador General',
     description: 'Acceso irrestricto a todos los módulos del portal, sincronización M365 y administración de personal.',
-    allowedModules: ['dashboard', 'inventario', 'mantenimiento', 'monitoreo', 'informes', 'tiendas', 'helpdesk', 'usuarios'],
+    allowedModules: ['dashboard', 'inventario', 'mantenimiento', 'monitoreo', 'informes', 'tiendas', 'helpdesk', 'usuarios', 'despachador'],
     badgeColor: 'bg-indigo-100 text-indigo-800 border-indigo-200',
     accessLevel: 'total',
     canManageM365: true,
@@ -106,7 +120,7 @@ export const ROLE_CONFIGS: Record<string, RoleConfig> = {
     role: 'Supervisor Regional',
     label: 'Supervisor Regional',
     description: 'Supervisión de métricas, tiendas asignadas, mantenimiento, informes técnicos y helpdesk en su región.',
-    allowedModules: ['dashboard', 'inventario', 'mantenimiento', 'monitoreo', 'informes', 'tiendas', 'helpdesk'],
+    allowedModules: ['dashboard', 'inventario', 'mantenimiento', 'monitoreo', 'informes', 'tiendas', 'helpdesk', 'despachador'],
     badgeColor: 'bg-purple-100 text-purple-800 border-purple-200',
     accessLevel: 'supervision',
     canManageM365: false,
@@ -128,7 +142,7 @@ export const ROLE_CONFIGS: Record<string, RoleConfig> = {
     role: 'IT Operator',
     label: 'IT Operator Tienda',
     description: 'Soporte informático en sitio para cajas POS, switches, balanzas y atención de tickets locales.',
-    allowedModules: ['inventario', 'mantenimiento', 'monitoreo', 'informes', 'helpdesk'],
+    allowedModules: ['inventario', 'mantenimiento', 'monitoreo', 'informes', 'helpdesk', 'despachador'],
     badgeColor: 'bg-cyan-100 text-cyan-800 border-cyan-200',
     accessLevel: 'operativo',
     canManageM365: false,
@@ -139,7 +153,7 @@ export const ROLE_CONFIGS: Record<string, RoleConfig> = {
     role: 'Jefe de Mantenimiento',
     label: 'Jefe de Mantenimiento',
     description: 'Gestión técnica de activos de frío, clima, balanzas y supervisión de cuadrillas de tienda.',
-    allowedModules: ['dashboard', 'inventario', 'mantenimiento', 'monitoreo', 'informes', 'tiendas', 'helpdesk'],
+    allowedModules: ['dashboard', 'inventario', 'mantenimiento', 'monitoreo', 'informes', 'tiendas', 'helpdesk', 'despachador'],
     badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',
     accessLevel: 'supervision',
     canManageM365: false,

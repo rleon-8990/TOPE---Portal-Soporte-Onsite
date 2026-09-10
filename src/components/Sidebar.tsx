@@ -15,7 +15,9 @@ import {
   TableProperties,
   ChevronLeft,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  Send,
+  Smartphone
 } from 'lucide-react';
 import { AppUser } from '../types';
 import { hasPageAccess, getRoleConfig, getAllowedModulesForRole } from '../utils/rbac';
@@ -51,10 +53,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard },
     { id: 'inventario', label: 'Inventario', icon: Boxes },
     { id: 'mantenimiento', label: 'Mantenimiento', icon: Wrench },
+    { id: 'custodia', label: 'Custodia PDAs & CCTV', icon: Smartphone },
     { id: 'monitoreo', label: 'Asistencia & Personal', icon: UserCheck },
     { id: 'informes', label: 'Informes', icon: FileText },
     { id: 'tiendas', label: 'Tiendas (90)', icon: StoreIcon },
     { id: 'helpdesk', label: 'Helpdesk & Repuestos', icon: Headphones },
+    { id: 'despachador', label: 'Despacho Correos', icon: Send },
     { id: 'usuarios', label: 'Directorio', icon: Users },
   ];
 

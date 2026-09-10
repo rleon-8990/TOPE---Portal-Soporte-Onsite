@@ -16,9 +16,11 @@ import {
   UserCheck,
   CheckCircle2,
   Clock,
-  ExternalLink
+  ExternalLink,
+  Send
 } from 'lucide-react';
 import { Ticket, WorkOrder, Store as StoreType, AppUser } from '../types';
+import { hasPageAccess } from '../utils/rbac';
 
 interface DashboardViewProps {
   currentUser: AppUser;
@@ -202,6 +204,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <FileSpreadsheet className="w-4 h-4 text-[#10b981]" />
           <span>Generar Informe Técnico</span>
         </button>
+
+        {hasPageAccess(currentUser.role, 'despachador') && (
+          <button
+            onClick={() => onNavigate('despachador')}
+            className="px-4 py-2.5 rounded-xl bg-[#eff4ff] border border-[#c4dcff] text-[#00236f] text-xs font-semibold flex items-center gap-2 shadow-sm hover:bg-[#dce9ff] transition-all shrink-0 active:scale-95"
+          >
+            <Send className="w-4 h-4 text-[#00236f]" />
+            <span>Despacho Rápido Correos</span>
+          </button>
+        )}
 
         <button
           onClick={onOpenAlertsManager}
