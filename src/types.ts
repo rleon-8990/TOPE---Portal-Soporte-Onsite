@@ -60,6 +60,20 @@ export interface Store {
   activeAlerts: number;
   criticalIssues: number;
   status: 'activa' | 'mantenimiento_general' | 'alerta_regional';
+
+  // Visita Preventiva Semestral (Caminata Técnica)
+  ultimaVisitaPreventiva?: {
+    fecha: string; // e.g. '05/08/2026'
+    estado: 'Informe generado' | 'En proceso' | 'Pendiente';
+    itOperator?: string;
+    gerenteTienda?: string;
+    informePdf?: string;
+    totalEquiposRevisados?: number;
+    observacionesDetectadas?: number;
+    ticketsGenerados?: number;
+    semaforoSemestral?: 'al_dia' | 'proximo_a_vencer' | 'vencido';
+  };
+  proximaVisitaProgramada?: string;
 }
 
 export interface MaintenanceRecord {
@@ -382,7 +396,7 @@ export interface PushNotification {
   timestamp: string;
   timeAgo: string;
   read: boolean;
-  linkModule?: 'dashboard' | 'inventario' | 'tiendas' | 'mantenimiento' | 'informes' | 'helpdesk' | 'usuarios';
+  linkModule?: 'dashboard' | 'inventario' | 'tiendas' | 'mantenimiento' | 'informes' | 'helpdesk' | 'usuarios' | 'visitas' | 'custodia' | 'monitoreo';
 }
 
 export interface RegionalAlertConfig {
@@ -682,4 +696,90 @@ export interface StoreColaborador {
   phone?: string;
   avatar?: string;
 }
+
+// ==========================================
+// SISTEMA DE VISITA PREVENTIVA (CAMINATA SEMESTRAL)
+// ==========================================
+
+export type WalkthroughCategoryId =
+  | 'consulta_precios'
+  | 'balanzas'
+  | 'cajas_asistidas'
+  | 'cajas_sco'
+  | 'pda_terminales'
+  | 'impresoras_portatiles'
+  | 'impresoras_zebra'
+  | 'etiquetas_flejes_reloj'
+  | 'cpd_sistemas'
+  | 'gabinete_b'
+  | 'gabinete_c';
+
+export interface WalkthroughDiagnosticItem {
+  item: string;
+  status: 'ok' | 'observacion' | 'falla';
+  valorMedido?: string;
+  comentario?: string;
+}
+
+export interface WalkthroughReviewedItem {
+  id: string;
+  categoryId: WalkthroughCategoryId;
+  categoryName: string;
+  equipoNombre: string; // ej. 'CP 1', 'POS Caja 03', 'Gabinete B - Switch Principal'
+  equipmentId?: string;
+  equipmentCode?: string;
+  estado: 'Operativo' | 'Con observación' | 'No operativo / Falla';
+  observacion: string;
+  accionRealizada: string;
+  ticketJR?: string; // Amarrado con Helpdesk / Mantenimiento Correctivo (ej. 'INC-12345')
+  diagnostics: WalkthroughDiagnosticItem[];
+  evidencias: string[];
+}
+
+export interface PreventiveVisitPhoto {
+  id: string;
+  title: string;
+  dataUrl: string;
+  categoryId?: WalkthroughCategoryId;
+  equipoNombre?: string;
+  timestamp: string;
+}
+
+export interface PreventiveVisit {
+  id: string;
+  numeroVisita: string; // ej. 'VIS-358-2026-08'
+  storeId: string;
+  storeCode: string | number; // 358
+  storeName: string; // 'CAJAMARCA' o '358 - HT Cajamarca'
+  direccionFiscal: string;
+  fechaVisita: string; // '05/08/2026'
+  horaInicio: string; // '08:30'
+  horaTermino: string; // '14:20'
+  itOperator: string; // 'Juan Pérez'
+  gerenteTienda: string; // 'María Gómez'
+  personalPermanente: number; // 8
+  observacionesGenerales: string;
+  recomendacionesPlanes: string;
+  estado: 'Informe generado' | 'En proceso' | 'Pendiente';
+  informePdfNombre?: string; // 'Informe_Visita_358_2026-08-05.pdf'
+  informePdfUrl?: string;
+  sharepointSynced?: boolean;
+  sharepointListId?: string;
+  itemsRevision: WalkthroughReviewedItem[];
+  evidenciasGenerales: PreventiveVisitPhoto[];
+  firmas?: {
+    itOperatorSignature?: string;
+    itOperatorSignedAt?: string;
+    gerenteSignature?: string;
+    gerenteSignedAt?: string;
+  };
+  totalEquipos: number;
+  operativosCount: number;
+  conObservacionCount: number;
+  noOperativosCount: number;
+  ticketsGeneradosCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 

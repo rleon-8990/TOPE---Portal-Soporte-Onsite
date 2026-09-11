@@ -47,6 +47,7 @@ interface MaintenanceViewProps {
   onUpdateWorkOrder?: (updatedWo: WorkOrder) => void;
   onDeleteWorkOrder?: (id: string) => void;
   onUpdateWorkOrderStatus: (id: string, status: WorkOrderStatus) => void;
+  onNavigateToVisitas?: () => void;
 }
 
 const CHECKLIST_PRESETS = {
@@ -92,6 +93,7 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({
   onUpdateWorkOrder,
   onDeleteWorkOrder,
   onUpdateWorkOrderStatus,
+  onNavigateToVisitas,
 }) => {
   const [selectedTab, setSelectedTab] = useState<'todas' | MaintenanceType>('todas');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<'todos' | WorkOrderStatus>('todos');
@@ -395,6 +397,18 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+          {/* Botón Acceso a Caminata Semestral */}
+          {onNavigateToVisitas && (
+            <button
+              onClick={onNavigateToVisitas}
+              className="bg-[#007a33] text-white px-3.5 py-2 rounded-lg text-xs font-semibold shadow-md shadow-[#007a33]/20 hover:bg-[#005a26] transition-all flex items-center gap-1.5 shrink-0 active:scale-95"
+              title="Ir a Caminatas Semestrales de Tienda (Visita Preventiva)"
+            >
+              <ClipboardCheck className="w-4 h-4" />
+              <span>Caminata Semestral (Visitas)</span>
+            </button>
+          )}
+
           {/* Botón Enviar Aviso por Correo */}
           <button
             onClick={() => {

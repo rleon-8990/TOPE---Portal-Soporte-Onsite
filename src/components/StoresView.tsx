@@ -26,7 +26,8 @@ import {
   ArrowUpDown,
   Edit2,
   Trash2,
-  Save
+  Save,
+  ClipboardCheck
 } from 'lucide-react';
 import { Store, Equipment, Region } from '../types';
 
@@ -39,6 +40,7 @@ interface StoresViewProps {
   onOpenSharePointSync?: () => void;
   onUpdateStore?: (updatedStore: Store) => void;
   onDeleteStore?: (storeId: string) => void;
+  onNavigateToVisitas?: () => void;
 }
 
 export const StoresView: React.FC<StoresViewProps> = ({
@@ -50,6 +52,7 @@ export const StoresView: React.FC<StoresViewProps> = ({
   onOpenSharePointSync,
   onUpdateStore,
   onDeleteStore,
+  onNavigateToVisitas,
 }) => {
   const [selectedRegion, setSelectedRegion] = useState<string>('todas');
   const [selectedFormat, setSelectedFormat] = useState<string>('todos');
@@ -915,6 +918,71 @@ export const StoresView: React.FC<StoresViewProps> = ({
                 </button>
               </div>
             )}
+
+            {/* Caminata Semestral / Visita Preventiva Local */}
+            <div className="p-3 bg-[#f8faff] rounded-xl border border-[#dce9ff] text-xs">
+              <div className="flex items-center justify-between pb-2 border-b border-[#e5eeff]">
+                <div className="flex items-center gap-1.5">
+                  <ClipboardCheck className="w-4 h-4 text-[#007a33]" />
+                  <span className="font-bold text-[#00236f] text-xs">Caminata Semestral (Visita Preventiva)</span>
+                </div>
+                {selectedStoreDetail.ultimaVisitaPreventiva ? (
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    selectedStoreDetail.ultimaVisitaPreventiva.semaforoSemestral === 'al_dia'
+                      ? 'bg-[#ecfdf5] text-[#065f46] border border-[#a7f3d0]'
+                      : selectedStoreDetail.ultimaVisitaPreventiva.semaforoSemestral === 'por_vencer'
+                      ? 'bg-[#fffbeb] text-[#b45309] border border-[#fde68a]'
+                      : 'bg-[#fef2f2] text-[#b91c1c] border border-[#fecaca]'
+                  }`}>
+                    {selectedStoreDetail.ultimaVisitaPreventiva.semaforoSemestral === 'al_dia' ? '● Al día (<6 meses)' : selectedStoreDetail.ultimaVisitaPreventiva.semaforoSemestral === 'por_vencer' ? '▲ Por Vencer' : '✕ Vencida (>6 meses)'}
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                    Pendiente de caminata
+                  </span>
+                )}
+              </div>
+
+              {selectedStoreDetail.ultimaVisitaPreventiva ? (
+                <div className="mt-2.5 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="p-2 bg-white rounded-lg border border-[#e5eeff]">
+                    <span className="text-[10px] text-[#757682] block">Última Visita</span>
+                    <strong className="text-[#0b1c30] text-xs font-mono">{selectedStoreDetail.ultimaVisitaPreventiva.fecha}</strong>
+                  </div>
+                  <div className="p-2 bg-white rounded-lg border border-[#e5eeff]">
+                    <span className="text-[10px] text-[#757682] block">Operador IT</span>
+                    <strong className="text-[#0b1c30] text-xs truncate block">{selectedStoreDetail.ultimaVisitaPreventiva.itOperator}</strong>
+                  </div>
+                  <div className="p-2 bg-white rounded-lg border border-[#e5eeff]">
+                    <span className="text-[10px] text-[#757682] block">Equipos Evaluados</span>
+                    <strong className="text-[#00236f] text-xs">{selectedStoreDetail.ultimaVisitaPreventiva.totalEquiposRevisados} revisados</strong>
+                  </div>
+                  <div className="p-2 bg-white rounded-lg border border-[#e5eeff]">
+                    <span className="text-[10px] text-[#757682] block">Tickets Generados</span>
+                    <strong className="text-[#b91c1c] text-xs">{selectedStoreDetail.ultimaVisitaPreventiva.ticketsGenerados || 0} tickets JR</strong>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-[#757682]">
+                  Esta tienda aún no tiene registrada su caminata semestral en el sistema. Puedes iniciar el checklist técnico con diagnóstico de gabinetes, POS, PDAs e impresoras.
+                </p>
+              )}
+
+              {onNavigateToVisitas && (
+                <div className="mt-2.5 flex justify-end">
+                  <button
+                    onClick={() => {
+                      setSelectedStoreDetail(null);
+                      onNavigateToVisitas();
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#007a33] hover:underline"
+                  >
+                    <span>{selectedStoreDetail.ultimaVisitaPreventiva ? 'Ver historial de visitas preventivas' : 'Iniciar caminata semestral ahora'}</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
 
             <div className="flex gap-2 pt-2">
               <button

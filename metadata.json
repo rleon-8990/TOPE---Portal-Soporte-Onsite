@@ -1,6 +1,6 @@
 {
   "name": "Portal Soporte Onsite",
-  "description": "Portal Soporte Onsite de Hipermercados Tottus S.A. - Sistemas de la Información. Sistema para inventario de POS y activos en 90 tiendas, enlace a switches y puertos de comunicaciones, mantenimiento preventivo, helpdesk e informes técnicos.",
+  "description": "Portal Soporte Onsite de Hipermercados Tottus S.A. - Sistemas de la Información. Sistema para inventario de POS y activos en 90 tiendas, caminatas semestrales de visitas preventivas con checklist de gabinetes y diagnósticos, custodia de PDAs e impresoras CCTV con fotocheck, mantenimiento preventivo/correctivo y helpdesk.",
   "requestFramePermissions": ["camera", "geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

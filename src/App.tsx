@@ -24,10 +24,12 @@ import {
   AttendanceMotive,
   LoginAuditRecord,
   DeviceCustodyItem,
-  StoreColaborador
+  StoreColaborador,
+  PreventiveVisit
 } from './types';
 import { INITIAL_LOGIN_AUDIT_LOGS } from './data/loginAuditData';
 import { INITIAL_DEVICE_CUSTODY_ITEMS, INITIAL_COLABORADORES, FALABELLA_AI_MONITORING_URL, playScannerBeep } from './data/deviceCustodyData';
+import { INITIAL_PREVENTIVE_VISITS, enrichStoresWithVisits } from './data/preventiveVisitsData';
 import { playNotificationChime } from './utils/helpers';
 import { MicrosoftDataService, AutoSyncConfig } from './services/microsoftDataService';
 import { INITIAL_ATTENDANCE_LOGS, INITIAL_ACTIVE_PRESENCES } from './data/attendanceMockData';
@@ -47,6 +49,7 @@ import { HelpdeskView } from './components/HelpdeskView';
 import { UserDirectoryView } from './components/UserDirectoryView';
 import { PersonnelMonitoringView } from './components/PersonnelMonitoringView';
 import { DeviceCustodyView } from './components/DeviceCustodyView';
+import { PreventiveVisitsView } from './components/PreventiveVisitsView';
 import { AutoSyncStatusWidget } from './components/AutoSyncStatusWidget';
 import { CorporateLoginView } from './components/CorporateLoginView';
 import { AccessDeniedView } from './components/AccessDeniedView';
@@ -72,12 +75,12 @@ export default function App() {
       const saved = localStorage.getItem('reliant_cmms_stores_data');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return enrichStoresWithVisits(parsed, INITIAL_PREVENTIVE_VISITS);
       }
     } catch (e) {
       console.warn('Error reading saved stores', e);
     }
-    return INITIAL_STORES;
+    return enrichStoresWithVisits(INITIAL_STORES, INITIAL_PREVENTIVE_VISITS);
   });
   const [equipments, setEquipments] = useState<Equipment[]>(INITIAL_EQUIPMENTS);
   const [tickets, setTickets] = useState<Ticket[]>(INITIAL_TICKETS);
@@ -216,6 +219,26 @@ export default function App() {
       localStorage.setItem('tottus_device_custody_data', JSON.stringify(deviceCustodyItems));
     } catch (e) {}
   }, [deviceCustodyItems]);
+
+  // Preventive Visits State (Caminata Técnica Semestral Power Apps)
+  const [preventiveVisits, setPreventiveVisits] = useState<PreventiveVisit[]>(() => {
+    try {
+      const saved = localStorage.getItem('tottus_preventive_visits_data');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn('Error reading saved preventive visits', e);
+    }
+    return INITIAL_PREVENTIVE_VISITS;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('tottus_preventive_visits_data', JSON.stringify(preventiveVisits));
+    } catch (e) {}
+  }, [preventiveVisits]);
 
   const handleRegisterLoan = (device: DeviceCustodyItem, borrower: StoreColaborador, notes?: string) => {
     const now = new Date();
@@ -778,6 +801,108 @@ export default function App() {
   // Delete Work Order Handler
   const handleDeleteWorkOrder = (workOrderId: string) => {
     setWorkOrders(prev => prev.filter(w => w.id !== workOrderId));
+  };
+
+  // Preventive Visit Handlers (Caminata Técnica Semestral)
+  const handleSavePreventiveVisit = (newVisit: PreventiveVisit) => {
+    setPreventiveVisits(prev => {
+      const exists = prev.some(v => v.id === newVisit.id);
+      if (exists) {
+        return prev.map(v => v.id === newVisit.id ? newVisit : v);
+      }
+      return [newVisit, ...prev];
+    });
+
+    // Update store's ultimaVisitaPreventiva in stores state
+    setStores(prevStores => prevStores.map(st => {
+      if (String(st.codTienda) === String(newVisit.storeCode) || String(st.id) === String(newVisit.storeId)) {
+        return {
+          ...st,
+          ultimaVisitaPreventiva: {
+            fecha: newVisit.fechaVisita,
+            estado: newVisit.estado,
+            itOperator: newVisit.itOperator,
+            gerenteTienda: newVisit.gerenteTienda,
+            informePdf: newVisit.informePdfNombre,
+            totalEquiposRevisados: newVisit.totalEquipos,
+            observacionesDetectadas: newVisit.conObservacionCount,
+            ticketsGenerados: newVisit.ticketsGeneradosCount,
+            semaforoSemestral: 'al_dia'
+          }
+        };
+      }
+      return st;
+    }));
+
+    // Auto-generate Helpdesk Tickets for any items with ticketJR
+    newVisit.itemsRevision.forEach(item => {
+      if (item.ticketJR && (item.estado === 'Con observación' || item.estado === 'No operativo / Falla')) {
+        const targetStore = stores.find(s => s.id === newVisit.storeId);
+        const storeRegion = targetStore?.region || 'Región 1 - Lima Norte';
+        const now = new Date();
+        const dateFormatted = now.toLocaleDateString('es-PE');
+
+        const newTicket: Ticket = {
+          id: `tk-vis-${Date.now()}-${item.id}`,
+          code: `TK-${Math.floor(1000 + Math.random() * 9000)}`,
+          title: `[Caminata Semestral] ${item.equipoNombre} - ${item.observacion || 'Falla técnica detectada'}`,
+          description: `Detectado durante Caminata Semestral ${newVisit.numeroVisita} en ${newVisit.storeName}. Operador IT: ${newVisit.itOperator}. Observación: ${item.observacion || 'Revisión requerida'}. Acción técnica: ${item.accionRealizada || 'Inspección correctiva'}. Reporte Falabella AI-Monitoring: ${item.ticketJR}`,
+          priority: item.estado === 'No operativo / Falla' ? 'Alta' : 'Media',
+          status: 'En Progreso',
+          storeId: newVisit.storeId,
+          storeName: newVisit.storeName,
+          storeCode: String(newVisit.storeCode),
+          region: storeRegion,
+          reportedBy: newVisit.itOperator,
+          assignedTo: 'Soporte Local Onsite',
+          createdAt: 'Hace un momento',
+          slaDueIn: '24 horas',
+          ticketJR: item.ticketJR,
+          proveedorServicio: item.categoryId === 'balanzas' ? 'SISTEMAS DE PESAJE S.A.C' : (item.categoryId.includes('pda') || item.categoryId.includes('impresora')) ? 'DMS PERU S.A.C / Zebra' : 'SOPORTE LOCAL RETAIL',
+          detalleTicket: item.observacion || 'Falla registrada durante la caminata semestral',
+          tipoEquipo: item.equipoNombre,
+          presupuestoMes: now.toLocaleString('es-PE', { month: 'long', year: 'numeric' }),
+          fechaInicio: dateFormatted,
+          commentsCount: 1,
+          comments: [
+            {
+              id: `c-vis-${Date.now()}`,
+              author: `${newVisit.itOperator} (Técnico IT)`,
+              timestamp: `${dateFormatted} ${now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}`,
+              text: `Equipo inspeccionado en caminata semestral de tienda. Registrado con ticket Falabella: ${item.ticketJR}`
+            }
+          ]
+        };
+        setTickets(prev => [newTicket, ...prev]);
+        MicrosoftDataService.pushRecord('tickets', newTicket);
+      }
+    });
+
+    playNotificationChime();
+
+    // Push notification
+    const notif: PushNotification = {
+      id: `notif-vis-${Date.now()}`,
+      title: `Caminata Semestral Registrada: ${newVisit.storeName}`,
+      message: `El operador ${newVisit.itOperator} guardó la visita preventiva ${newVisit.numeroVisita} (${newVisit.totalEquipos} equipos evaluados, ${newVisit.ticketsGeneradosCount} ticket(s) correctivo(s)).`,
+      type: 'mantenimiento',
+      severity: 'info',
+      timestamp: new Date().toISOString(),
+      timeAgo: 'Ahora',
+      read: false,
+      storeId: newVisit.storeId,
+      storeName: newVisit.storeName,
+      linkModule: 'visitas'
+    };
+    setNotifications(prev => [notif, ...prev]);
+  };
+
+  const handleUpdatePreventiveVisit = (updatedVisit: PreventiveVisit) => {
+    setPreventiveVisits(prev => prev.map(v => v.id === updatedVisit.id ? updatedVisit : v));
+  };
+
+  const handleDeletePreventiveVisit = (visitId: string) => {
+    setPreventiveVisits(prev => prev.filter(v => v.id !== visitId));
   };
 
   // Add Technical Report Handler
@@ -1424,6 +1549,7 @@ export default function App() {
                   onOpenSharePointSync={() => setShowStoreSharePointSync(true)}
                   onUpdateStore={handleUpdateStore}
                   onDeleteStore={handleDeleteStore}
+                  onNavigateToVisitas={() => setCurrentView('visitas')}
                 />
               )}
 
@@ -1439,6 +1565,22 @@ export default function App() {
                   onUpdateWorkOrder={handleUpdateWorkOrder}
                   onDeleteWorkOrder={handleDeleteWorkOrder}
                   onUpdateWorkOrderStatus={handleUpdateWorkOrderStatus}
+                  onNavigateToVisitas={() => setCurrentView('visitas')}
+                />
+              )}
+
+              {currentView === 'visitas' && (
+                <PreventiveVisitsView
+                  stores={stores}
+                  visits={preventiveVisits}
+                  currentUser={currentUser}
+                  onSaveVisit={handleSavePreventiveVisit}
+                  onUpdateVisit={handleUpdatePreventiveVisit}
+                  onDeleteVisit={handleDeletePreventiveVisit}
+                  onCreateHelpdeskTicket={handleAddTicket}
+                  onNavigateToHelpdesk={() => setCurrentView('helpdesk')}
+                  onNavigateToStores={() => setCurrentView('tiendas')}
+                  onNavigateToMaintenance={() => setCurrentView('mantenimiento')}
                 />
               )}
 

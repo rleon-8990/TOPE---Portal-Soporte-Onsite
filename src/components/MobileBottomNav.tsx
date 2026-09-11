@@ -14,7 +14,8 @@ import {
   ShieldCheck,
   LogOut,
   Send,
-  Smartphone
+  Smartphone,
+  ClipboardCheck
 } from 'lucide-react';
 import { AppUser } from '../types';
 import { hasPageAccess } from '../utils/rbac';
@@ -116,6 +117,22 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-2.5 pt-1">
+              {hasPageAccess(currentUser.role, 'visitas') && (
+                <button
+                  onClick={() => {
+                    onSelectView('visitas');
+                    setShowMoreMenu(false);
+                  }}
+                  className={`p-3.5 rounded-xl text-left border flex flex-col gap-1 transition-colors ${
+                    currentView === 'visitas' ? 'bg-[#eff4ff] border-[#00236f] text-[#00236f]' : 'bg-[#f8f9ff] border-[#e5eeff] text-[#444651]'
+                  }`}
+                >
+                  <ClipboardCheck className="w-5 h-5 text-[#007a33]" />
+                  <span className="font-semibold text-xs">Visitas Preventivas</span>
+                  <span className="text-[10px] text-[#757682]">Caminata semestral</span>
+                </button>
+              )}
+
               {hasPageAccess(currentUser.role, 'custodia') && (
                 <button
                   onClick={() => {

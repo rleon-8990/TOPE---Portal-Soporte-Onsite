@@ -17,7 +17,8 @@ import {
   ChevronRight,
   ShieldCheck,
   Send,
-  Smartphone
+  Smartphone,
+  ClipboardCheck
 } from 'lucide-react';
 import { AppUser } from '../types';
 import { hasPageAccess, getRoleConfig, getAllowedModulesForRole } from '../utils/rbac';
@@ -53,6 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard },
     { id: 'inventario', label: 'Inventario', icon: Boxes },
     { id: 'mantenimiento', label: 'Mantenimiento', icon: Wrench },
+    { id: 'visitas', label: 'Visitas Preventivas', icon: ClipboardCheck },
     { id: 'custodia', label: 'Custodia PDAs & CCTV', icon: Smartphone },
     { id: 'monitoreo', label: 'Asistencia & Personal', icon: UserCheck },
     { id: 'informes', label: 'Informes', icon: FileText },
