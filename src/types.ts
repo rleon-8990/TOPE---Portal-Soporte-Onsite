@@ -358,6 +358,7 @@ export interface AppUser {
 
   // Control de Acceso Web & Habilitación en Directorio
   webAccessEnabled?: boolean; // true = permitido para ingresar al portal web; false = bloqueado
+  password?: string; // Contraseña corporativa Active Directory / Windows
   lastLoginAt?: string; // Fecha y hora del último login registrado
   lastLoginIp?: string; // Dirección IP del último login
   loginDevice?: string; // Dispositivo / Navegador registrado
@@ -378,7 +379,7 @@ export interface LoginAuditRecord {
   userRole?: string;
   email?: string;
   role?: string;
-  status: 'exitoso' | 'bloqueado_no_en_directorio' | 'bloqueado_inhabilitado' | 'success' | 'blocked_not_in_directory' | 'blocked_disabled';
+  status: 'exitoso' | 'bloqueado_no_en_directorio' | 'bloqueado_inhabilitado' | 'bloqueado_contrasena_incorrecta' | 'success' | 'blocked_not_in_directory' | 'blocked_disabled';
   ipAddress: string;
   deviceInfo?: string;
   device?: string;
