@@ -254,6 +254,49 @@ export function getAllowedModulesForRole(role: string): string[] {
 }
 
 /**
+ * Retorna los módulos efectivos a los que tiene acceso un usuario específico
+ */
+export function getUserAllowedModules(user: AppUser): string[] {
+  if (user.allowedModules && user.allowedModules.length > 0) {
+    return user.allowedModules;
+  }
+  return getAllowedModulesForRole(user.role);
+}
+
+/**
+ * Determina si un usuario tiene permisos de edición (puede hacer cambios) o solo lectura
+ */
+export function canUserEdit(user?: AppUser | null): boolean {
+  if (!user) return false;
+  
+  // Si tiene flag explícito de edición
+  if (user.canEdit !== undefined) {
+    return user.canEdit;
+  }
+  
+  // Si tiene accessType definido
+  if (user.accessType === 'lectura') return false;
+  if (user.accessType === 'escritura') return true;
+
+  // Por rol: Auditor / Consulta son solo lectura
+  const lowerRole = (user.role || '').toLowerCase();
+  if (lowerRole.includes('auditor') || lowerRole.includes('consulta') || lowerRole.includes('solo lectura')) {
+    return false;
+  }
+
+  // Roles operativos y de administración pueden hacer cambios
+  return true;
+}
+
+/**
+ * Verifica si un usuario puede ver un módulo determinado
+ */
+export function hasUserModuleAccess(user: AppUser, moduleKey: string): boolean {
+  const modules = getUserAllowedModules(user);
+  return modules.includes(moduleKey);
+}
+
+/**
  * Obtiene la página de inicio por defecto para un rol
  */
 export function getDefaultViewForRole(role: string): string {
@@ -282,3 +325,16 @@ export function isCorporateEmail(email: string): boolean {
   ];
   return validDomains.some(vd => domain === vd || domain.endsWith('.' + vd));
 }
+
+export const AVAILABLE_ROLES: string[] = [
+  'Administrador',
+  'Administrador General',
+  'Supervisor Regional',
+  'IT Operator',
+  'Jefe de Mantenimiento',
+  'Gerente de Tienda',
+  'Jefe de Tienda',
+  'Técnico Especialista',
+  'Técnico de Campo',
+  'Auditor / Consulta'
+];

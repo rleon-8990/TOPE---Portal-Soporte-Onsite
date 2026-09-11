@@ -39,7 +39,11 @@ import {
   X,
   FileCheck,
   ShieldCheck,
-  Info
+  Info,
+  PackageCheck,
+  Database,
+  Network,
+  Box
 } from 'lucide-react';
 import {
   PreventiveVisit,
@@ -48,7 +52,8 @@ import {
   PreventiveVisitPhoto,
   Store,
   AppUser,
-  Ticket
+  Ticket,
+  Equipment
 } from '../types';
 import {
   WALKTHROUGH_CATEGORIES,
@@ -60,6 +65,7 @@ interface PreventiveVisitsViewProps {
   stores: Store[];
   visits: PreventiveVisit[];
   currentUser: AppUser;
+  equipments?: Equipment[];
   onSaveVisit: (visit: PreventiveVisit) => void;
   onUpdateVisit: (visit: PreventiveVisit) => void;
   onDeleteVisit: (visitId: string) => void;
@@ -67,6 +73,7 @@ interface PreventiveVisitsViewProps {
   onNavigateToHelpdesk?: () => void;
   onNavigateToStores?: () => void;
   onNavigateToMaintenance?: () => void;
+  onNavigateToInventory?: () => void;
 }
 
 type WizardStep =
@@ -83,19 +90,25 @@ export const PreventiveVisitsView: React.FC<PreventiveVisitsViewProps> = ({
   stores,
   visits,
   currentUser,
+  equipments = [],
   onSaveVisit,
   onUpdateVisit,
   onDeleteVisit,
   onCreateHelpdeskTicket,
   onNavigateToHelpdesk,
   onNavigateToStores,
-  onNavigateToMaintenance
+  onNavigateToMaintenance,
+  onNavigateToInventory
 }) => {
   // Navigation within the module
   const [currentStep, setCurrentStep] = useState<WizardStep>('scrInicio');
   const [selectedCategoryForReview, setSelectedCategoryForReview] = useState<WalkthroughCategoryMeta>(
     WALKTHROUGH_CATEGORIES[0]
   );
+
+  // Inventory Integration States
+  const [autoPreloadInventory, setAutoPreloadInventory] = useState<boolean>(true);
+  const [selectedInventoryEquipmentIds, setSelectedInventoryEquipmentIds] = useState<string[]>([]);
 
   // List filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -200,6 +213,115 @@ export const PreventiveVisitsView: React.FC<PreventiveVisitsViewProps> = ({
       return matchSearch && matchStatus;
     });
   }, [visits, searchQuery, statusFilter]);
+
+  // Equipos registrados en inventario para la tienda seleccionada
+  const storeEquipments = useMemo(() => {
+    if (!equipments || equipments.length === 0) return [];
+    if (!draftVisit.storeId && !draftVisit.storeCode && !draftVisit.storeName) return [];
+
+    const found = equipments.filter(eq => {
+      const matchId = draftVisit.storeId && eq.storeId === draftVisit.storeId;
+      const matchCode = draftVisit.storeCode && (
+        String(eq.storeCode) === String(draftVisit.storeCode) ||
+        (eq.storeCodeNumber && String(eq.storeCodeNumber) === String(draftVisit.storeCode))
+      );
+      const matchName = draftVisit.storeName && (
+        eq.storeName.toLowerCase().includes(draftVisit.storeName.toLowerCase()) ||
+        draftVisit.storeName.toLowerCase().includes(eq.storeName.toLowerCase())
+      );
+      return matchId || matchCode || matchName;
+    });
+
+    return found;
+  }, [equipments, draftVisit.storeId, draftVisit.storeCode, draftVisit.storeName]);
+
+  // Helper to map equipment to category item
+  const mapEquipmentToCategoryItem = (eq: Equipment): WalkthroughReviewedItem => {
+    let catId: WalkthroughCategoryId = 'cajas_asistidas';
+    let catName = 'Cajas Asistidas (POS)';
+    const eqName = (eq.name || '').toLowerCase();
+    const eqServ = (eq.servicio || '').toLowerCase();
+    const catIdEq = (eq.categoryId || '').toLowerCase();
+
+    if (catIdEq.includes('pos') || eqName.includes('pos') || eqServ.includes('pos') || eqName.includes('caja')) {
+      if (eqName.includes('sco') || eqName.includes('self') || eqServ.includes('sco') || eqName.includes('autocobro')) {
+        catId = 'cajas_sco';
+        catName = 'Cajas Self-Checkout (SCO)';
+      } else {
+        catId = 'cajas_asistidas';
+        catName = 'Cajas Asistidas (POS)';
+      }
+    } else if (catIdEq.includes('balanza') || eqName.includes('balanza') || eqServ.includes('balanza') || eqName.includes('toledo') || eqName.includes('bizerba')) {
+      catId = 'balanzas';
+      catName = 'Balanzas Perecibles y Pesaje';
+    } else if (eqName.includes('switch') || eqName.includes('rack') || eqName.includes('gabinete') || catIdEq.includes('red') || eqName.includes('cisco')) {
+      if (eqName.includes('b') || (eq.locationInStore && eq.locationInStore.toLowerCase().includes('b'))) {
+        catId = 'gabinete_b';
+        catName = 'Gabinete B (Comunicaciones)';
+      } else if (eqName.includes('c') || (eq.locationInStore && eq.locationInStore.toLowerCase().includes('c'))) {
+        catId = 'gabinete_c';
+        catName = 'Gabinete C (Comunicaciones)';
+      } else {
+        catId = 'cpd_sistemas';
+        catName = 'CPD / Sistemas Centrales';
+      }
+    } else if (catIdEq.includes('pda') || eqName.includes('pda') || eqName.includes('tc52') || eqName.includes('terminal')) {
+      catId = 'pda_terminales';
+      catName = 'PDAs y Terminales Móviles';
+    } else if (catIdEq.includes('impresora') || eqName.includes('impresora') || eqName.includes('zebra')) {
+      if (eqName.includes('portatil') || eqName.includes('zq') || eqName.includes('cctv')) {
+        catId = 'impresoras_portatiles';
+        catName = 'Impresoras Portátiles';
+      } else {
+        catId = 'impresoras_zebra';
+        catName = 'Impresoras Zebra / Térmicas';
+      }
+    } else if (catIdEq.includes('kiosko') || eqName.includes('verificador') || eqName.includes('precio')) {
+      catId = 'consulta_precios';
+      catName = 'Verificadores / Kioskos';
+    } else {
+      catId = 'cpd_sistemas';
+      catName = 'CPD / Sistemas Centrales';
+    }
+
+    const matchedCat = WALKTHROUGH_CATEGORIES.find(c => c.id === catId);
+    const defaultCheck = matchedCat ? matchedCat.defaultChecklist : [
+      'Inspección física y anclaje',
+      'Conectividad de red e IP',
+      'Prueba funcional operativa'
+    ];
+
+    return {
+      id: `rev-inv-${eq.id}-${Date.now()}`,
+      categoryId: catId,
+      categoryName: catName,
+      equipoNombre: `${eq.name} (${eq.code})`,
+      equipmentCode: eq.code,
+      estado: 'Operativo',
+      observacion: `Registrado en Inventario Maestro TOPE. Ubicación: ${eq.locationInStore || 'Piso de Venta'}. IP: ${eq.ipAddress || '-'}. Switch: ${eq.switchName || '-'}${eq.puertoSwitch ? ` (Puerto ${eq.puertoSwitch})` : ''}.`,
+      accionRealizada: 'Inspección física, conexionado y prueba funcional preventiva.',
+      diagnostics: defaultCheck.map(chk => ({
+        item: chk,
+        status: 'ok',
+        valorMedido: 'Conforme'
+      })),
+      evidencias: []
+    };
+  };
+
+  // Load store inventory into draft visit
+  const handleLoadStoreInventoryIntoVisit = () => {
+    const selected = storeEquipments.filter(e =>
+      selectedInventoryEquipmentIds.length === 0 || selectedInventoryEquipmentIds.includes(e.id)
+    );
+    if (selected.length === 0) return;
+
+    const newItems: WalkthroughReviewedItem[] = selected.map(mapEquipmentToCategoryItem);
+    setDraftVisit(prev => ({
+      ...prev,
+      itemsRevision: newItems
+    }));
+  };
 
   // Handle select store in Wizard
   const handleSelectStoreForNewVisit = (storeId: string) => {
@@ -929,6 +1051,134 @@ export const PreventiveVisitsView: React.FC<PreventiveVisitsViewProps> = ({
               </select>
             </div>
 
+            {/* SECCIÓN VINCULADA: Inventario Oficial de Equipos de la Tienda */}
+            <div className="sm:col-span-2 bg-[#f0f6ff] border border-[#bcd7ff] rounded-2xl p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#d2e4ff] pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-[#00236f] text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <Database className="w-5 h-5 text-[#79a9ff]" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-[#00236f] flex items-center gap-2">
+                      <span>Equipos Registrados en el Inventario Oficial</span>
+                      <span className="bg-[#007a33] text-white text-[10px] font-mono px-2 py-0.2 rounded-full font-bold">
+                        {storeEquipments.length} activos detectados
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-[#444651]">
+                      Equipos enlazados al inventario de {draftVisit.storeName || 'la sucursal'}. Se evita la digitación manual duplicada.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedInventoryEquipmentIds.length === storeEquipments.length) {
+                        setSelectedInventoryEquipmentIds([]);
+                      } else {
+                        setSelectedInventoryEquipmentIds(storeEquipments.map(e => e.id));
+                      }
+                    }}
+                    className="text-[11px] font-bold text-[#00236f] hover:underline cursor-pointer"
+                  >
+                    {selectedInventoryEquipmentIds.length === storeEquipments.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleLoadStoreInventoryIntoVisit();
+                      setCurrentStep('scrMenu');
+                    }}
+                    disabled={storeEquipments.length === 0}
+                    className="px-3 py-1.5 bg-[#007a33] hover:bg-[#005a26] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-40"
+                  >
+                    <PackageCheck className="w-4 h-4" />
+                    <span>Iniciar Proceso con {selectedInventoryEquipmentIds.length || storeEquipments.length} Equipos</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Lista visual de equipos */}
+              {storeEquipments.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-52 overflow-y-auto pr-1">
+                    {storeEquipments.map(eq => {
+                      const isSelected =
+                        selectedInventoryEquipmentIds.length === 0 ||
+                        selectedInventoryEquipmentIds.includes(eq.id);
+                      return (
+                        <div
+                          key={eq.id}
+                          onClick={() => {
+                            setSelectedInventoryEquipmentIds(prev =>
+                              prev.includes(eq.id) ? prev.filter(id => id !== eq.id) : [...prev, eq.id]
+                            );
+                          }}
+                          className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all flex items-start gap-2 ${
+                            isSelected
+                              ? 'bg-white border-[#00236f] shadow-xs ring-1 ring-[#00236f]/20'
+                              : 'bg-white/60 border-gray-200 opacity-60 hover:opacity-100'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {}}
+                            className="mt-0.5 rounded text-[#00236f] focus:ring-[#00236f]"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-mono font-bold text-[#00236f] truncate">{eq.code}</span>
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#eff4ff] text-[#00236f] font-semibold truncate">
+                                {eq.categoryName.replace(' y Sistemas de Pesaje', '').replace(' y Terminales Móviles', '')}
+                              </span>
+                            </div>
+                            <div className="font-medium text-[#0b1c30] truncate text-[11px] mt-0.5">{eq.name}</div>
+                            <div className="text-[10px] text-[#757682] truncate flex items-center gap-2 mt-0.5">
+                              {eq.ipAddress && <span>IP: {eq.ipAddress}</span>}
+                              {eq.switchName && <span>Switch: {eq.switchName}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer select-none text-[11px] text-[#00236f] font-semibold">
+                      <input
+                        type="checkbox"
+                        checked={autoPreloadInventory}
+                        onChange={e => setAutoPreloadInventory(e.target.checked)}
+                        className="rounded text-[#007a33] focus:ring-[#007a33]"
+                      />
+                      <span>Pre-cargar automáticamente estos equipos en el checklist de la caminata</span>
+                    </label>
+
+                    {onNavigateToInventory && (
+                      <button
+                        type="button"
+                        onClick={onNavigateToInventory}
+                        className="text-[11px] text-[#00236f] hover:underline flex items-center gap-1 font-semibold"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        <span>Ver Inventario Completo</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Info className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Esta tienda no tiene activos cargados aún en el inventario. Se utilizarán las categorías y plantillas estándar.</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-1">
               <label className="font-bold text-[#00236f]">N.° Tienda (Código)</label>
               <input
@@ -1044,7 +1294,12 @@ export const PreventiveVisitsView: React.FC<PreventiveVisitsViewProps> = ({
               Cancelar
             </button>
             <button
-              onClick={() => setCurrentStep('scrMenu')}
+              onClick={() => {
+                if (autoPreloadInventory && (!draftVisit.itemsRevision || draftVisit.itemsRevision.length === 0)) {
+                  handleLoadStoreInventoryIntoVisit();
+                }
+                setCurrentStep('scrMenu');
+              }}
               disabled={!draftVisit.storeCode}
               className="px-5 py-2.5 bg-[#007a33] hover:bg-[#005a26] text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-xs transition-colors cursor-pointer disabled:opacity-50"
             >
@@ -1750,6 +2005,42 @@ export const PreventiveVisitsView: React.FC<PreventiveVisitsViewProps> = ({
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {/* Auto-fill from store inventory */}
+            {storeEquipments.length > 0 && (
+              <div className="bg-[#eff6ff] border border-[#bfdbfe] rounded-xl p-3 space-y-1.5">
+                <label className="font-bold text-[#00236f] flex items-center gap-1.5 text-xs">
+                  <Database className="w-3.5 h-3.5 text-[#00236f]" />
+                  <span>Vincular con Equipo del Inventario Oficial (Autocompletar)</span>
+                </label>
+                <select
+                  onChange={e => {
+                    const found = storeEquipments.find(eq => eq.id === e.target.value);
+                    if (found) {
+                      setEditingItem(prev => ({
+                        ...prev,
+                        equipoNombre: `${found.name} (${found.code})`,
+                        equipmentCode: found.code,
+                        observacion: prev?.observacion || `Ubicación: ${found.locationInStore || 'Tienda'}. IP: ${found.ipAddress || '-'}. Switch: ${found.switchName || '-'}${found.puertoSwitch ? ` (Puerto ${found.puertoSwitch})` : ''}.`,
+                        accionRealizada: prev?.accionRealizada || 'Revisión y diagnóstico preventivo en sitio.'
+                      }));
+                    }
+                  }}
+                  className="w-full px-2.5 py-1.5 bg-white border border-[#93c5fd] rounded-lg text-xs font-semibold text-[#00236f] focus:outline-none"
+                  defaultValue=""
+                >
+                  <option value="">-- Selecciona un equipo del inventario para rellenar datos automáticamente --</option>
+                  {storeEquipments.map(eq => (
+                    <option key={eq.id} value={eq.id}>
+                      {eq.code} - {eq.name} ({eq.categoryName.replace(' y Sistemas de Pesaje', '').replace(' y Terminales Móviles', '')})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-[#525e75]">
+                  Al seleccionar un activo registrado en el inventario se importan automáticamente el código, nombre y datos de red, evitando duplicar registros.
+                </p>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div className="space-y-1">

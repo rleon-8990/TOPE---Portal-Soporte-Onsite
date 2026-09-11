@@ -29,32 +29,42 @@ import {
   ArrowUpDown,
   Edit2,
   Trash2,
-  Save
+  Save,
+  ShieldCheck
 } from 'lucide-react';
-import { Equipment, Store } from '../types';
+import { Equipment, Store, AppUser } from '../types';
 import { EQUIPMENT_CATEGORIES } from '../data/mockData';
+import { PortalAccessMatrixTab } from './PortalAccessMatrixTab';
 
 interface InventoryViewProps {
   equipments: Equipment[];
   stores: Store[];
+  users?: AppUser[];
+  currentUser?: AppUser;
   onSelectEquipment: (equipment: Equipment) => void;
   onOpenNewEquipment: () => void;
   onOpenQRScanner: () => void;
   onUpdateEquipment?: (updatedEq: Equipment) => void;
   onDeleteEquipment?: (equipmentId: string) => void;
+  onUpdateUser?: (updatedUser: AppUser) => void;
+  onNavigateToUsers?: () => void;
 }
 
 export const InventoryView: React.FC<InventoryViewProps> = ({
   equipments,
   stores,
+  users = [],
+  currentUser,
   onSelectEquipment,
   onOpenNewEquipment,
   onOpenQRScanner,
   onUpdateEquipment,
   onDeleteEquipment,
+  onUpdateUser,
+  onNavigateToUsers,
 }) => {
-  // Mode toggle: 'general' vs 'enlaces_comunicacion'
-  const [activeTab, setActiveTab] = useState<'general' | 'enlaces_comunicacion'>('general');
+  // Mode toggle: 'general' vs 'enlaces_comunicacion' vs 'matriz_accesos'
+  const [activeTab, setActiveTab] = useState<'general' | 'enlaces_comunicacion' | 'matriz_accesos'>('general');
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
@@ -377,9 +387,37 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             {networkStats.withSwitch}
           </span>
         </button>
+
+        <button
+          onClick={() => {
+            setActiveTab('matriz_accesos');
+            setCurrentPage(1);
+          }}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+            activeTab === 'matriz_accesos'
+              ? 'border-[#00236f] text-[#00236f] bg-[#eff4ff]/60 rounded-t-lg'
+              : 'border-transparent text-[#757682] hover:text-[#0b1c30] hover:bg-[#f8f9ff] rounded-t-lg'
+          }`}
+        >
+          <ShieldCheck className="w-4 h-4 text-emerald-600" />
+          <span>Matriz de Accesos al Portal & Privilegios (RBAC)</span>
+          <span className="ml-1 text-[11px] bg-emerald-600 text-white px-2 py-0.2 rounded-full font-mono font-bold">
+            {users.length}
+          </span>
+        </button>
       </div>
 
-      {/* Summary Banner for Network Links View */}
+      {activeTab === 'matriz_accesos' ? (
+        <PortalAccessMatrixTab
+          users={users}
+          stores={stores}
+          currentUser={currentUser}
+          onUpdateUser={onUpdateUser}
+          onNavigateToUsers={onNavigateToUsers}
+        />
+      ) : (
+        <>
+          {/* Summary Banner for Network Links View */}
       {activeTab === 'enlaces_comunicacion' && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white p-3.5 rounded-xl border border-[#dce9ff] shadow-xs">
           <div className="flex items-center gap-3 p-2.5 rounded-lg bg-[#f8f9ff] border border-[#e5eeff]">
@@ -1225,6 +1263,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
 
       {/* Edit Equipment Modal */}

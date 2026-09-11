@@ -15,10 +15,17 @@ import {
   MapPin,
   Clock,
   AlertTriangle,
-  Users
+  Users,
+  Edit2
 } from 'lucide-react';
 import { AppUser } from '../types';
-import { ROLE_CONFIGS, APP_MODULES, getAllowedModulesForRole } from '../utils/rbac';
+import {
+  ROLE_CONFIGS,
+  APP_MODULES,
+  getAllowedModulesForRole,
+  getUserAllowedModules,
+  canUserEdit
+} from '../utils/rbac';
 
 interface DirectoryPrivilegesTabProps {
   users: AppUser[];
@@ -115,6 +122,27 @@ export const DirectoryPrivilegesTab: React.FC<DirectoryPrivilegesTabProps> = ({
     };
     onUpdateUser(updatedUser);
     setActionNotice(`Rol y privilegios actualizados a "${newRole}" para ${user.name}`);
+    setTimeout(() => setActionNotice(null), 3500);
+  };
+
+  // Quick toggle: ¿Puede hacer cambios? (Escritura vs Lectura)
+  const handleToggleCanEdit = (user: AppUser) => {
+    if (!onUpdateUser) return;
+    const currentCanEdit = canUserEdit(user);
+    const newCanEdit = !currentCanEdit;
+
+    const updatedUser: AppUser = {
+      ...user,
+      canEdit: newCanEdit,
+      accessType: newCanEdit ? 'escritura' : 'lectura'
+    };
+
+    onUpdateUser(updatedUser);
+    setActionNotice(
+      `Permiso de cambios actualizado: ${user.name} ahora ${
+        newCanEdit ? 'PUEDE HACER CAMBIOS (Escritura)' : 'está en modo SOLO LECTURA (Sin cambios)'
+      }`
+    );
     setTimeout(() => setActionNotice(null), 3500);
   };
 
@@ -272,6 +300,7 @@ export const DirectoryPrivilegesTab: React.FC<DirectoryPrivilegesTabProps> = ({
                 <th className="py-3 px-3.5">Colaborador & Correo Outlook</th>
                 <th className="py-3 px-3.5">Asignación Tienda / Región</th>
                 <th className="py-3 px-3.5">Rol de Privilegios</th>
+                <th className="py-3 px-3.5 text-center">¿Puede hacer cambios?</th>
                 <th className="py-3 px-3.5 text-center">Módulos Habilitados</th>
                 <th className="py-3 px-3.5 text-center">Estado Acceso Web</th>
                 <th className="py-3 px-3.5">Última Conexión</th>
@@ -281,7 +310,7 @@ export const DirectoryPrivilegesTab: React.FC<DirectoryPrivilegesTabProps> = ({
             <tbody className="divide-y divide-[#f0f4ff]">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-[#757682]">
+                  <td colSpan={8} className="py-12 text-center text-[#757682]">
                     <Users className="w-8 h-8 text-[#a3b3d1] mx-auto mb-2" />
                     <p className="font-semibold text-[#0b1c30]">No se encontraron colaboradores con estos filtros.</p>
                     <p className="text-xs">Ajusta la búsqueda o restablece los filtros de acceso.</p>
@@ -290,8 +319,9 @@ export const DirectoryPrivilegesTab: React.FC<DirectoryPrivilegesTabProps> = ({
               ) : (
                 filteredUsers.map(user => {
                   const isEnabled = user.webAccessEnabled !== false;
-                  const allowedModules = getAllowedModulesForRole(user.role);
+                  const allowedModules = getUserAllowedModules(user);
                   const isRleon = user.email.toLowerCase().includes('rleon');
+                  const userCanMakeChanges = canUserEdit(user);
 
                   return (
                     <tr
@@ -373,6 +403,32 @@ export const DirectoryPrivilegesTab: React.FC<DirectoryPrivilegesTabProps> = ({
                             ))}
                           </select>
                         </div>
+                      </td>
+
+                      {/* ¿Puede hacer cambios? (Permiso de Modificación) */}
+                      <td className="py-3 px-3.5 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleCanEdit(user)}
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                            userCanMakeChanges
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                              : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+                          }`}
+                          title="Click para alternar entre Escritura y Solo Lectura"
+                        >
+                          {userCanMakeChanges ? (
+                            <>
+                              <Edit2 className="w-3 h-3 text-emerald-600" />
+                              <span>Sí (Escritura)</span>
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="w-3 h-3 text-amber-600" />
+                              <span>Solo Lectura</span>
+                            </>
+                          )}
+                        </button>
                       </td>
 
                       {/* Modules Count Badge */}

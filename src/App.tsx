@@ -1527,11 +1527,15 @@ export default function App() {
                 <InventoryView
                   equipments={equipments}
                   stores={stores}
+                  users={users}
+                  currentUser={currentUser}
                   onSelectEquipment={(eq) => setSelectedEquipmentForDetail(eq)}
                   onOpenNewEquipment={() => setShowNewEquipment(true)}
                   onOpenQRScanner={() => setShowQRScanner(true)}
                   onUpdateEquipment={handleUpdateEquipment}
                   onDeleteEquipment={handleDeleteEquipment}
+                  onUpdateUser={handleUpdateUser}
+                  onNavigateToUsers={() => setCurrentView('usuarios')}
                 />
               )}
 
@@ -1574,6 +1578,7 @@ export default function App() {
                   stores={stores}
                   visits={preventiveVisits}
                   currentUser={currentUser}
+                  equipments={equipments}
                   onSaveVisit={handleSavePreventiveVisit}
                   onUpdateVisit={handleUpdatePreventiveVisit}
                   onDeleteVisit={handleDeletePreventiveVisit}
@@ -1581,6 +1586,7 @@ export default function App() {
                   onNavigateToHelpdesk={() => setCurrentView('helpdesk')}
                   onNavigateToStores={() => setCurrentView('tiendas')}
                   onNavigateToMaintenance={() => setCurrentView('mantenimiento')}
+                  onNavigateToInventory={() => setCurrentView('inventario')}
                 />
               )}
 

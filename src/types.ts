@@ -362,6 +362,11 @@ export interface AppUser {
   lastLoginIp?: string; // Dirección IP del último login
   loginDevice?: string; // Dispositivo / Navegador registrado
   loginCount?: number; // Total de inicios de sesión exitosos
+
+  // Privilegios de Edición y Control de Módulos
+  canEdit?: boolean; // true = puede realizar cambios en la plataforma; false = solo lectura / auditoría
+  accessType?: 'escritura' | 'lectura'; // 'escritura' = Puede hacer cambios, 'lectura' = Solo lectura
+  allowedModules?: string[]; // Lista personalizada de módulos que puede ver
 }
 
 export interface LoginAuditRecord {
