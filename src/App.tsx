@@ -7,7 +7,8 @@ import {
   INITIAL_REPORTS,
   INITIAL_USERS,
   INITIAL_NOTIFICATIONS,
-  INITIAL_REGIONAL_ALERTS
+  INITIAL_REGIONAL_ALERTS,
+  INITIAL_ACCESS_REQUESTS
 } from './data/mockData';
 import {
   Equipment,
@@ -25,7 +26,8 @@ import {
   LoginAuditRecord,
   DeviceCustodyItem,
   StoreColaborador,
-  PreventiveVisit
+  PreventiveVisit,
+  AccessRequest
 } from './types';
 import { INITIAL_LOGIN_AUDIT_LOGS } from './data/loginAuditData';
 import { INITIAL_DEVICE_CUSTODY_ITEMS, INITIAL_COLABORADORES, FALABELLA_AI_MONITORING_URL, playScannerBeep } from './data/deviceCustodyData';
@@ -33,7 +35,7 @@ import { INITIAL_PREVENTIVE_VISITS, enrichStoresWithVisits } from './data/preven
 import { playNotificationChime } from './utils/helpers';
 import { MicrosoftDataService, AutoSyncConfig } from './services/microsoftDataService';
 import { INITIAL_ATTENDANCE_LOGS, INITIAL_ACTIVE_PRESENCES } from './data/attendanceMockData';
-import { QrCode, AlertTriangle, Bell, CheckCircle2, ShieldCheck, LogOut, ChevronDown, User, ExternalLink, Send, Smartphone } from 'lucide-react';
+import { QrCode, AlertTriangle, Bell, CheckCircle2, ShieldCheck, LogOut, ChevronDown, User, ExternalLink, Send, Smartphone, ShieldAlert } from 'lucide-react';
 import { hasPageAccess, getDefaultViewForRole, getRoleConfig, getAllowedModulesForRole, APP_MODULES } from './utils/rbac';
 
 // Components
@@ -64,6 +66,7 @@ import { RegionalAlertsModal } from './components/RegionalAlertsModal';
 import { SharePointDataverseModal } from './components/SharePointDataverseModal';
 import { SharePointStoreSyncModal } from './components/SharePointStoreSyncModal';
 import { PrivilegesMatrixModal } from './components/PrivilegesMatrixModal';
+import { AccessRequestsModal } from './components/AccessRequestsModal';
 
 export default function App() {
   // Navigation State
@@ -160,7 +163,20 @@ export default function App() {
   const [showM365Sync, setShowM365Sync] = useState<boolean>(false);
   const [showStoreSharePointSync, setShowStoreSharePointSync] = useState<boolean>(false);
   const [showPrivilegesMatrix, setShowPrivilegesMatrix] = useState<boolean>(false);
+  const [showAccessRequestsModal, setShowAccessRequestsModal] = useState<boolean>(false);
   const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
+
+  // Access Requests State (persisted in localStorage)
+  const [accessRequests, setAccessRequests] = useState<AccessRequest[]>(() => {
+    try {
+      const saved = localStorage.getItem('tottus_access_requests');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_ACCESS_REQUESTS;
+  });
 
   // Login Audit Records State (persisted in session)
   const [loginAuditLogs, setLoginAuditLogs] = useState<LoginAuditRecord[]>(() => {
@@ -946,6 +962,132 @@ export default function App() {
     });
   };
 
+  // Access Requests Handlers (for unauthorized login requests)
+  const handleCreateAccessRequest = (reqData: Omit<AccessRequest, 'id' | 'timestamp' | 'status'>) => {
+    const newReq: AccessRequest = {
+      ...reqData,
+      id: `req-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      timeAgo: 'Justo ahora',
+      status: 'pendiente'
+    };
+
+    setAccessRequests(prev => {
+      const updated = [newReq, ...prev.filter(r => r.email.toLowerCase() !== reqData.email.toLowerCase())];
+      try {
+        localStorage.setItem('tottus_access_requests', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    const notif: PushNotification = {
+      id: `notif-req-${Date.now()}`,
+      title: '🚨 Solicitud de Acceso al CMMS Recibida',
+      message: `${newReq.name || newReq.email} solicitó credenciales (${newReq.provider.toUpperCase()}). Requiere autorización de Administrador.`,
+      type: 'ticket',
+      severity: 'advertencia',
+      timestamp: new Date().toISOString(),
+      timeAgo: 'Justo ahora',
+      read: false,
+      linkModule: 'usuarios'
+    };
+    setNotifications(prev => [notif, ...prev]);
+    setLiveToast(notif);
+    playNotificationChime();
+  };
+
+  const handleApproveAccessRequest = (requestId: string, role: string = 'Técnico Especialista', codTienda?: string | number) => {
+    const req = accessRequests.find(r => r.id === requestId);
+    if (!req) return;
+
+    // Update request status
+    setAccessRequests(prev => {
+      const updated = prev.map(r => r.id === requestId ? {
+        ...r,
+        status: 'aprobado' as const,
+        reviewedBy: currentUser?.name || 'Administrador',
+        reviewedAt: new Date().toISOString(),
+        assignedRole: role,
+        assignedStoreCode: codTienda
+      } : r);
+      try {
+        localStorage.setItem('tottus_access_requests', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    // Find store name if assigned
+    const targetStore = stores.find(s => String(s.codTienda) === String(codTienda));
+
+    // Provision new user in Directory with default password and web access enabled
+    const newUser: AppUser = {
+      id: `usr-${Date.now()}`,
+      name: req.name || req.email.split('@')[0],
+      email: req.email.toLowerCase(),
+      password: 'Tottus2026*',
+      role: role as any,
+      specialty: 'Soporte y Operaciones Técnicas Onsite',
+      phone: '+51 987 654 321',
+      assignedRegion: targetStore?.region || 'Lima y Callao',
+      assignedStoresCount: 1,
+      avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
+      status: 'disponible',
+      activeTicketsCount: 0,
+      userType: codTienda ? 'tienda' : 'especialista',
+      cargo: role,
+      webAccessEnabled: true,
+      codTienda: codTienda ? Number(codTienda) : 103,
+      tiendaNombre: targetStore?.name || 'Megaplaza',
+      lastLoginAt: 'Recién Creado',
+      loginCount: 0
+    };
+
+    handleAddUser(newUser);
+
+    const notif: PushNotification = {
+      id: `notif-appr-${Date.now()}`,
+      title: '✅ Acceso Aprobado y Usuario Registrado',
+      message: `El usuario ${newUser.name} (${newUser.email}) fue dado de alta con rol "${role}". Ya puede ingresar con su contraseña asignada.`,
+      type: 'mantenimiento',
+      severity: 'exito',
+      timestamp: new Date().toISOString(),
+      timeAgo: 'Justo ahora',
+      read: false,
+      linkModule: 'usuarios'
+    };
+    setNotifications(prev => [notif, ...prev]);
+    setLiveToast(notif);
+    playNotificationChime();
+  };
+
+  const handleDenyAccessRequest = (requestId: string) => {
+    setAccessRequests(prev => {
+      const updated = prev.map(r => r.id === requestId ? {
+        ...r,
+        status: 'denegado' as const,
+        reviewedBy: currentUser?.name || 'Administrador',
+        reviewedAt: new Date().toISOString()
+      } : r);
+      try {
+        localStorage.setItem('tottus_access_requests', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    const notif: PushNotification = {
+      id: `notif-deny-${Date.now()}`,
+      title: '⛔ Solicitud Denegada',
+      message: `La solicitud de acceso fue rechazada por el administrador.`,
+      type: 'ticket',
+      severity: 'critica',
+      timestamp: new Date().toISOString(),
+      timeAgo: 'Justo ahora',
+      read: false,
+      linkModule: 'usuarios'
+    };
+    setNotifications(prev => [notif, ...prev]);
+  };
+
   // Attendance & Presence Handlers
   const handleAddAttendanceLog = (newLogData: Partial<AttendanceLog>, updatePresence = true) => {
     const fullLog: AttendanceLog = {
@@ -1278,6 +1420,8 @@ export default function App() {
         availableUsers={users}
         onRecordAuditLog={handleRecordLoginAudit}
         loginAuditLogs={loginAuditLogs}
+        accessRequests={accessRequests}
+        onRequestAccess={handleCreateAccessRequest}
       />
     );
   }
@@ -1381,6 +1525,27 @@ export default function App() {
               >
                 <Send className="w-4 h-4" />
                 <span className="hidden xl:inline text-[11px] font-bold">Despacho Correos</span>
+              </button>
+            )}
+
+            {/* Admin Access Requests Button */}
+            {(currentUser.role === 'Administrador' || currentUser.email.toLowerCase().includes('rleon')) && (
+              <button
+                onClick={() => setShowAccessRequestsModal(true)}
+                className={`p-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer ${
+                  accessRequests.filter(r => r.status === 'pendiente').length > 0
+                    ? 'bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300'
+                    : 'text-[#00236f] bg-[#eff4ff] hover:bg-[#dce9ff]'
+                }`}
+                title="Solicitudes de Acceso de Usuarios al CMMS"
+              >
+                <ShieldAlert className={`w-4 h-4 ${accessRequests.filter(r => r.status === 'pendiente').length > 0 ? 'text-amber-600 animate-pulse' : 'text-[#00236f]'}`} />
+                <span className="hidden xl:inline text-[11px] font-bold">
+                  Solicitudes ({accessRequests.filter(r => r.status === 'pendiente').length})
+                </span>
+                {accessRequests.filter(r => r.status === 'pendiente').length > 0 && (
+                  <span className="xl:hidden w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                )}
               </button>
             )}
 
@@ -1660,6 +1825,9 @@ export default function App() {
                   onRecordLoginAudit={handleRecordLoginAudit}
                   onClearLoginAuditLogs={handleClearLoginAuditLogs}
                   currentUser={currentUser}
+                  accessRequests={accessRequests}
+                  onApproveAccessRequest={handleApproveAccessRequest}
+                  onDenyAccessRequest={handleDenyAccessRequest}
                   onSelectStore={() => {
                     setCurrentView('tiendas');
                   }}
@@ -1782,6 +1950,16 @@ export default function App() {
         onClose={() => setShowPrivilegesMatrix(false)}
         currentUser={currentUser}
         onSwitchUserRole={handleSwitchUserRole}
+      />
+
+      <AccessRequestsModal
+        isOpen={showAccessRequestsModal}
+        onClose={() => setShowAccessRequestsModal(false)}
+        requests={accessRequests}
+        onApproveRequest={handleApproveAccessRequest}
+        onDenyRequest={handleDenyAccessRequest}
+        stores={stores}
+        currentUser={currentUser}
       />
     </div>
   );

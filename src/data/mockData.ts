@@ -7,7 +7,8 @@ import {
   AppUser,
   PushNotification,
   RegionalAlertConfig,
-  TechnicalReport
+  TechnicalReport,
+  AccessRequest
 } from '../types';
 import { TOTTUS_OFFICIAL_STORES, mapToRegion } from './tottusStoresOfficial';
 
@@ -2623,4 +2624,21 @@ export const INITIAL_REPORTS: TechnicalReport[] = [
     }
   }
 ];
+
+export const INITIAL_ACCESS_REQUESTS: AccessRequest[] = [
+  {
+    id: 'req-101',
+    email: 'm.morales@falabella.com',
+    name: 'Marcos Morales S.',
+    requestedRole: 'Técnico Especialista',
+    provider: 'microsoft',
+    timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
+    timeAgo: 'Hace 2 horas',
+    status: 'pendiente',
+    notes: 'Soporte externo contratista refrigeración Lima Sur',
+    deviceInfo: 'Windows 11 / Edge Corporativo',
+    ipAddress: '190.237.88.14'
+  }
+];
+
 

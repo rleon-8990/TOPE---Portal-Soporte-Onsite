@@ -35,7 +35,7 @@ import {
   ShieldAlert,
   History
 } from 'lucide-react';
-import { AppUser, Store, Region, LoginAuditRecord } from '../types';
+import { AppUser, Store, Region, LoginAuditRecord, AccessRequest } from '../types';
 import { DirectoryPrivilegesTab } from './DirectoryPrivilegesTab';
 import { DirectoryLoginAuditTab } from './DirectoryLoginAuditTab';
 
@@ -50,6 +50,9 @@ interface UserDirectoryViewProps {
   onRecordLoginAudit?: (record: LoginAuditRecord) => void;
   onClearLoginAuditLogs?: () => void;
   currentUser?: AppUser;
+  accessRequests?: AccessRequest[];
+  onApproveAccessRequest?: (requestId: string, role: string, codTienda?: string | number) => void;
+  onDenyAccessRequest?: (requestId: string) => void;
 }
 
 export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
@@ -62,10 +65,13 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
   loginAuditLogs = [],
   onRecordLoginAudit,
   onClearLoginAuditLogs,
-  currentUser
+  currentUser,
+  accessRequests = [],
+  onApproveAccessRequest,
+  onDenyAccessRequest
 }) => {
   // Navigation tabs
-  const [activeTab, setActiveTab] = useState<'todos' | 'tienda' | 'especialistas' | 'privilegios' | 'auditoria_logins'>('todos');
+  const [activeTab, setActiveTab] = useState<'todos' | 'tienda' | 'especialistas' | 'privilegios' | 'auditoria_logins' | 'solicitudes'>('todos');
   const [auditFilterEmail, setAuditFilterEmail] = useState<string>('');
 
   // Filter States
@@ -741,9 +747,124 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
             </span>
           )}
         </button>
+
+        <button
+          onClick={() => {
+            setActiveTab('solicitudes');
+          }}
+          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'solicitudes'
+              ? 'bg-rose-700 text-white shadow-xs'
+              : 'bg-white text-[#444651] hover:bg-rose-50 border border-[#dce9ff]'
+          }`}
+        >
+          <ShieldAlert className="w-3.5 h-3.5 text-rose-300" />
+          <span>Solicitudes de Acceso</span>
+          {accessRequests.filter(r => r.status === 'pendiente').length > 0 && (
+            <span className="bg-amber-400 text-amber-950 font-black px-2 py-0.2 rounded-full text-[10px] animate-pulse">
+              {accessRequests.filter(r => r.status === 'pendiente').length}
+            </span>
+          )}
+        </button>
       </div>
 
-      {activeTab === 'privilegios' ? (
+      {activeTab === 'solicitudes' ? (
+        <div className="bg-white rounded-xl border border-[#dce9ff] shadow-xs p-6 space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+            <div>
+              <h3 className="text-base font-bold text-[#00236f] flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-amber-500" />
+                <span>Solicitudes de Permisos de Acceso al CMMS</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Usuarios externos o colaboradores que intentaron ingresar y solicitaron alta en el Directorio
+              </p>
+            </div>
+            <span className="text-xs font-bold px-3 py-1 bg-amber-50 text-amber-900 border border-amber-200 rounded-lg">
+              {accessRequests.filter(r => r.status === 'pendiente').length} pendientes de aprobación
+            </span>
+          </div>
+
+          {accessRequests.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 space-y-2">
+              <UserCheck className="w-10 h-10 mx-auto text-slate-300" />
+              <p className="font-semibold text-xs text-slate-600">No hay solicitudes de acceso registradas.</p>
+              <p className="text-[11px] text-slate-400">Cuando un usuario intente iniciar sesión sin estar registrado, su solicitud aparecerá aquí.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {accessRequests.map((req) => {
+                const isPending = req.status === 'pendiente';
+                return (
+                  <div
+                    key={req.id}
+                    className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                      isPending ? 'bg-amber-50/40 border-amber-200 shadow-xs' : 'bg-slate-50 border-slate-200 opacity-80'
+                    }`}
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          req.provider === 'microsoft'
+                            ? 'bg-blue-100 text-blue-800'
+                            : req.provider === 'google'
+                            ? 'bg-slate-200 text-slate-800'
+                            : 'bg-emerald-100 text-emerald-800'
+                        }`}>
+                          {req.provider === 'microsoft' ? 'Microsoft 365' : req.provider === 'google' ? 'Google' : 'Cuenta Local'}
+                        </span>
+                        <span className="font-bold text-sm text-[#00236f]">{req.name || req.email}</span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          isPending
+                            ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                            : req.status === 'aprobado'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-rose-100 text-rose-800'
+                        }`}>
+                          {req.status === 'pendiente' ? 'Pendiente' : req.status === 'aprobado' ? 'Aprobado' : 'Denegado'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-600 font-mono flex items-center gap-3">
+                        <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5 text-slate-400" /> {req.email}</span>
+                        {req.ipAddress && <span className="text-slate-400">IP: {req.ipAddress}</span>}
+                      </div>
+                      {req.notes && (
+                        <p className="text-xs text-slate-600 bg-white/80 p-1.5 rounded border border-slate-200">
+                          <strong>Motivo:</strong> {req.notes}
+                        </p>
+                      )}
+                      <div className="text-[10px] text-slate-400">
+                        <span>Enviado: {req.timeAgo || new Date(req.timestamp).toLocaleString('es-PE')}</span>
+                        {req.reviewedBy && <span> • Revisado por: {req.reviewedBy}</span>}
+                      </div>
+                    </div>
+
+                    {isPending && onApproveAccessRequest && onDenyAccessRequest && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => onApproveAccessRequest(req.id, req.requestedRole || 'Técnico Especialista', 103)}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          <span>Aprobar y Registrar</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onDenyAccessRequest(req.id)}
+                          className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                        >
+                          Denegar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : activeTab === 'privilegios' ? (
         <DirectoryPrivilegesTab
           users={users}
           onUpdateUser={onUpdateUser}

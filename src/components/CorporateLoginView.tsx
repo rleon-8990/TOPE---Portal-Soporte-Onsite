@@ -4,146 +4,241 @@ import {
   Lock,
   Mail,
   ArrowRight,
-  AlertCircle,
-  Building2,
-  CheckCircle2,
-  Key,
-  Users,
   Eye,
   EyeOff,
-  Sparkles,
-  ExternalLink,
-  Laptop,
-  ShieldAlert,
-  UserX,
   History,
   X,
   Clock,
   CheckCircle,
-  AlertTriangle,
-  Info,
   KeyRound,
-  Copy,
-  Check
+  Building2,
+  HelpCircle,
+  UserCheck,
+  AlertCircle,
+  Send,
+  UserPlus,
+  RefreshCw,
+  Info
 } from 'lucide-react';
-import { AppUser, LoginAuditRecord } from '../types';
-import { isCorporateEmail, getRoleConfig } from '../utils/rbac';
+import { AppUser, LoginAuditRecord, AccessRequest } from '../types';
+import { isCorporateEmail } from '../utils/rbac';
 
 interface CorporateLoginViewProps {
   onLoginSuccess: (user: AppUser) => void;
   availableUsers: AppUser[];
   onRecordAuditLog?: (record: LoginAuditRecord) => void;
   loginAuditLogs?: LoginAuditRecord[];
+  accessRequests?: AccessRequest[];
+  onRequestAccess?: (req: Omit<AccessRequest, 'id' | 'timestamp' | 'status'>) => void;
 }
+
+type AuthMode = 'corporate' | 'local' | 'google';
 
 export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
   onLoginSuccess,
   availableUsers,
   onRecordAuditLog,
-  loginAuditLogs = []
+  loginAuditLogs = [],
+  onRequestAccess
 }) => {
-  // State for form
+  // Authentication Mode: Microsoft 365, Cuenta Local, o Google Workspace
+  const [authMode, setAuthMode] = useState<AuthMode>('corporate');
+
+  // Form Fields
   const [email, setEmail] = useState<string>('rleon@tottus.com.pe');
   const [password, setPassword] = useState<string>('Tottus2026*');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [rememberMe, setRememberMe] = useState<boolean>(true);
+
+  // States
   const [error, setError] = useState<string | null>(null);
-  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState<boolean>(false);
-  const [copiedPass, setCopiedPass] = useState<boolean>(false);
-  const [blockedDetail, setBlockedDetail] = useState<{
-    type: 'not_found' | 'disabled' | 'wrong_password';
-    email: string;
-    userName?: string;
-    message: string;
-  } | null>(null);
+  const [successFeedback, setSuccessFeedback] = useState<string | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
-  const [showMsalModal, setShowMsalModal] = useState<boolean>(false);
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState<boolean>(false);
   const [showAuditModal, setShowAuditModal] = useState<boolean>(false);
+
+  // Microsoft Modal States
+  const [showMsalModal, setShowMsalModal] = useState<boolean>(false);
+  const [msalPassword, setMsalPassword] = useState<string>('Tottus2026*');
+  const [showMsalPassword, setShowMsalPassword] = useState<boolean>(false);
+  const [msalError, setMsalError] = useState<string | null>(null);
   const [msalStep, setMsalStep] = useState<'prompt' | 'authorizing' | 'success'>('prompt');
   const [selectedUserForMsal, setSelectedUserForMsal] = useState<AppUser | null>(null);
 
-  // Pre-configured profiles for instant evaluation
-  const demoProfiles = [
-    {
-      label: 'Administrador General (8/8 Módulos)',
-      user: availableUsers.find(u => u.email === 'rleon@tottus.com.pe') || availableUsers[0],
-      roleBadge: 'Administrador',
-      accessBadge: 'Acceso Total (8 Módulos)',
-      statusBadge: 'Habilitado en Directorio'
-    },
-    {
-      label: 'Supervisor Regional (7/8 Módulos)',
-      user: availableUsers.find(u => u.role?.includes('Supervisor')) || availableUsers[3],
-      roleBadge: 'Supervisor Regional',
-      accessBadge: 'Supervisión y Tiendas (7 Módulos)',
-      statusBadge: 'Habilitado en Directorio'
-    },
-    {
-      label: 'IT Operator en Tienda Megaplaza (5/8 Módulos)',
-      user: availableUsers.find(u => u.email === 'jbravo@tottus.com.pe' || u.role?.includes('Operator')) || availableUsers[1],
-      roleBadge: 'IT Operator',
-      accessBadge: 'Operativo & OTs (5 Módulos)',
-      statusBadge: 'Habilitado en Directorio'
-    },
-    {
-      label: 'Gerente de Tienda (4/8 Módulos)',
-      user: availableUsers.find(u => u.role?.includes('Gerente de Tienda') || u.email === 'rpaz@tottus.com.pe') || availableUsers[6],
-      roleBadge: 'Gerente Tienda',
-      accessBadge: 'Tienda T-103 (4 Módulos)',
-      statusBadge: 'Habilitado en Directorio'
-    }
-  ];
+  // Google Modal States
+  const [showGoogleModal, setShowGoogleModal] = useState<boolean>(false);
+  const [googleEmail, setGoogleEmail] = useState<string>('rleon@tottus.com.pe');
+  const [googlePassword, setGooglePassword] = useState<string>('Tottus2026*');
+  const [showGooglePassword, setShowGooglePassword] = useState<boolean>(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
+  const [googleStep, setGoogleStep] = useState<'prompt' | 'authorizing' | 'success'>('prompt');
 
-  const handleCorporateLogin = (
-    targetUser?: AppUser,
-    forceUnregisteredEmail?: string,
-    forcedPassword?: string,
-    forceMsalModal?: boolean
-  ) => {
-    setError(null);
-    setBlockedDetail(null);
+  // Request Access Modal States (cuando el usuario no existe en el Directorio)
+  const [showRequestAccessModal, setShowRequestAccessModal] = useState<boolean>(false);
+  const [requestEmail, setRequestEmail] = useState<string>('');
+  const [requestName, setRequestName] = useState<string>('');
+  const [requestRole, setRequestRole] = useState<string>('Técnico Especialista');
+  const [requestMotive, setRequestMotive] = useState<string>('Soporte y mantenimiento técnico en tienda');
+  const [requestProvider, setRequestProvider] = useState<'microsoft' | 'google' | 'local'>('microsoft');
+  const [isSendingRequest, setIsSendingRequest] = useState<boolean>(false);
 
-    const emailToTest = (forceUnregisteredEmail || (targetUser ? targetUser.email : email)).trim().toLowerCase();
-
-    if (!isCorporateEmail(emailToTest)) {
-      setError('El dominio ingresado no es un correo corporativo válido. Utilice su cuenta @tottus.com.pe, @falabella.com o @reliant-cmms.pe.');
+  /**
+   * Envía la solicitud de acceso al Administrador cuando el usuario no figura en el Directorio.
+   */
+  const handleSubmitAccessRequest = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!requestEmail.trim() || !requestEmail.includes('@')) {
+      setError('Ingrese un correo electrónico válido para la solicitud.');
       return;
     }
 
-    // 1. REGLA ESTRICTA: El usuario DEBE estar registrado en el Directorio (availableUsers)
-    const existingUser = targetUser || availableUsers.find(u => u.email.toLowerCase() === emailToTest);
+    setIsSendingRequest(true);
+
+    const payload = {
+      email: requestEmail.trim().toLowerCase(),
+      name: requestName.trim() || requestEmail.split('@')[0],
+      requestedRole: requestRole,
+      provider: requestProvider,
+      notes: requestMotive.trim(),
+      deviceInfo: navigator.userAgent.includes('Mobile') ? 'Dispositivo Móvil' : 'Navegador Web / Windows',
+      ipAddress: '190.237.14.88'
+    };
+
+    if (onRequestAccess) {
+      onRequestAccess(payload);
+    } else {
+      try {
+        const savedReqs = localStorage.getItem('tottus_access_requests');
+        const list = savedReqs ? JSON.parse(savedReqs) : [];
+        const newReq = {
+          ...payload,
+          id: `req-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          timeAgo: 'Justo ahora',
+          status: 'pendiente'
+        };
+        localStorage.setItem('tottus_access_requests', JSON.stringify([newReq, ...list]));
+      } catch (err) {
+        console.warn('Error saving access request locally', err);
+      }
+    }
+
+    setTimeout(() => {
+      setIsSendingRequest(false);
+      setShowRequestAccessModal(false);
+      setShowMsalModal(false);
+      setShowGoogleModal(false);
+      setError(null);
+      setSuccessFeedback(
+        `✅ Se envió al administrador los permisos para su aprobación. Su solicitud para "${requestEmail}" fue enviada a la Dirección de Sistemas TI (rleon@tottus.com.pe). Recibirá confirmación cuando sea aprobada.`
+      );
+    }, 600);
+  };
+
+  /**
+   * Abre el formulario para solicitar permisos de acceso con el correo prellenado.
+   */
+  const handleOpenRequestAccess = (targetEmail: string, provider: 'microsoft' | 'google' | 'local') => {
+    setRequestEmail(targetEmail);
+    setRequestName(targetEmail.split('@')[0].replace('.', ' ').toUpperCase());
+    setRequestProvider(provider);
+    setShowRequestAccessModal(true);
+  };
+
+  /**
+   * Manejador de Autenticación Principal
+   */
+  const handleAuthenticate = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setError(null);
+    setSuccessFeedback(null);
+
+    const trimmedEmail = email.trim().toLowerCase();
+    const enteredPassword = password.trim();
+
+    if (!trimmedEmail) {
+      setError('Por favor, ingrese su correo electrónico institucional o registrado en el Directorio.');
+      return;
+    }
+
+    if (!trimmedEmail.includes('@')) {
+      setError('Formato de correo electrónico inválido. Ingrese una dirección válida (ej. usuario@tottus.com.pe).');
+      return;
+    }
+
+    // =========================================================================
+    // CASO 1: CUENTA CORPORATIVA MICROSOFT 365 / ENTRA ID
+    // =========================================================================
+    if (authMode === 'corporate') {
+      if (!isCorporateEmail(trimmedEmail)) {
+        setError(`El correo "${trimmedEmail}" no corresponde a los dominios corporativos autorizados (@tottus.com.pe, @falabella.com, etc.). Para correos de contratistas o soporte local, seleccione la pestaña "Cuenta Local".`);
+        return;
+      }
+
+      const existingUser = availableUsers.find(
+        u => u.email.trim().toLowerCase() === trimmedEmail
+      );
+
+      setSelectedUserForMsal(existingUser || null);
+      setMsalPassword(password || 'Tottus2026*');
+      setMsalError(null);
+      setShowMsalModal(true);
+      setMsalStep('prompt');
+      return;
+    }
+
+    // =========================================================================
+    // CASO 2: CUENTA GOOGLE WORKSPACE
+    // =========================================================================
+    if (authMode === 'google') {
+      setGoogleEmail(trimmedEmail);
+      setGooglePassword(password || 'Tottus2026*');
+      setGoogleError(null);
+      setShowGoogleModal(true);
+      setGoogleStep('prompt');
+      return;
+    }
+
+    // =========================================================================
+    // CASO 3: CUENTA LOCAL (USUARIOS SIN CUENTA MICROSOFT / PERSONAL DE TIENDA)
+    // =========================================================================
+    if (!enteredPassword) {
+      setError('Por favor, ingrese la contraseña asignada a su usuario en el Directorio.');
+      return;
+    }
+
+    setIsAuthenticating(true);
+
+    // 1. REGLA ESTRICTA: El correo DEBE estar registrado en el Directorio de Sistemas (availableUsers)
+    const existingUser = availableUsers.find(
+      u => u.email.trim().toLowerCase() === trimmedEmail
+    );
 
     if (!existingUser) {
+      setIsAuthenticating(false);
       // Registrar intento bloqueado en auditoría
       const blockedRecord: LoginAuditRecord = {
         id: `audit-${Date.now()}`,
         timestamp: new Date().toISOString(),
         timeAgo: 'Justo ahora',
-        userEmail: emailToTest,
-        userName: 'Cuenta No Registrada',
+        userEmail: trimmedEmail,
+        userName: 'Usuario No Registrado',
         userRole: 'Sin Privilegios',
         status: 'bloqueado_no_en_directorio',
-        ipAddress: '190.237.14.88 [Red Pública / Móvil]',
-        deviceInfo: navigator.userAgent.includes('Mobile') ? 'Safari Mobile / iPhone' : 'Chrome 128 / Windows',
+        ipAddress: '190.237.14.88 [Red Externa]',
+        deviceInfo: navigator.userAgent.includes('Mobile') ? 'Dispositivo Móvil' : 'Navegador Web / Windows',
         locationOrStore: 'Acceso Denegado',
-        notes: 'Intento de login rechazado: El usuario no figura en el Directorio Corporativo de Sistemas.'
+        notes: `Intento de inicio de sesión Local RECHAZADO: El correo ${trimmedEmail} no existe en el Directorio de Personal.`
       };
-      if (onRecordAuditLog) {
-        onRecordAuditLog(blockedRecord);
-      }
+      if (onRecordAuditLog) onRecordAuditLog(blockedRecord);
 
-      setError(`⛔ Cuenta No Autorizada: El correo "${emailToTest}" no se encuentra registrado en el Directorio Corporativo.`);
-      setBlockedDetail({
-        type: 'not_found',
-        email: emailToTest,
-        message: 'Por políticas de seguridad de Hipermercados Tottus, solo colaboradores dados de alta previamente en el Directorio de Sistemas por el Administrador (rleon@tottus.com.pe) pueden ingresar al portal.'
-      });
+      setError(`⛔ Acceso Denegado: El correo "${trimmedEmail}" no se encuentra registrado en el Directorio de Personal. Si requiere acceso, puede solicitar permisos al Administrador del Sistema.`);
       return;
     }
 
-    // 2. REGLA ESTRICTA: Verificar si el usuario está HABILITADO para acceso web (webAccessEnabled !== false)
+    // 2. REGLA ESTRICTA: Verificar si el usuario tiene el acceso web habilitado (webAccessEnabled !== false)
     if (existingUser.webAccessEnabled === false) {
-      // Registrar intento bloqueado por inhabilitación
+      setIsAuthenticating(false);
       const blockedRecord: LoginAuditRecord = {
         id: `audit-${Date.now()}`,
         timestamp: new Date().toISOString(),
@@ -155,34 +250,20 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
         ipAddress: '10.24.180.99 [LAN Tienda/Corp]',
         deviceInfo: navigator.userAgent.includes('Mobile') ? 'Dispositivo Móvil' : 'Navegador Web / Windows',
         locationOrStore: existingUser.tiendaNombre ? `T-${existingUser.codTienda} ${existingUser.tiendaNombre}` : 'Sede Central',
-        notes: `Intento de login rechazado: El usuario está registrado pero sus privilegios web están suspendidos en Directorio.`
+        notes: `Intento de login rechazado: El colaborador ${existingUser.name} está registrado pero tiene su acceso web inhabilitado en el Directorio.`
       };
-      if (onRecordAuditLog) {
-        onRecordAuditLog(blockedRecord);
-      }
+      if (onRecordAuditLog) onRecordAuditLog(blockedRecord);
 
-      setError(`🔒 Acceso Web Deshabilitado: La cuenta "${existingUser.email}" está registrada pero sus privilegios de ingreso han sido suspendidos.`);
-      setBlockedDetail({
-        type: 'disabled',
-        email: existingUser.email,
-        userName: existingUser.name,
-        message: `El usuario ${existingUser.name} (${existingUser.role}) tiene su switch de "Acceso Web" apagado en el Directorio de Personal. Contacte al Administrador de Sistemas para reactivar sus permisos.`
-      });
+      setError(`🔒 Acceso Web Deshabilitado: La cuenta de "${existingUser.name}" (${existingUser.email}) se encuentra suspendida o deshabilitada en el Directorio.`);
       return;
     }
 
-    // 3. REGLA ESTRICTA DE SEGURIDAD: Validación de Contraseña de Active Directory / Windows
+    // 3. REGLA CRÍTICA ESTRICTA: VALIDACIÓN DE CONTRASEÑA
+    // Comprobar estrictamente la contraseña contra existingUser.password
     const expectedPassword = existingUser.password || 'Tottus2026*';
-    const enteredPassword = forcedPassword !== undefined ? forcedPassword : password;
-
-    if (!enteredPassword || enteredPassword.trim() === '') {
-      setError(`⚠️ Contraseña Requerida: Por favor ingrese la contraseña corporativa de Active Directory para ${existingUser.name}.`);
-      return;
-    }
-
     if (enteredPassword !== expectedPassword) {
-      // Registrar intento bloqueado por contraseña errónea en Auditoría
-      const wrongPasswordRecord: LoginAuditRecord = {
+      setIsAuthenticating(false);
+      const blockedRecord: LoginAuditRecord = {
         id: `audit-${Date.now()}`,
         timestamp: new Date().toISOString(),
         timeAgo: 'Justo ahora',
@@ -190,938 +271,1363 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
         userName: existingUser.name,
         userRole: existingUser.role,
         status: 'bloqueado_contrasena_incorrecta',
-        ipAddress: existingUser.email === 'rleon@tottus.com.pe' ? '10.24.180.45 [Red Sede Central]' : '10.24.103.15 [LAN Tienda]',
-        deviceInfo: navigator.userAgent.includes('Mobile') ? 'Dispositivo Móvil' : 'Chrome 128 / Windows 11 Enterprise',
-        locationOrStore: existingUser.tiendaNombre ? `T-${existingUser.codTienda} ${existingUser.tiendaNombre}` : 'Sede Central San Isidro',
-        notes: `Intento de login RECHAZADO: Contraseña incorrecta ingresada para ${existingUser.email}. No coincide con Active Directory.`
+        ipAddress: '10.24.180.45 [Red Corporativa]',
+        deviceInfo: navigator.userAgent.includes('Mobile') ? 'Dispositivo Móvil' : 'Navegador Web / Windows',
+        locationOrStore: existingUser.tiendaNombre ? `T-${existingUser.codTienda} ${existingUser.tiendaNombre}` : 'Sede Central',
+        notes: `Intento de login fallido: Contraseña incorrecta ingresada para ${existingUser.name} (${existingUser.email}).`
       };
-      if (onRecordAuditLog) {
-        onRecordAuditLog(wrongPasswordRecord);
-      }
+      if (onRecordAuditLog) onRecordAuditLog(blockedRecord);
 
-      setError(`⛔ Contraseña Incorrecta: Las credenciales ingresadas no coinciden con la clave corporativa de Active Directory para ${existingUser.name}.`);
-      setBlockedDetail({
-        type: 'wrong_password',
-        email: existingUser.email,
-        userName: existingUser.name,
-        message: `La contraseña ingresada no es válida para la cuenta de ${existingUser.name} (${existingUser.email}). El intento fallido ha sido registrado con marca de tiempo e IP en la Auditoría de Seguridad TI. (Clave corporativa predeterminada de prueba: Tottus2026*)`
-      });
+      setError(`⛔ Contraseña Incorrecta: Las credenciales ingresadas no coinciden con las registradas para ${existingUser.name} en el Directorio. Inténtelo nuevamente.`);
       return;
     }
 
-    // 4. Usuario registrado, habilitado y con contraseña verificada
-    if (forceMsalModal) {
-      setSelectedUserForMsal(existingUser);
-      setShowMsalModal(true);
-      setMsalStep('prompt');
-    } else {
-      // Login directo con credenciales válidas
-      setIsAuthenticating(true);
-      setTimeout(() => {
-        setIsAuthenticating(false);
-        const successRecord: LoginAuditRecord = {
-          id: `audit-${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          timeAgo: 'Justo ahora',
-          userEmail: existingUser.email,
-          userName: existingUser.name,
-          userRole: existingUser.role,
-          status: 'exitoso',
-          ipAddress: existingUser.email === 'rleon@tottus.com.pe' ? '10.24.180.45 [Red Sede Central]' : '10.24.103.15 [LAN Tienda]',
-          deviceInfo: 'Chrome 128 · Windows 11 Enterprise (Active Directory)',
-          locationOrStore: existingUser.tiendaNombre ? `T-${existingUser.codTienda} ${existingUser.tiendaNombre}` : 'Sede Central San Isidro',
-          notes: `Inicio de sesión exitoso con credenciales verificadas de Active Directory (${existingUser.role})`
-        };
-        if (onRecordAuditLog) {
-          onRecordAuditLog(successRecord);
-        }
+    // Autenticación local exitosa
+    const updatedUser: AppUser = {
+      ...existingUser,
+      lastLoginAt: 'Ahora',
+      lastLoginIp: '10.24.180.45 [Red Local / Tienda]',
+      loginDevice: navigator.userAgent.includes('Mobile') ? 'Móvil / Android' : 'Chrome / Windows',
+      loginCount: (existingUser.loginCount || 0) + 1
+    };
 
-        const updatedUser: AppUser = {
-          ...existingUser,
-          lastLoginAt: new Date().toLocaleString('es-PE'),
-          lastLoginIp: successRecord.ipAddress,
-          loginDevice: successRecord.deviceInfo,
-          loginCount: (existingUser.loginCount || 0) + 1
-        };
+    const successRecord: LoginAuditRecord = {
+      id: `audit-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      timeAgo: 'Justo ahora',
+      userEmail: updatedUser.email,
+      userName: updatedUser.name,
+      userRole: updatedUser.role,
+      status: 'exitoso',
+      ipAddress: updatedUser.lastLoginIp || '10.24.180.45',
+      deviceInfo: updatedUser.loginDevice,
+      locationOrStore: updatedUser.tiendaNombre ? `T-${updatedUser.codTienda} ${updatedUser.tiendaNombre}` : 'Sede Central',
+      notes: `Inicio de sesión exitoso mediante Credenciales Locales de Directorio (${updatedUser.role}).`
+    };
 
-        onLoginSuccess(updatedUser);
-      }, 600);
-    }
+    if (onRecordAuditLog) onRecordAuditLog(successRecord);
+
+    setTimeout(() => {
+      setIsAuthenticating(false);
+      onLoginSuccess(updatedUser);
+    }, 400);
   };
 
+  /**
+   * Confirma la autorización en el Modal de Microsoft Entra ID (con validación de contraseña de Microsoft).
+   */
   const handleConfirmMsalAuthorization = () => {
+    setMsalError(null);
+    const targetEmail = email.trim().toLowerCase();
+    const enteredMsalPass = msalPassword.trim();
+
+    // 1. Validar que el usuario esté en el directorio
+    const existingUser = availableUsers.find(
+      u => u.email.trim().toLowerCase() === targetEmail
+    );
+
+    if (!existingUser) {
+      const blockedRecord: LoginAuditRecord = {
+        id: `audit-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        timeAgo: 'Justo ahora',
+        userEmail: targetEmail,
+        userName: 'Usuario No Registrado',
+        userRole: 'Sin Privilegios',
+        status: 'bloqueado_no_en_directorio',
+        ipAddress: '190.237.14.88 [Red Corporativa Falabella]',
+        deviceInfo: 'Microsoft Edge / Windows 11',
+        locationOrStore: 'Acceso Denegado',
+        notes: `Intento Microsoft Entra ID bloqueado: La cuenta ${targetEmail} no está en el Directorio.`
+      };
+      if (onRecordAuditLog) onRecordAuditLog(blockedRecord);
+
+      setMsalError(`⛔ Acceso Denegado: La cuenta Microsoft "${targetEmail}" no se encuentra registrada en el Directorio de Sistemas Tottus.`);
+      return;
+    }
+
+    // 2. Validar que tenga acceso web habilitado
+    if (existingUser.webAccessEnabled === false) {
+      setMsalError(`🔒 Acceso Web Deshabilitado: La cuenta "${existingUser.name}" se encuentra suspendida en el Directorio.`);
+      return;
+    }
+
+    // 3. REGLA ESTRICTA: Validar contraseña en Microsoft
+    const expectedPassword = existingUser.password || 'Tottus2026*';
+    if (!enteredMsalPass || enteredMsalPass !== expectedPassword) {
+      const blockedRecord: LoginAuditRecord = {
+        id: `audit-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        timeAgo: 'Justo ahora',
+        userEmail: existingUser.email,
+        userName: existingUser.name,
+        userRole: existingUser.role,
+        status: 'bloqueado_contrasena_incorrecta',
+        ipAddress: '10.24.180.45 [M365 Entra ID]',
+        deviceInfo: 'Edge / Windows 11',
+        locationOrStore: 'Acceso Denegado',
+        notes: `Contraseña de Microsoft Entra ID incorrecta para ${existingUser.name}.`
+      };
+      if (onRecordAuditLog) onRecordAuditLog(blockedRecord);
+
+      setMsalError('Su cuenta o contraseña es incorrecta. Asegúrese de escribir la contraseña de su cuenta profesional o educativa de Falabella / Tottus.');
+      return;
+    }
+
     setMsalStep('authorizing');
+
     setTimeout(() => {
       setMsalStep('success');
+
+      const updatedUser: AppUser = {
+        ...existingUser,
+        lastLoginAt: 'Ahora',
+        lastLoginIp: '10.24.180.45 [M365 Entra ID]',
+        loginDevice: 'Chrome 128 / Windows 11 Enterprise',
+        loginCount: (existingUser.loginCount || 0) + 1
+      };
+
+      const auditRecord: LoginAuditRecord = {
+        id: `audit-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        timeAgo: 'Justo ahora',
+        userEmail: updatedUser.email,
+        userName: updatedUser.name,
+        userRole: updatedUser.role,
+        status: 'exitoso',
+        ipAddress: '10.24.180.45 [Red Central]',
+        deviceInfo: 'Microsoft Entra ID / Outlook Single Sign-On',
+        locationOrStore: updatedUser.tiendaNombre ? `T-${updatedUser.codTienda} ${updatedUser.tiendaNombre}` : 'Sede Central',
+        notes: `Autenticación corporativa exitosa vía Microsoft 365 Single Sign-On (${updatedUser.role}).`
+      };
+
+      if (onRecordAuditLog) onRecordAuditLog(auditRecord);
+
       setTimeout(() => {
-        if (selectedUserForMsal) {
-          // Registrar login exitoso en Auditoría de Accesos
-          const successRecord: LoginAuditRecord = {
-            id: `audit-${Date.now()}`,
-            timestamp: new Date().toISOString(),
-            timeAgo: 'Justo ahora',
-            userEmail: selectedUserForMsal.email,
-            userName: selectedUserForMsal.name,
-            userRole: selectedUserForMsal.role,
-            status: 'exitoso',
-            ipAddress: selectedUserForMsal.email === 'rleon@tottus.com.pe' ? '10.24.180.45 [Red Sede Central]' : '10.24.103.15 [LAN Tienda]',
-            deviceInfo: 'Chrome 128 · Windows 11 Enterprise (Entra ID OAuth)',
-            locationOrStore: selectedUserForMsal.tiendaNombre ? `T-${selectedUserForMsal.codTienda} ${selectedUserForMsal.tiendaNombre}` : 'Sede Central San Isidro',
-            notes: `Inicio de sesión exitoso con cuenta corporativa Outlook/OAuth (${selectedUserForMsal.role})`
-          };
-          if (onRecordAuditLog) {
-            onRecordAuditLog(successRecord);
-          }
+        setShowMsalModal(false);
+        onLoginSuccess(updatedUser);
+      }, 700);
+    }, 1100);
+  };
 
-          const updatedUser: AppUser = {
-            ...selectedUserForMsal,
-            lastLoginAt: new Date().toLocaleString('es-PE'),
-            lastLoginIp: successRecord.ipAddress,
-            loginDevice: successRecord.deviceInfo,
-            loginCount: (selectedUserForMsal.loginCount || 0) + 1
-          };
+  /**
+   * Confirma la autorización en el Modal de Google Workspace / Gmail
+   */
+  const handleConfirmGoogleAuthorization = () => {
+    setGoogleError(null);
+    const targetEmail = googleEmail.trim().toLowerCase();
+    const enteredGooglePass = googlePassword.trim();
 
-          setShowMsalModal(false);
-          onLoginSuccess(updatedUser);
-        }
-      }, 900);
-    }, 1200);
+    if (!targetEmail || !targetEmail.includes('@')) {
+      setGoogleError('Ingresa un correo electrónico de Google válido.');
+      return;
+    }
+
+    // 1. Validar que el usuario esté en el directorio
+    const existingUser = availableUsers.find(
+      u => u.email.trim().toLowerCase() === targetEmail
+    );
+
+    if (!existingUser) {
+      const blockedRecord: LoginAuditRecord = {
+        id: `audit-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        timeAgo: 'Justo ahora',
+        userEmail: targetEmail,
+        userName: 'Usuario No Registrado',
+        userRole: 'Sin Privilegios',
+        status: 'bloqueado_no_en_directorio',
+        ipAddress: '190.237.14.88 [Google OAuth]',
+        deviceInfo: 'Google Chrome / OAuth 2.0',
+        locationOrStore: 'Acceso Denegado',
+        notes: `Intento con cuenta Google ${targetEmail} bloqueado: No registrado en Directorio.`
+      };
+      if (onRecordAuditLog) onRecordAuditLog(blockedRecord);
+
+      setGoogleError(`⛔ La cuenta de Google "${targetEmail}" no se encuentra registrada en el Directorio de Sistemas Tottus.`);
+      return;
+    }
+
+    // 2. Validar acceso web habilitado
+    if (existingUser.webAccessEnabled === false) {
+      setGoogleError(`🔒 Acceso Web Deshabilitado: La cuenta "${existingUser.name}" se encuentra suspendida en el Directorio.`);
+      return;
+    }
+
+    // 3. Validar contraseña
+    const expectedPassword = existingUser.password || 'Tottus2026*';
+    if (!enteredGooglePass || enteredGooglePass !== expectedPassword) {
+      const blockedRecord: LoginAuditRecord = {
+        id: `audit-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        timeAgo: 'Justo ahora',
+        userEmail: existingUser.email,
+        userName: existingUser.name,
+        userRole: existingUser.role,
+        status: 'bloqueado_contrasena_incorrecta',
+        ipAddress: '10.24.180.45 [Google OAuth]',
+        deviceInfo: 'Google Chrome / Android',
+        locationOrStore: 'Acceso Denegado',
+        notes: `Contraseña de cuenta Google incorrecta para ${existingUser.name}.`
+      };
+      if (onRecordAuditLog) onRecordAuditLog(blockedRecord);
+
+      setGoogleError('Contraseña incorrecta. Inténtalo de nuevo o selecciona "¿Has olvidado la contraseña?"');
+      return;
+    }
+
+    setGoogleStep('authorizing');
+
+    setTimeout(() => {
+      setGoogleStep('success');
+
+      const updatedUser: AppUser = {
+        ...existingUser,
+        lastLoginAt: 'Ahora',
+        lastLoginIp: '10.24.180.45 [Google Workspace]',
+        loginDevice: 'Chrome / Google Account SSO',
+        loginCount: (existingUser.loginCount || 0) + 1
+      };
+
+      const auditRecord: LoginAuditRecord = {
+        id: `audit-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        timeAgo: 'Justo ahora',
+        userEmail: updatedUser.email,
+        userName: updatedUser.name,
+        userRole: updatedUser.role,
+        status: 'exitoso',
+        ipAddress: '10.24.180.45 [Google OAuth]',
+        deviceInfo: 'Google Workspace Single Sign-On',
+        locationOrStore: updatedUser.tiendaNombre ? `T-${updatedUser.codTienda} ${updatedUser.tiendaNombre}` : 'Sede Central',
+        notes: `Autenticación exitosa vía Google Account (${updatedUser.role}).`
+      };
+
+      if (onRecordAuditLog) onRecordAuditLog(auditRecord);
+
+      setTimeout(() => {
+        setShowGoogleModal(false);
+        onLoginSuccess(updatedUser);
+      }, 700);
+    }, 1100);
+  };
+
+  /**
+   * Helper para prellenar un usuario de prueba rápidamente
+   */
+  const handleSelectQuickUser = (user: AppUser, mode: AuthMode = 'corporate') => {
+    setEmail(user.email);
+    setPassword(user.password || 'Tottus2026*');
+    setAuthMode(mode);
+    setError(null);
+    setSuccessFeedback(null);
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-[#f0f4ff] via-[#f8faff] to-[#e8f0fe] flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8 font-sans selection:bg-[#00236f] selection:text-white">
-      {/* Top Banner with Tottus & Falabella affiliation */}
-      <div className="w-full max-w-5xl mb-4 flex items-center justify-between px-2 text-xs text-[#525e75]">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white rounded-full border border-[#dce9ff] shadow-xs font-semibold text-[#007a33]">
-            <span className="w-2 h-2 rounded-full bg-[#007a33] animate-pulse" />
-            Hipermercados Tottus S.A.
-          </span>
-          <span className="hidden sm:inline text-[#757682]">| Sistemas de la Información</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#4059aa] bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#00236f]" />
-            Entra ID SSO v2.0
-          </span>
-        </div>
-      </div>
-
-      {/* Main Card Container */}
-      <div className="w-full max-w-5xl bg-white rounded-3xl shadow-[0_20px_50px_rgba(0,35,111,0.08)] border border-[#dce9ff] overflow-hidden grid grid-cols-1 lg:grid-cols-12">
-        
-        {/* Left Col: Brand Presentation & Outlook Details */}
-        <div className="lg:col-span-5 bg-linear-to-b from-[#00236f] via-[#001c57] to-[#00143f] text-white p-7 sm:p-9 flex flex-col justify-between relative overflow-hidden">
-          {/* Subtle Background Deco Circles */}
-          <div className="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-white/5 blur-xl pointer-events-none" />
-          <div className="absolute -left-12 -bottom-12 w-48 h-48 rounded-full bg-[#007a33]/20 blur-xl pointer-events-none" />
-
-          {/* Top Brand Identity */}
-          <div className="relative z-10 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-[#007a33] text-white flex items-center justify-center font-extrabold text-2xl shadow-lg border border-white/20">
+    <div className="min-h-screen bg-[#f4f7fc] flex flex-col justify-between text-slate-800 font-sans selection:bg-[#00236f] selection:text-white">
+      
+      {/* Top Corporate Nav Header */}
+      <header className="bg-white border-b border-slate-200 shadow-xs px-6 py-3.5">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-xl bg-[#00236f] flex items-center justify-center text-white font-black text-sm tracking-tight shadow-xs">
                 T
               </div>
               <div>
-                <span className="font-extrabold tracking-tight text-xl text-white block">
-                  Tottus Onsite
-                </span>
-                <span className="text-xs text-white/75 font-medium tracking-wide">
-                  CMMS & Soporte Red Nacional
-                </span>
-              </div>
-            </div>
-
-            <div className="pt-3">
-              <h2 className="text-2xl font-bold tracking-tight text-white leading-snug">
-                Portal de Soporte Onsite & Telecomunicaciones
-              </h2>
-              <p className="text-xs text-white/80 mt-2 leading-relaxed">
-                Acceso exclusivo para colaboradores, técnicos de campo, gerentes de tienda y supervisores de las 90 tiendas a nivel nacional.
-              </p>
-            </div>
-
-            {/* Microsoft Outlook Badge */}
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3.5 border border-white/15 space-y-2 mt-4">
-              <div className="flex items-center gap-2">
-                {/* Microsoft 4-square official colors icon */}
-                <div className="grid grid-cols-2 gap-0.5 w-4 h-4 shrink-0">
-                  <div className="bg-[#f25022] w-1.5 h-1.5 rounded-xs" />
-                  <div className="bg-[#7fba00] w-1.5 h-1.5 rounded-xs" />
-                  <div className="bg-[#00a4ef] w-1.5 h-1.5 rounded-xs" />
-                  <div className="bg-[#ffb900] w-1.5 h-1.5 rounded-xs" />
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-[#00236f] tracking-tight text-base leading-none">
+                    HIPERMERCADOS TOTTUS
+                  </span>
+                  <span className="bg-[#00236f]/10 text-[#00236f] text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    CMMS Mantenimiento
+                  </span>
                 </div>
-                <span className="text-xs font-bold text-white">Autenticación Microsoft 365</span>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  Portal Central de Gestión Técnica & Red Nacional de Tiendas
+                </p>
               </div>
-              <p className="text-[11px] text-white/75 leading-relaxed">
-                Conecte de forma segura utilizando su cuenta institucional de correo <strong>Outlook (@tottus.com.pe)</strong>. El sistema validará automáticamente sus privilegios y roles asignados.
-              </p>
             </div>
           </div>
 
-          {/* Bottom Security Credentials & Compliance */}
-          <div className="relative z-10 pt-6 border-t border-white/10 space-y-2 text-[11px] text-white/70">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-[#10b981]" />
-              <span>Control de Acceso Basado en Roles (RBAC Tottus)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Lock className="w-4 h-4 text-cyan-300" />
-              <span>Cifrado TLS 1.3 & Auditoría de Actividad Azure</span>
-            </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowAuditModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-[#00236f] bg-slate-100 hover:bg-slate-200/80 rounded-lg transition-colors cursor-pointer"
+            >
+              <History className="w-3.5 h-3.5 text-slate-500" />
+              <span>Auditoría de Acceso ({loginAuditLogs.length})</span>
+            </button>
           </div>
         </div>
+      </header>
 
-        {/* Right Col: Login Actions & Fast Switcher */}
-        <div className="lg:col-span-7 p-7 sm:p-9 flex flex-col justify-between bg-white">
-          <div className="space-y-6">
-            
-            {/* Header / Intro */}
-            <div>
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-[#00236f] tracking-tight">
-                  Iniciar Sesión Institucional
-                </h3>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-semibold text-[#007a33] bg-[#007a33]/10 px-2 py-0.5 rounded-md">
-                    Falabella ID
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowAuditModal(true)}
-                    className="text-[10px] font-semibold text-[#00236f] bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors cursor-pointer"
-                    title="Ver registro de auditoría de logins"
-                  >
-                    <History className="w-3 h-3 text-[#00236f]" />
-                    <span>Auditoría Logins ({loginAuditLogs.length})</span>
-                  </button>
+      {/* Main Login Card Area */}
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-6 my-4">
+        <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200/90 overflow-hidden">
+          
+          {/* Card Top Banner */}
+          <div className="bg-[#00236f] text-white p-6 sm:p-7 relative overflow-hidden">
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-black uppercase tracking-widest bg-white/15 text-white px-2.5 py-1 rounded-md">
+                  Autenticación Unificada
+                </span>
+                <div className="flex items-center gap-1 text-[11px] text-white/80 font-medium">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span>Directorio Tottus</span>
                 </div>
               </div>
-              <p className="text-xs text-[#525e75] mt-1">
-                Ingrese sus credenciales de Microsoft 365. <strong>Solo usuarios registrados y habilitados en el Directorio tienen autorización de acceso.</strong>
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white mb-1">
+                Iniciar Sesión en el Portal
+              </h1>
+              <p className="text-xs text-white/75 leading-relaxed">
+                Acceso exclusivo para personal registrado en el Directorio de Sistemas.
               </p>
             </div>
+          </div>
 
-            {/* Error Message & Detailed Security Block Card */}
-            {error && (
-              <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl space-y-2 animate-fadeIn text-xs text-red-900">
-                <div className="flex items-start gap-2.5">
-                  <ShieldAlert className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <span className="font-bold block text-red-900">{error}</span>
-                    {blockedDetail && (
-                      <p className="text-[11px] text-red-700 mt-1 leading-relaxed">
-                        {blockedDetail.message}
-                      </p>
-                    )}
-                    {blockedDetail?.type === 'wrong_password' && (
-                      <div className="pt-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPassword('Tottus2026*');
-                            setError(null);
-                            setBlockedDetail(null);
-                          }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-100 hover:bg-red-200 text-red-900 rounded-lg font-bold text-[11px] transition-colors cursor-pointer"
-                        >
-                          <KeyRound className="w-3.5 h-3.5 text-red-700" />
-                          <span>Restaurar clave válida de prueba (Tottus2026*)</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+          {/* Authentication Mode Switcher Tabs */}
+          <div className="grid grid-cols-3 bg-slate-100 p-1 border-b border-slate-200">
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode('corporate');
+                setError(null);
+                setSuccessFeedback(null);
+                if (!email.includes('@tottus.com.pe')) {
+                  setEmail('rleon@tottus.com.pe');
+                  setPassword('Tottus2026*');
+                }
+              }}
+              className={`py-2.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                authMode === 'corporate'
+                  ? 'bg-white text-[#00236f] shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {/* Microsoft 4-square icon */}
+              <div className="grid grid-cols-2 gap-0.5 w-3 h-3 shrink-0">
+                <div className="bg-[#f25022] w-1.5 h-1.5 rounded-xs" />
+                <div className="bg-[#7fba00] w-1.5 h-1.5 rounded-xs" />
+                <div className="bg-[#00a4ef] w-1.5 h-1.5 rounded-xs" />
+                <div className="bg-[#ffb900] w-1.5 h-1.5 rounded-xs" />
+              </div>
+              <span className="truncate">Microsoft 365</span>
+            </button>
 
-                <div className="bg-white/80 p-2.5 rounded-lg border border-red-200/60 text-[11px] flex items-center justify-between text-red-800">
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-red-600" />
-                    <span>Intento rechazado y registrado en la Auditoría de Seguridad</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowAuditModal(true)}
-                    className="underline font-semibold hover:text-red-950 cursor-pointer"
-                  >
-                    Ver detalle en Auditoría
-                  </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode('local');
+                setError(null);
+                setSuccessFeedback(null);
+                if (email === 'rleon@tottus.com.pe') {
+                  setEmail('c.ramos@reliant-cmms.pe');
+                  setPassword('Tottus2026*');
+                }
+              }}
+              className={`py-2.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                authMode === 'local'
+                  ? 'bg-white text-[#00236f] shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <KeyRound className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span className="truncate">Cuenta Local</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode('google');
+                setError(null);
+                setSuccessFeedback(null);
+              }}
+              className={`py-2.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                authMode === 'google'
+                  ? 'bg-white text-[#00236f] shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {/* Google 4-color G icon */}
+              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+              </svg>
+              <span className="truncate">Cuenta Google</span>
+            </button>
+          </div>
+
+          <div className="p-6 sm:p-7 space-y-5">
+            
+            {/* Success Feedback Banner */}
+            {successFeedback && (
+              <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-3.5 text-xs text-emerald-900 flex items-start gap-2.5">
+                <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                <div className="leading-relaxed font-medium">
+                  {successFeedback}
                 </div>
               </div>
             )}
 
-            {/* PRIMARY ACTION: Connect with Corporate Outlook Button */}
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={() => handleCorporateLogin(undefined, undefined, undefined, true)}
-                className="w-full h-12 bg-white hover:bg-[#f8faff] text-[#00236f] border-2 border-[#00236f] hover:border-[#1e3a8a] rounded-xl font-bold text-sm shadow-sm flex items-center justify-center gap-3 transition-all hover:shadow-md active:scale-[0.99] cursor-pointer group"
-              >
-                {/* Microsoft 4-square official colors icon */}
-                <div className="grid grid-cols-2 gap-1 w-5 h-5 shrink-0">
-                  <div className="bg-[#f25022] w-2 h-2 rounded-xs" />
-                  <div className="bg-[#7fba00] w-2 h-2 rounded-xs" />
-                  <div className="bg-[#00a4ef] w-2 h-2 rounded-xs" />
-                  <div className="bg-[#ffb900] w-2 h-2 rounded-xs" />
+            {/* Error Banner with Request Access Action */}
+            {error && (
+              <div className="bg-rose-50 border border-rose-300 rounded-xl p-3.5 text-xs text-rose-900 space-y-2">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
+                  <div className="leading-relaxed font-medium flex-1">
+                    {error}
+                  </div>
                 </div>
-                <span className="truncate">Iniciar sesión con cuenta Outlook Corporativo</span>
-                <ArrowRight className="w-4 h-4 text-[#00236f] group-hover:translate-x-1 transition-transform ml-auto mr-1" />
-              </button>
+                
+                {/* Si el error es por no estar en el directorio, habilitar botón de solicitar permisos */}
+                {error.includes('no se encuentra registrado') && (
+                  <div className="pt-2 border-t border-rose-200 flex items-center justify-between">
+                    <span className="text-[11px] text-rose-700">¿Requiere acceso a este portal?</span>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenRequestAccess(email, authMode)}
+                      className="px-3 py-1.5 bg-[#00236f] hover:bg-[#1e3a8a] text-white font-bold text-xs rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Solicitar Permisos al Administrador</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
-              <div className="flex items-center gap-3 text-xs text-[#757682] my-2">
-                <div className="flex-1 h-px bg-[#e5eeff]" />
-                <span className="font-medium text-[11px] uppercase tracking-wider">O ingrese con credenciales Active Directory</span>
-                <div className="flex-1 h-px bg-[#e5eeff]" />
+            {/* Explanatory subtitle per mode */}
+            <div className="bg-[#f0f5ff] border border-[#d4e4ff] rounded-xl p-3 text-xs text-slate-700 flex items-start gap-2.5">
+              <Info className="w-4 h-4 text-[#00236f] shrink-0 mt-0.5" />
+              <div className="leading-relaxed">
+                {authMode === 'corporate' && (
+                  <span>
+                    <strong>Acceso Corporativo Microsoft:</strong> Valida su identidad con Microsoft Entra ID. Solo se permite el ingreso a correos registrados en el Directorio de Sistemas Tottus.
+                  </span>
+                )}
+                {authMode === 'local' && (
+                  <span>
+                    <strong>Acceso Cuenta Local:</strong> Diseñado para colaboradores sin cuenta Microsoft (contratistas, técnicos o soporte local). Requiere correo registrado y contraseña de Directorio.
+                  </span>
+                )}
+                {authMode === 'google' && (
+                  <span>
+                    <strong>Acceso con Google:</strong> Conéctese mediante su cuenta corporativa de Google Workspace o Gmail registrada en el Directorio de Personal.
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* Email & Password Form */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleCorporateLogin();
-              }}
-              className="space-y-3.5"
-            >
+            {/* Login Form */}
+            <form onSubmit={handleAuthenticate} className="space-y-4">
+              
+              {/* Field 1: Email Address */}
               <div>
-                <label className="block text-xs font-semibold text-[#0b1c30] mb-1">
-                  Correo Electrónico Corporativo
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Correo Electrónico Registrado
                 </label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#757682]" />
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Mail className="w-4 h-4" />
+                  </div>
                   <input
                     type="email"
+                    required
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);
-                      setError(null);
-                      setBlockedDetail(null);
+                      if (error) setError(null);
                     }}
-                    placeholder="ejemplo: rleon@tottus.com.pe"
-                    className="w-full h-10 pl-9 pr-3 text-xs rounded-xl bg-[#f8faff] border border-[#dce9ff] text-[#0b1c30] placeholder-[#a3b3d1] focus:outline-none focus:ring-2 focus:ring-[#00236f] focus:bg-white transition-all font-medium"
-                    required
+                    placeholder={
+                      authMode === 'corporate'
+                        ? 'nombre.apellido@tottus.com.pe'
+                        : authMode === 'google'
+                        ? 'usuario@falabella.com o gmail'
+                        : 'correo.registrado@reliant-cmms.pe'
+                    }
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00236f]/30 focus:border-[#00236f] transition-all font-mono"
                   />
                 </div>
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold text-[#0b1c30]">
-                    Contraseña Corporativa (Active Directory / Windows)
-                  </label>
-                  <span className="text-[10px] text-[#007a33] font-semibold flex items-center gap-1">
-                    <Lock className="w-3 h-3" /> Validación Estricta
-                  </span>
-                </div>
-                <div className="relative">
-                  <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#757682]" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      setError(null);
-                      setBlockedDetail(null);
-                    }}
-                    placeholder="Ingrese su contraseña de red"
-                    className={`w-full h-10 pl-9 pr-10 text-xs rounded-xl bg-[#f8faff] border text-[#0b1c30] placeholder-[#a3b3d1] focus:outline-none focus:ring-2 focus:bg-white transition-all font-medium ${
-                      blockedDetail?.type === 'wrong_password'
-                        ? 'border-red-400 focus:ring-red-400 bg-red-50/20'
-                        : 'border-[#dce9ff] focus:ring-[#00236f]'
-                    }`}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#757682] hover:text-[#0b1c30] cursor-pointer"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-
-                {/* Helper / Test key reference */}
-                <div className="flex items-center justify-between text-[11px] text-[#525e75] mt-1.5 px-0.5">
-                  <div className="flex items-center gap-1 text-[#00236f]">
-                    <KeyRound className="w-3 h-3 text-[#007a33] shrink-0" />
-                    <span>Clave corporativa de prueba: <code className="bg-slate-100 px-1 py-0.5 rounded font-mono font-bold text-[#0b1c30] border border-slate-200">Tottus2026*</code></span>
+              {/* Field 2: Password (Visible en Modo Local y Corporativo) */}
+              {authMode === 'local' && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Contraseña de Acceso Local
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotPasswordModal(true)}
+                      className="text-[11px] font-semibold text-[#00236f] hover:underline cursor-pointer"
+                    >
+                      ¿Olvidó su contraseña?
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPassword('Tottus2026*');
-                      setCopiedPass(true);
-                      setTimeout(() => setCopiedPass(false), 1800);
-                    }}
-                    className="text-[#007a33] hover:underline font-bold cursor-pointer text-[10px] flex items-center gap-1 ml-2 shrink-0"
-                    title="Rellenar automáticamente la contraseña correcta"
-                  >
-                    {copiedPass ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                    <span>{copiedPass ? 'Rellenada' : 'Rellenar'}</span>
-                  </button>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <Lock className="w-4 h-4" />
+                    </div>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (error) setError(null);
+                      }}
+                      placeholder="Ingrese su contraseña asignada"
+                      className="w-full pl-10 pr-10 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00236f]/30 focus:border-[#00236f] transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
+                    <span>* Se valida estrictamente contra el Directorio de Sistemas.</span>
+                    <button
+                      type="button"
+                      onClick={() => setPassword('Tottus2026*')}
+                      className="text-[#00236f] hover:underline font-semibold cursor-pointer"
+                    >
+                      Rellenar clave demo
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="flex items-center justify-between text-xs text-[#525e75]">
+              {/* Remember Me checkbox */}
+              <div className="flex items-center justify-between pt-1">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="rounded border-[#dce9ff] text-[#00236f] focus:ring-[#00236f]"
+                    className="w-4 h-4 rounded border-slate-300 text-[#00236f] focus:ring-[#00236f] cursor-pointer"
                   />
-                  <span>Recordar sesión en este equipo</span>
+                  <span className="text-xs text-slate-600 font-medium">
+                    Mantener sesión iniciada en este equipo
+                  </span>
                 </label>
+              </div>
+
+              {/* Submit Buttons */}
+              {authMode === 'corporate' && (
+                <div className="space-y-2 pt-2">
+                  <button
+                    type="submit"
+                    className="w-full py-3 px-4 bg-[#00236f] hover:bg-[#1a3882] active:bg-[#00174a] text-white rounded-xl font-bold text-sm transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <div className="grid grid-cols-2 gap-0.5 w-3.5 h-3.5 shrink-0">
+                      <div className="bg-[#f25022] w-1.5 h-1.5 rounded-xs" />
+                      <div className="bg-[#7fba00] w-1.5 h-1.5 rounded-xs" />
+                      <div className="bg-[#00a4ef] w-1.5 h-1.5 rounded-xs" />
+                      <div className="bg-[#ffb900] w-1.5 h-1.5 rounded-xs" />
+                    </div>
+                    <span>Continuar con Microsoft 365</span>
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </button>
+                </div>
+              )}
+
+              {authMode === 'local' && (
+                <div className="space-y-2 pt-2">
+                  <button
+                    type="submit"
+                    disabled={isAuthenticating}
+                    className="w-full py-3 px-4 bg-[#00236f] hover:bg-[#1a3882] active:bg-[#00174a] text-white rounded-xl font-bold text-sm transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {isAuthenticating ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Validando credenciales en Directorio...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-4 h-4" />
+                        <span>Ingresar con Cuenta Local</span>
+                        <ArrowRight className="w-4 h-4 ml-1" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {authMode === 'google' && (
+                <div className="space-y-2 pt-2">
+                  <button
+                    type="submit"
+                    className="w-full py-3 px-4 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 rounded-xl font-bold text-sm transition-all shadow-xs hover:shadow-md flex items-center justify-center gap-2.5 cursor-pointer"
+                  >
+                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                    </svg>
+                    <span>Ingresar con Cuenta de Google</span>
+                    <ArrowRight className="w-4 h-4 ml-1 text-slate-500" />
+                  </button>
+                </div>
+              )}
+
+            </form>
+
+            {/* Separator */}
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200" />
+              </div>
+              <div className="relative flex justify-center text-[10px] uppercase">
+                <span className="bg-white px-2.5 text-slate-400 font-bold tracking-wider">
+                  Acceso rápido alternativo
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Login Buttons for other providers */}
+            <div className="grid grid-cols-2 gap-2">
+              {authMode !== 'corporate' && (
                 <button
                   type="button"
-                  onClick={() => setShowForgotPasswordModal(true)}
-                  className="text-[#00236f] hover:underline font-semibold text-[11px] cursor-pointer"
+                  onClick={() => {
+                    setAuthMode('corporate');
+                    setEmail('rleon@tottus.com.pe');
+                    setPassword('Tottus2026*');
+                    setError(null);
+                  }}
+                  className="p-2 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  ¿Olvidó su contraseña?
+                  <div className="grid grid-cols-2 gap-0.5 w-3 h-3 shrink-0">
+                    <div className="bg-[#f25022] w-1.5 h-1.5 rounded-xs" />
+                    <div className="bg-[#7fba00] w-1.5 h-1.5 rounded-xs" />
+                    <div className="bg-[#00a4ef] w-1.5 h-1.5 rounded-xs" />
+                    <div className="bg-[#ffb900] w-1.5 h-1.5 rounded-xs" />
+                  </div>
+                  <span>Microsoft 365</span>
+                </button>
+              )}
+
+              {authMode !== 'google' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('google');
+                    setShowGoogleModal(true);
+                    setGoogleEmail(email.includes('@') ? email : 'rleon@tottus.com.pe');
+                    setGooglePassword('Tottus2026*');
+                    setError(null);
+                  }}
+                  className="p-2 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                  </svg>
+                  <span>Ingresar con Google</span>
+                </button>
+              )}
+
+              {authMode !== 'local' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('local');
+                    setEmail('c.ramos@reliant-cmms.pe');
+                    setPassword('Tottus2026*');
+                    setError(null);
+                  }}
+                  className="p-2 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Cuenta Local</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => handleOpenRequestAccess(email || '', authMode)}
+                className="p-2 border border-amber-200 hover:border-amber-300 rounded-xl text-xs font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <UserPlus className="w-3.5 h-3.5 text-amber-700" />
+                <span>Solicitar Permisos</span>
+              </button>
+            </div>
+
+            {/* Quick Demo Credentials Panel */}
+            <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+                <span>Cuentas de Prueba Registradas en Directorio:</span>
+                <span className="text-slate-400 font-normal">Clave: Tottus2026*</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                {availableUsers.slice(0, 4).map(u => (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => handleSelectQuickUser(u, u.email.endsWith('@tottus.com.pe') ? 'corporate' : 'local')}
+                    className="text-left px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-[#00236f] bg-white hover:bg-[#00236f]/5 transition-colors cursor-pointer flex items-center justify-between group"
+                  >
+                    <div className="truncate pr-1">
+                      <div className="text-xs font-bold text-slate-800 group-hover:text-[#00236f] truncate">
+                        {u.name}
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-mono truncate">
+                        {u.email}
+                      </div>
+                    </div>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 shrink-0">
+                      {u.role.split(' ')[0]}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Probar usuario no registrado */}
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('usuario.nuevo@falabella.com');
+                  setPassword('Tottus2026*');
+                  setAuthMode('corporate');
+                  setError(null);
+                }}
+                className="w-full text-center text-[10px] text-slate-400 hover:text-slate-600 py-1 cursor-pointer transition-colors"
+              >
+                Probar validación con correo no registrado (usuario.nuevo@falabella.com)
+              </button>
+            </div>
+
+          </div>
+
+          {/* Card Footer */}
+          <div className="bg-[#f8faff] px-6 py-3 border-t border-slate-200 text-center text-[11px] text-slate-500">
+            Seguridad y control de identidades respaldado por la Dirección Nacional de Mantenimiento Tottus
+          </div>
+
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-slate-200 bg-white py-3 px-6 text-center text-xs text-slate-500">
+        © 2026 Hipermercados Tottus S.A. • Falabella Retail S.A. • Sistema CMMS de Mantenimiento & Infraestructura Crítica
+      </footer>
+
+      {/* =========================================================================
+          MODAL 1: MICROSOFT ENTRA ID AUTHENTICATION (AUTHENTIC MICROSOFT PROMPT)
+          ========================================================================= */}
+      {showMsalModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn font-sans">
+          <div className="bg-white rounded-xl max-w-md w-full shadow-2xl border border-slate-300 p-8 flex flex-col justify-between animate-slideUp">
+            
+            {/* Top Microsoft Logo */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="grid grid-cols-2 gap-0.5 w-4 h-4 shrink-0">
+                    <div className="bg-[#f25022] w-2 h-2" />
+                    <div className="bg-[#7fba00] w-2 h-2" />
+                    <div className="bg-[#00a4ef] w-2 h-2" />
+                    <div className="bg-[#ffb900] w-2 h-2" />
+                  </div>
+                  <span className="font-semibold text-slate-800 text-lg tracking-tight">
+                    Microsoft
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowMsalModal(false)}
+                  className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <button
-                type="submit"
-                disabled={isAuthenticating}
-                className="w-full h-10 bg-[#007a33] hover:bg-[#006028] text-white rounded-xl font-bold text-xs shadow-md shadow-[#007a33]/20 flex items-center justify-center gap-2 transition-all active:scale-[0.99] cursor-pointer disabled:opacity-75"
-              >
-                {isAuthenticating ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Verificando Credenciales...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Acceder al Portal</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </form>
-
-            {/* QUICK ROLE EVALUATOR / TESTER SECTION */}
-            <div className="pt-4 border-t border-[#e5eeff] space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-[#00236f] uppercase tracking-wider flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-[#007a33]" />
-                  Selector de Perfil Rápido (Validación RBAC)
-                </span>
-                <span className="text-[10px] text-[#757682] bg-slate-100 px-2 py-0.5 rounded">
-                  Modo Auditoría
-                </span>
-              </div>
-              <p className="text-[11px] text-[#757682]">
-                Haga clic en cualquiera de estos perfiles corporativos para ingresar instantáneamente y validar qué páginas puede ver cada rol:
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {demoProfiles.map((item, idx) => {
-                  if (!item.user) return null;
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => {
-                        const targetPass = item.user.password || 'Tottus2026*';
-                        setEmail(item.user.email);
-                        setPassword(targetPass);
-                        handleCorporateLogin(item.user, undefined, targetPass);
-                      }}
-                      className="p-2.5 rounded-xl border border-[#dce9ff] bg-[#f8f9ff] hover:bg-[#eff4ff] hover:border-[#00236f] transition-all text-left flex items-center gap-2.5 group cursor-pointer"
-                    >
-                      <img
-                        src={item.user.avatarUrl}
-                        alt={item.user.name}
-                        className="w-8 h-8 rounded-full object-cover ring-1 ring-[#00236f]/20 shrink-0"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="font-semibold text-xs text-[#0b1c30] group-hover:text-[#00236f] truncate">
-                          {item.user.name}
-                        </div>
-                        <div className="flex items-center gap-1.5 text-[10px] text-[#525e75]">
-                          <span className="font-bold text-[#007a33] truncate">{item.roleBadge}</span>
-                          <span>•</span>
-                          <span className="text-[#757682] truncate">{item.accessBadge}</span>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* SECURITY TEST SCENARIOS (DEMONSTRATION OF RESTRICTIONS) */}
-              <div className="pt-2.5 space-y-1.5">
-                <div className="flex items-center justify-between text-[10px] text-[#757682]">
-                  <span className="font-semibold text-slate-700 flex items-center gap-1">
-                    <ShieldAlert className="w-3 h-3 text-amber-600" />
-                    Probar Validación de Restricciones del Directorio:
-                  </span>
-                  <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.2 rounded font-mono">
-                    Whitelist Enforcement
-                  </span>
+              {msalError && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3 rounded-lg text-xs space-y-2">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div className="leading-relaxed font-medium">
+                      {msalError}
+                    </div>
+                  </div>
+                  {msalError.includes('no se encuentra registrada') && (
+                    <div className="pt-1.5 border-t border-rose-200">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowMsalModal(false);
+                          handleOpenRequestAccess(email, 'microsoft');
+                        }}
+                        className="w-full py-1.5 bg-[#00236f] hover:bg-[#1a3882] text-white text-xs font-bold rounded-md transition-colors"
+                      >
+                        Solicitar Permisos al Administrador
+                      </button>
+                    </div>
+                  )}
                 </div>
+              )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const disabledTestUser: AppUser = {
-                        ...(availableUsers[1] || availableUsers[0]),
-                        id: 'usr-disabled-test',
-                        name: 'Pedro Morales',
-                        email: 'pedro.morales@tottus.com.pe',
-                        role: 'Técnico de Campo',
-                        webAccessEnabled: false,
-                        status: 'ausente'
-                      };
-                      handleCorporateLogin(disabledTestUser);
-                    }}
-                    className="p-2 rounded-lg border border-red-200 bg-red-50/60 hover:bg-red-100/70 transition-all text-left flex items-center gap-2 cursor-pointer group"
-                    title="Simula un usuario en el directorio con el switch de Acceso Web apagado"
-                  >
-                    <div className="w-6 h-6 rounded-full bg-red-100 text-red-700 flex items-center justify-center shrink-0">
-                      <Lock className="w-3 h-3" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[11px] font-bold text-red-900 truncate">
-                        Probar Usuario Inhabilitado
-                      </div>
-                      <div className="text-[9px] text-red-700 truncate">
-                        pedro.morales@tottus (Acceso apagado)
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleCorporateLogin(undefined, 'externo.proveedor@tottus.com.pe')}
-                    className="p-2 rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 transition-all text-left flex items-center gap-2 cursor-pointer group"
-                    title="Simula un intento de login con un correo que NO está dado de alta en el Directorio"
-                  >
-                    <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center shrink-0">
-                      <UserX className="w-3 h-3" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[11px] font-bold text-slate-800 truncate">
-                        Probar No Registrado en Directorio
-                      </div>
-                      <div className="text-[9px] text-slate-600 truncate">
-                        externo.proveedor@tottus.com.pe
-                      </div>
-                    </div>
-                  </button>
-
-                  {/* NUEVA PRUEBA DE CONTRASENA INCORRECTA */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const testAdmin = availableUsers.find(u => u.email === 'rleon@tottus.com.pe') || availableUsers[0];
-                      setEmail(testAdmin.email);
-                      setPassword('clave_incorrecta_123');
-                      handleCorporateLogin(testAdmin, undefined, 'clave_incorrecta_123');
-                    }}
-                    className="p-2.5 rounded-lg border border-rose-300 bg-rose-50/80 hover:bg-rose-100 transition-all text-left flex items-center gap-2.5 cursor-pointer group col-span-1 sm:col-span-2 shadow-2xs"
-                    title="Simula ingresar cualquier contraseña errónea para verificar el bloqueo de acceso y registro de auditoría"
-                  >
-                    <div className="w-6 h-6 rounded-full bg-rose-200 text-rose-800 flex items-center justify-center shrink-0">
-                      <KeyRound className="w-3.5 h-3.5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[11px] font-bold text-rose-950 flex items-center justify-between">
-                        <span>Probar Contraseña Incorrecta (Demostración de Bloqueo)</span>
-                        <span className="text-[9px] bg-rose-200 text-rose-900 px-1.5 py-0.2 rounded font-mono font-semibold">
-                          Rechazo Activo
-                        </span>
-                      </div>
-                      <div className="text-[9px] text-rose-700">
-                        Envía la clave errónea <code>clave_incorrecta_123</code> para verificar que el acceso es denegado y auditado
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          {/* Footer note */}
-          <div className="pt-4 mt-4 border-t border-[#e5eeff] text-center text-[10px] text-[#757682]">
-            © {new Date().getFullYear()} Hipermercados Tottus S.A. Todos los derechos reservados · Plataforma CMMS Conectada a Microsoft Azure & Dataverse
-          </div>
-        </div>
-      </div>
-
-      {/* Microsoft MSAL Interactive Simulation Popup Modal */}
-      {showMsalModal && selectedUserForMsal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden animate-slideUp">
-            
-            {/* MSAL Header */}
-            <div className="bg-[#f3f4f6] px-5 py-3 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="grid grid-cols-2 gap-0.5 w-4 h-4 shrink-0">
-                  <div className="bg-[#f25022] w-1.5 h-1.5 rounded-xs" />
-                  <div className="bg-[#7fba00] w-1.5 h-1.5 rounded-xs" />
-                  <div className="bg-[#00a4ef] w-1.5 h-1.5 rounded-xs" />
-                  <div className="bg-[#ffb900] w-1.5 h-1.5 rounded-xs" />
-                </div>
-                <span className="text-xs font-bold text-slate-700">Microsoft Entra ID (Azure AD)</span>
-              </div>
-              <span className="text-[10px] text-slate-500 font-mono">login.microsoftonline.com</span>
-            </div>
-
-            {/* MSAL Content */}
-            <div className="p-6 space-y-4">
               {msalStep === 'prompt' && (
-                <>
-                  <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                    <img
-                      src={selectedUserForMsal.avatarUrl}
-                      alt={selectedUserForMsal.name}
-                      className="w-12 h-12 rounded-full object-cover ring-2 ring-[#007a33]"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-bold text-sm text-[#0b1c30] truncate">{selectedUserForMsal.name}</h4>
-                      <p className="text-xs text-slate-600 truncate">{selectedUserForMsal.email}</p>
-                      <span className="inline-block mt-0.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                        {selectedUserForMsal.role} · {selectedUserForMsal.assignedRegion}
-                      </span>
+                <div className="space-y-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-slate-900">
+                      Escribir contraseña
+                    </h2>
+                    <div className="text-xs text-slate-600 mt-1 flex items-center gap-1.5 font-mono bg-slate-50 p-2 rounded border border-slate-200">
+                      <span className="font-medium text-slate-900">{email}</span>
                     </div>
                   </div>
 
-                  <div className="space-y-2 text-xs text-slate-600">
-                    <p className="font-semibold text-slate-800">
-                      Hipermercados Tottus S.A. - Portal Soporte Onsite solicita permisos para:
-                    </p>
-                    <ul className="space-y-1.5 text-[11px] text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>Ver su perfil corporativo y dirección de correo institucional (User.Read)</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>Conectar con buzón de alertas Outlook Corporativo (Mail.Read)</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>Validar privilegios y grupos de seguridad RBAC de Tottus</span>
-                      </li>
-                    </ul>
+                  <div className="space-y-1">
+                    <div className="relative">
+                      <input
+                        type={showMsalPassword ? 'text' : 'password'}
+                        value={msalPassword}
+                        onChange={(e) => {
+                          setMsalPassword(e.target.value);
+                          if (msalError) setMsalError(null);
+                        }}
+                        placeholder="Contraseña corporativa"
+                        autoFocus
+                        className="w-full px-3 py-2.5 border-b-2 border-[#0067b8] focus:border-[#00236f] bg-slate-50 text-slate-900 text-sm focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowMsalPassword(!showMsalPassword)}
+                        className="absolute inset-y-0 right-0 pr-2 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        {showMsalPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                      <span>* Contraseña asignada en Directorio</span>
+                      <button
+                        type="button"
+                        onClick={() => setMsalPassword('Tottus2026*')}
+                        className="text-[#0067b8] hover:underline font-semibold"
+                      >
+                        Usar Tottus2026*
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="pt-2 flex items-center justify-end gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => setShowMsalModal(false)}
-                      className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleConfirmMsalAuthorization}
-                      className="px-5 py-2 text-xs font-bold text-white bg-[#00236f] hover:bg-[#1e3a8a] rounded-lg shadow-md transition-all cursor-pointer flex items-center gap-2"
-                    >
-                      <span>Aceptar y Continuar</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
+                  <div className="text-[11px] text-slate-500 leading-relaxed">
+                    Al iniciar sesión con Microsoft Entra ID, se verificará que su correo y credenciales coincidan con el Directorio Corporativo de Hipermercados Tottus.
                   </div>
-                </>
+                </div>
               )}
 
               {msalStep === 'authorizing' && (
-                <div className="py-8 text-center space-y-3">
-                  <div className="w-10 h-10 border-3 border-[#00236f] border-t-transparent rounded-full animate-spin mx-auto" />
-                  <h4 className="text-sm font-bold text-[#00236f]">Autenticando con Microsoft Entra ID...</h4>
+                <div className="py-8 text-center space-y-4">
+                  <RefreshCw className="w-8 h-8 text-[#0067b8] animate-spin mx-auto" />
+                  <div className="text-sm font-semibold text-slate-800">
+                    Comprobando credenciales en tottus.onmicrosoft.com...
+                  </div>
                   <p className="text-xs text-slate-500">
-                    Generando token OAuth Bearer y cargando privilegios del rol <strong>{selectedUserForMsal.role}</strong>
+                    Estableciendo sesión federada segura mediante Entra ID
                   </p>
                 </div>
               )}
 
               {msalStep === 'success' && (
-                <div className="py-8 text-center space-y-3 animate-fadeIn">
-                  <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-                    <CheckCircle2 className="w-7 h-7" />
+                <div className="py-6 text-center space-y-3 text-emerald-600">
+                  <CheckCircle className="w-10 h-10 mx-auto" />
+                  <div className="text-base font-bold text-slate-900">
+                    ¡Credenciales Validadas con Éxito!
                   </div>
-                  <h4 className="text-sm font-bold text-emerald-800">¡Conexión Exitosa con Outlook Corporativo!</h4>
-                  <p className="text-xs text-slate-600">
-                    Bienvenido, <strong>{selectedUserForMsal.name}</strong>. Accediendo a los módulos autorizados...
+                  <p className="text-xs text-slate-500">
+                    Ingresando al Portal CMMS...
                   </p>
                 </div>
               )}
             </div>
 
-            {/* MSAL Footer */}
-            <div className="bg-[#f9fafb] px-5 py-2.5 border-t border-slate-100 text-[10px] text-slate-400 flex items-center justify-between">
-              <span>Tenant ID: tottus-corp.onmicrosoft.com</span>
-              <span>TLS 1.3 Seguro</span>
-            </div>
+            {/* Modal Bottom Actions */}
+            {msalStep === 'prompt' && (
+              <div className="flex items-center justify-end gap-2 pt-6 mt-6 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setShowMsalModal(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmMsalAuthorization}
+                  className="px-6 py-2 bg-[#0067b8] hover:bg-[#005da6] text-white text-xs font-bold rounded shadow-xs cursor-pointer transition-colors"
+                >
+                  Iniciar sesión
+                </button>
+              </div>
+            )}
 
           </div>
         </div>
       )}
 
-      {/* Login Audit Log Inspection Modal */}
-      {showAuditModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[88vh] shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-slideUp">
+      {/* =========================================================================
+          MODAL 2: GOOGLE SIGN-IN AUTHENTICATION MODAL (GOOGLE ACCOUNTS PROMPT)
+          ========================================================================= */}
+      {showGoogleModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn font-sans">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 p-8 flex flex-col justify-between animate-slideUp">
             
-            {/* Modal Header */}
-            <div className="bg-[#00236f] text-white px-6 py-4 flex items-center justify-between">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                {/* Google Logo */}
+                <svg className="w-7 h-7" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                </svg>
+                <button
+                  type="button"
+                  onClick={() => setShowGoogleModal(false)}
+                  className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">
+                  Acceder con Google
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Ir a Portal CMMS Hipermercados Tottus
+                </p>
+              </div>
+
+              {googleError && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3 rounded-xl text-xs space-y-2">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div className="leading-relaxed font-medium">
+                      {googleError}
+                    </div>
+                  </div>
+                  {googleError.includes('no se encuentra registrada') && (
+                    <div className="pt-1.5 border-t border-rose-200">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowGoogleModal(false);
+                          handleOpenRequestAccess(googleEmail, 'google');
+                        }}
+                        className="w-full py-1.5 bg-[#00236f] hover:bg-[#1a3882] text-white text-xs font-bold rounded-lg transition-colors"
+                      >
+                        Solicitar Permisos al Administrador
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {googleStep === 'prompt' && (
+                <div className="space-y-4 pt-1">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Correo electrónico o teléfono
+                    </label>
+                    <input
+                      type="email"
+                      value={googleEmail}
+                      onChange={(e) => {
+                        setGoogleEmail(e.target.value);
+                        if (googleError) setGoogleError(null);
+                      }}
+                      placeholder="usuario@tottus.com.pe o falabella.com"
+                      className="w-full px-3.5 py-2.5 border border-slate-300 focus:border-[#1a73e8] rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#1a73e8]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Contraseña de Cuenta
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showGooglePassword ? 'text' : 'password'}
+                        value={googlePassword}
+                        onChange={(e) => {
+                          setGooglePassword(e.target.value);
+                          if (googleError) setGoogleError(null);
+                        }}
+                        placeholder="Ingresa tu contraseña"
+                        className="w-full px-3.5 py-2.5 border border-slate-300 focus:border-[#1a73e8] rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#1a73e8]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowGooglePassword(!showGooglePassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        {showGooglePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                      <span>* Clave registrada en Directorio</span>
+                      <button
+                        type="button"
+                        onClick={() => setGooglePassword('Tottus2026*')}
+                        className="text-[#1a73e8] hover:underline font-semibold"
+                      >
+                        Rellenar Tottus2026*
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="text-[11px] text-slate-500 leading-relaxed">
+                    Google compartirá tu nombre, dirección de correo electrónico y preferencia de idioma con Hipermercados Tottus CMMS.
+                  </div>
+                </div>
+              )}
+
+              {googleStep === 'authorizing' && (
+                <div className="py-8 text-center space-y-4">
+                  <RefreshCw className="w-8 h-8 text-[#1a73e8] animate-spin mx-auto" />
+                  <div className="text-sm font-semibold text-slate-800">
+                    Autenticando con Google OAuth 2.0...
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Verificando permisos y registro en Directorio Tottus
+                  </p>
+                </div>
+              )}
+
+              {googleStep === 'success' && (
+                <div className="py-6 text-center space-y-3 text-emerald-600">
+                  <CheckCircle className="w-10 h-10 mx-auto" />
+                  <div className="text-base font-bold text-slate-900">
+                    ¡Cuenta Google Verificada!
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Ingresando al Portal CMMS...
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {googleStep === 'prompt' && (
+              <div className="flex items-center justify-between pt-6 mt-6 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setShowGoogleModal(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmGoogleAuthorization}
+                  className="px-6 py-2 bg-[#1a73e8] hover:bg-[#1557b0] text-white text-xs font-bold rounded-lg shadow-xs cursor-pointer transition-colors"
+                >
+                  Siguiente
+                </button>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL 3: SOLICITAR PERMISOS AL ADMINISTRADOR (ALERT TO ADMINS FLOW)
+          ========================================================================= */}
+      {showRequestAccessModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn font-sans">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden animate-slideUp">
+            
+            <div className="bg-[#00236f] text-white p-5 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
-                  <History className="w-4 h-4 text-white" />
+                <div className="w-8 h-8 rounded-lg bg-amber-400 text-amber-950 flex items-center justify-center">
+                  <UserPlus className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-white">
-                    Auditoría de Inicios de Sesión y Control de Acceso Web
+                    Solicitud de Permisos de Acceso al CMMS
                   </h3>
                   <p className="text-[11px] text-white/70">
-                    Registro de eventos de autenticación, IPs, dispositivos y validación de directorio en tiempo real
+                    Envía una notificación directa a la Dirección de Sistemas TI para tu alta
                   </p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setShowAuditModal(false)}
-                className="w-7 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
-              
-              {/* Informative Banner */}
-              <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3 text-blue-900">
-                <Info className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <p className="font-semibold text-xs text-blue-950">
-                    Monitoreo de Cuentas Institucionales (@tottus.com.pe)
-                  </p>
-                  <p className="text-[11px] text-blue-800 leading-relaxed">
-                    Si un usuario intenta conectarse desde otra máquina o con otra cuenta (incluso si intentan iniciar sesión con <strong>rleon@tottus.com.pe</strong>), el sistema audita la IP de origen, el dispositivo y el resultado. Si la cuenta no está dada de alta en el Directorio o está deshabilitada, el acceso se bloquea de forma inmediata.
-                  </p>
-                </div>
-              </div>
-
-              {/* Metrics Row */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                  <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Total Intentos</div>
-                  <div className="text-xl font-extrabold text-[#00236f] mt-0.5">{loginAuditLogs.length}</div>
-                </div>
-                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-                  <div className="text-[10px] text-emerald-700 font-semibold uppercase tracking-wider">Logins Exitosos</div>
-                  <div className="text-xl font-extrabold text-emerald-700 mt-0.5">
-                    {loginAuditLogs.filter(l => l.status === 'exitoso').length}
-                  </div>
-                </div>
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200">
-                  <div className="text-[10px] text-rose-800 font-semibold uppercase tracking-wider">Clave Incorrecta</div>
-                  <div className="text-xl font-extrabold text-rose-700 mt-0.5">
-                    {loginAuditLogs.filter(l => l.status === 'bloqueado_contrasena_incorrecta').length}
-                  </div>
-                </div>
-                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
-                  <div className="text-[10px] text-amber-800 font-semibold uppercase tracking-wider">No en Directorio</div>
-                  <div className="text-xl font-extrabold text-amber-700 mt-0.5">
-                    {loginAuditLogs.filter(l => l.status === 'bloqueado_no_en_directorio').length}
-                  </div>
-                </div>
-                <div className="p-3 rounded-xl bg-red-50 border border-red-200">
-                  <div className="text-[10px] text-red-800 font-semibold uppercase tracking-wider">Inhabilitados</div>
-                  <div className="text-xl font-extrabold text-red-700 mt-0.5">
-                    {loginAuditLogs.filter(l => l.status === 'bloqueado_inhabilitado').length}
-                  </div>
-                </div>
-              </div>
-
-              {/* Audit Table */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-                <div className="bg-slate-100 px-4 py-2.5 font-bold text-slate-700 text-[11px] border-b border-slate-200 flex items-center justify-between">
-                  <span>Eventos Recientes de Autenticación</span>
-                  <span className="text-[10px] font-normal text-slate-500 font-mono">
-                    {loginAuditLogs.length} registros en memoria
-                  </span>
-                </div>
-
-                <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
-                  {loginAuditLogs.length === 0 ? (
-                    <div className="p-6 text-center text-slate-400">
-                      No hay registros de auditoría de login en esta sesión.
-                    </div>
-                  ) : (
-                    loginAuditLogs.map((record) => {
-                      const isSuccess = record.status === 'exitoso';
-                      const isWrongPass = record.status === 'bloqueado_contrasena_incorrecta';
-                      const isNotInDir = record.status === 'bloqueado_no_en_directorio';
-                      const isRleon = record.userEmail.includes('rleon@');
-
-                      return (
-                        <div
-                          key={record.id}
-                          className={`p-3 transition-colors ${
-                            isWrongPass
-                              ? 'bg-rose-50/40 hover:bg-rose-50/80'
-                              : isRleon
-                              ? 'bg-amber-50/40 hover:bg-amber-50/80'
-                              : 'hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                            <div className="flex items-center gap-2">
-                              {isSuccess ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                                  <CheckCircle className="w-3 h-3" /> Exitoso
-                                </span>
-                              ) : isWrongPass ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">
-                                  <KeyRound className="w-3 h-3" /> Clave Incorrecta
-                                </span>
-                              ) : isNotInDir ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
-                                  <UserX className="w-3 h-3" /> No en Directorio
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">
-                                  <Lock className="w-3 h-3" /> Inhabilitado
-                                </span>
-                              )}
-
-                              <span className="font-bold text-slate-900 text-xs">{record.userName}</span>
-                              <span className="text-[11px] text-slate-500 font-mono">({record.userEmail})</span>
-                              {isRleon && (
-                                <span className="text-[9px] font-bold bg-[#00236f] text-white px-1.5 py-0.2 rounded">
-                                  Cuenta Admin
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="text-[10px] text-slate-500 flex items-center gap-2">
-                              <span>{record.timeAgo || new Date(record.timestamp).toLocaleTimeString()}</span>
-                              <span>•</span>
-                              <span className="font-mono text-slate-600 font-semibold">{record.ipAddress}</span>
-                            </div>
-                          </div>
-
-                          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-600">
-                            <span>💻 {record.deviceInfo}</span>
-                            <span>📍 {record.locationOrStore}</span>
-                            <span>🛡️ Rol: {record.userRole}</span>
-                          </div>
-
-                          {record.notes && (
-                            <div className="mt-1 text-[10px] text-slate-500 italic bg-white/70 px-2 py-1 rounded border border-slate-100">
-                              {record.notes}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-
-            </div>
-
-            {/* Modal Footer */}
-            <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between text-xs">
-              <span className="text-[11px] text-slate-500">
-                La administración de privilegios y switches de acceso se gestiona dentro del <strong>Directorio</strong>.
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowAuditModal(false)}
-                className="px-4 py-1.5 bg-[#00236f] text-white font-bold rounded-lg hover:bg-[#1e3a8a] transition-colors cursor-pointer text-xs"
-              >
-                Cerrar Auditoría
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* Forgot Password Guidance Modal */}
-      {showForgotPasswordModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden animate-slideUp">
-            <div className="bg-[#00236f] text-white px-5 py-3.5 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <KeyRound className="w-4 h-4 text-emerald-400" />
-                <h3 className="font-bold text-xs text-white">Recuperación de Contraseña Corporativa</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowForgotPasswordModal(false)}
+                onClick={() => setShowRequestAccessModal(false)}
                 className="text-white/70 hover:text-white cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-5 space-y-3.5 text-xs text-slate-700">
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl">
-                <p className="font-semibold text-blue-950">
-                  Políticas de Identidad Active Directory (Falabella / Tottus)
-                </p>
-                <p className="text-[11px] text-blue-800 mt-1 leading-relaxed">
-                  Las contraseñas de acceso están sincronizadas con el dominio empresarial de Microsoft Entra ID / Office 365.
-                </p>
+            <form onSubmit={handleSubmitAccessRequest} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Correo Electrónico Solicitante
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={requestEmail}
+                  onChange={(e) => setRequestEmail(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 font-mono text-xs bg-slate-50 text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#00236f]"
+                />
               </div>
 
-              <div className="space-y-2">
-                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-                  <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                    <span className="w-5 h-5 rounded-full bg-[#00236f] text-white text-[10px] flex items-center justify-center">1</span>
-                    <span>Canal Service Desk Falabella</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 mt-1 pl-6.5">
-                    Comuníquese al anexo interno <strong>4000</strong> o escriba a <code>mesadeayuda@falabella.com</code> solicitando el desbloqueo o reseteo de su clave de red.
-                  </p>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Nombre Completo y Apellidos
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={requestName}
+                  onChange={(e) => setRequestName(e.target.value)}
+                  placeholder="Ej. Juan Pérez Quispe"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#00236f]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Rol Requerido
+                  </label>
+                  <select
+                    value={requestRole}
+                    onChange={(e) => setRequestRole(e.target.value)}
+                    className="w-full px-2.5 py-2.5 rounded-lg border border-slate-300 text-xs bg-white text-slate-800"
+                  >
+                    <option value="Técnico Especialista">Técnico Especialista</option>
+                    <option value="IT Operator">IT Operator Onsite</option>
+                    <option value="Jefe de Mantenimiento">Jefe de Mantenimiento</option>
+                    <option value="Supervisor Regional">Supervisor Regional</option>
+                    <option value="Jefe de Tienda">Jefe de Tienda</option>
+                  </select>
                 </div>
 
-                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-                  <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                    <span className="w-5 h-5 rounded-full bg-[#00236f] text-white text-[10px] flex items-center justify-center">2</span>
-                    <span>Autogestión Microsoft SSPR</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 mt-1 pl-6.5">
-                    Si tiene configurado Microsoft Authenticator, ingrese al portal de autoservicio en <a href="https://passwordreset.microsoftonline.com" target="_blank" rel="noreferrer" className="text-[#00236f] font-semibold underline">passwordreset.microsoftonline.com</a>.
-                  </p>
-                </div>
-
-                <div className="p-2.5 bg-emerald-50 rounded-lg border border-emerald-200">
-                  <div className="font-bold text-emerald-900 flex items-center gap-1.5">
-                    <KeyRound className="w-4 h-4 text-emerald-700" />
-                    <span>Ambiente de Evaluación / Pruebas</span>
-                  </div>
-                  <p className="text-[11px] text-emerald-800 mt-1 leading-relaxed">
-                    Para todas las cuentas de demostración, la contraseña corporativa de prueba configurada es: <code className="font-bold bg-white px-1.5 py-0.5 rounded border border-emerald-300 font-mono">Tottus2026*</code>
-                  </p>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Método de Ingreso
+                  </label>
+                  <select
+                    value={requestProvider}
+                    onChange={(e) => setRequestProvider(e.target.value as any)}
+                    className="w-full px-2.5 py-2.5 rounded-lg border border-slate-300 text-xs bg-white text-slate-800"
+                  >
+                    <option value="microsoft">Microsoft 365</option>
+                    <option value="google">Cuenta Google</option>
+                    <option value="local">Cuenta Local</option>
+                  </select>
                 </div>
               </div>
 
-              <div className="pt-2 flex justify-end">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Motivo de la Solicitud / Tienda Asignada
+                </label>
+                <textarea
+                  rows={2}
+                  value={requestMotive}
+                  onChange={(e) => setRequestMotive(e.target.value)}
+                  placeholder="Indique tienda, contratista o motivo de la visita/servicio..."
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#00236f]"
+                />
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-900 leading-relaxed">
+                Al presionar "Enviar Solicitud al Administrador", el sistema creará una alerta en tiempo real para el Ingeniero Director de Mantenimiento (Ing. Roberto León), quien podrá aprobar su alta y credenciales desde su panel.
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    setPassword('Tottus2026*');
-                    setShowForgotPasswordModal(false);
-                  }}
-                  className="px-4 py-2 bg-[#007a33] hover:bg-[#006028] text-white font-bold rounded-lg text-xs cursor-pointer flex items-center gap-1.5"
+                  onClick={() => setShowRequestAccessModal(false)}
+                  className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
                 >
-                  <KeyRound className="w-3.5 h-3.5" />
-                  <span>Rellenar con Clave de Prueba (Tottus2026*)</span>
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSendingRequest}
+                  className="px-5 py-2.5 bg-[#00236f] hover:bg-[#1a3882] text-white font-bold rounded-lg shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isSendingRequest ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Enviando al Administrador...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Enviar Solicitud al Administrador</span>
+                    </>
+                  )}
                 </button>
               </div>
+            </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL 4: AUDITORÍA DE ACCESOS Y REGISTROS
+          ========================================================================= */}
+      {showAuditModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn font-sans">
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-slideUp">
+            
+            <div className="bg-[#00236f] text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                  <History className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">
+                    Registro de Auditoría de Intentos de Acceso
+                  </h3>
+                  <p className="text-[11px] text-white/70">
+                    Trazabilidad de accesos aprobados, contraseñas fallidas y bloqueos
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAuditModal(false)}
+                className="text-white/80 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 space-y-3">
+              {loginAuditLogs.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  No se registran eventos de auditoría en la sesión actual.
+                </div>
+              ) : (
+                loginAuditLogs.map((log) => {
+                  const isSuccess = log.status === 'exitoso' || log.status === 'success';
+                  const isPasswordWrong = log.status === 'bloqueado_contrasena_incorrecta';
+                  return (
+                    <div
+                      key={log.id}
+                      className={`p-3 rounded-xl border text-xs flex items-start justify-between gap-3 ${
+                        isSuccess
+                          ? 'bg-emerald-50/50 border-emerald-200'
+                          : isPasswordWrong
+                          ? 'bg-amber-50/50 border-amber-200'
+                          : 'bg-rose-50/50 border-rose-200'
+                      }`}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`font-bold px-2 py-0.5 rounded-md text-[10px] uppercase ${
+                              isSuccess
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : isPasswordWrong
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-rose-100 text-rose-800'
+                            }`}
+                          >
+                            {isSuccess ? 'Acceso Exitoso' : isPasswordWrong ? 'Clave Incorrecta' : 'Bloqueado'}
+                          </span>
+                          <span className="font-bold text-slate-800">{log.userName}</span>
+                          <span className="font-mono text-slate-500">({log.userEmail || log.email})</span>
+                        </div>
+                        <p className="text-slate-600 text-[11px]">{log.notes || log.reason}</p>
+                        <div className="text-[10px] text-slate-400 flex items-center gap-2">
+                          <span>IP: {log.ipAddress}</span>
+                          <span>• {log.timeAgo || log.timestamp}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowAuditModal(false)}
+                className="px-4 py-1.5 bg-[#00236f] text-white font-bold rounded-lg text-xs hover:bg-[#1a3882] cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL 5: RECUPERACIÓN DE CONTRASEÑA LOCAL
+          ========================================================================= */}
+      {showForgotPasswordModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn font-sans">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 p-6 space-y-4 animate-slideUp">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[#00236f]">
+                <HelpCircle className="w-5 h-5" />
+                <h3 className="font-bold text-sm">Recuperación de Credenciales Locales</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowForgotPasswordModal(false)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Por políticas de seguridad corporativa Falabella/Tottus, las contraseñas locales son administradas por la Dirección de Mantenimiento & TI.
+            </p>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-700 space-y-1">
+              <div><strong>Contraseña Estándar de Demostración:</strong></div>
+              <div className="font-mono text-sm font-bold text-[#00236f] bg-white p-2 rounded border border-slate-200 inline-block">
+                Tottus2026*
+              </div>
+              <p className="text-[11px] text-slate-500 pt-1">
+                Aplica para todas las cuentas registradas en el Directorio local inicial.
+              </p>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPassword('Tottus2026*');
+                  setShowForgotPasswordModal(false);
+                }}
+                className="px-4 py-2 bg-[#00236f] text-white font-bold rounded-lg text-xs hover:bg-[#1a3882] cursor-pointer"
+              >
+                Aplicar Tottus2026* y Cerrar
+              </button>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 };

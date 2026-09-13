@@ -370,6 +370,22 @@ export interface AppUser {
   allowedModules?: string[]; // Lista personalizada de módulos que puede ver
 }
 
+export interface AccessRequest {
+  id: string;
+  email: string;
+  name: string;
+  requestedRole?: string;
+  provider: 'microsoft' | 'google' | 'local';
+  timestamp: string;
+  timeAgo?: string;
+  status: 'pendiente' | 'aprobado' | 'denegado';
+  notes?: string;
+  deviceInfo?: string;
+  ipAddress?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+}
+
 export interface LoginAuditRecord {
   id: string;
   timestamp: string;
