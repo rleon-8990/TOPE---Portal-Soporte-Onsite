@@ -17,10 +17,20 @@ import {
   CheckCircle2,
   Clock,
   ExternalLink,
-  Send
+  Send,
+  MapPin,
+  Map,
+  Layers,
+  Sparkles
 } from 'lucide-react';
 import { Ticket, WorkOrder, Store as StoreType, AppUser } from '../types';
 import { hasPageAccess } from '../utils/rbac';
+import { PeruStoresMap } from './PeruStoresMap';
+import {
+  TOTTUS_FORMATS,
+  PRECIO_UNO_FORMATS,
+  normalizeStoreFormat,
+} from '../utils/storeFormats';
 
 interface DashboardViewProps {
   currentUser: AppUser;
@@ -47,6 +57,35 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 }) => {
   const [chartPeriod, setChartPeriod] = useState<'mes' | '6meses' | 'ano'>('6meses');
   const [selectedRegionTab, setSelectedRegionTab] = useState<'norte' | 'centro' | 'sur' | 'oriente'>('norte');
+  const [showDashboardMap, setShowDashboardMap] = useState<boolean>(true);
+  const [selectedDashboardFormat, setSelectedDashboardFormat] = useState<string>('todos');
+  const [selectedDashboardOperator, setSelectedDashboardOperator] = useState<string>('todos');
+
+  // IT Operators únicos presentes en las tiendas
+  const itOperators = React.useMemo(() => {
+    const set = new Set<string>();
+    stores.forEach(s => {
+      if (s.itOperator && s.itOperator.trim()) {
+        set.add(s.itOperator.trim());
+      }
+    });
+    return Array.from(set).sort();
+  }, [stores]);
+
+  // Tiendas filtradas para el mapa en Dashboard
+  const dashboardFilteredStores = React.useMemo(() => {
+    return stores.filter(store => {
+      const normFmt = normalizeStoreFormat(store.formato);
+      const matchesFormat =
+        selectedDashboardFormat === 'todos' ||
+        normFmt === selectedDashboardFormat ||
+        store.formato === selectedDashboardFormat;
+      const matchesOperator =
+        selectedDashboardOperator === 'todos' ||
+        (store.itOperator && store.itOperator.toLowerCase() === selectedDashboardOperator.toLowerCase());
+      return matchesFormat && matchesOperator;
+    });
+  }, [stores, selectedDashboardFormat, selectedDashboardOperator]);
 
   // Chart data points according to selected period
   const chartData = {
@@ -436,6 +475,92 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           >
             Ver Todas las 12 Alertas
           </button>
+        </div>
+      </div>
+
+      {/* Peru Stores Geographic Map & IT Coverage Section */}
+      <div className="bg-white rounded-2xl border border-[#dce9ff] shadow-xs p-4 sm:p-5 space-y-3.5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-[#e5eeff] pb-3.5">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-[#00873d] px-2 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-[#00873d]" />
+                GEORREFERENCIACIÓN NACIONAL GPS
+              </span>
+              <span className="text-xs text-[#757682] font-semibold">90 TIENDAS Y SUCURSALES</span>
+            </div>
+            <h2 className="text-lg sm:text-xl font-extrabold text-[#0b1c30] tracking-tight mt-0.5 flex items-center gap-2">
+              <span>Mapa del Perú: Cobertura Operativa y Encargados de TI</span>
+            </h2>
+            <p className="text-xs text-[#757682] mt-0.5">
+              Visualice la distribución geográfica en tiempo real, filtre por formato (Tottus / Precio Uno) o por especialista de TI asignado.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Filter by Formato */}
+            <select
+              value={selectedDashboardFormat}
+              onChange={e => setSelectedDashboardFormat(e.target.value)}
+              className="h-9 px-3 bg-[#f8f9ff] rounded-lg text-xs text-[#0b1c30] border border-[#dce9ff] focus:outline-none focus:ring-1 focus:ring-[#00236f] font-medium"
+              title="Filtrar por Formato de Tienda"
+            >
+              <option value="todos">Todos los Formatos</option>
+              <optgroup label="Hipermercados Tottus S.A.">
+                {TOTTUS_FORMATS.map(fmt => (
+                  <option key={fmt} value={fmt}>{fmt}</option>
+                ))}
+              </optgroup>
+              <optgroup label="HiperBodegas Precio Uno">
+                {PRECIO_UNO_FORMATS.map(fmt => (
+                  <option key={fmt} value={fmt}>{fmt}</option>
+                ))}
+              </optgroup>
+            </select>
+
+            {/* Filter by Encargado TI */}
+            <select
+              value={selectedDashboardOperator}
+              onChange={e => setSelectedDashboardOperator(e.target.value)}
+              className="h-9 px-3 bg-[#f8f9ff] rounded-lg text-xs text-[#0b1c30] border border-[#dce9ff] focus:outline-none focus:ring-1 focus:ring-[#00236f] font-medium"
+              title="Filtrar por Encargado de TI"
+            >
+              <option value="todos">Todos los Encargados de TI ({itOperators.length})</option>
+              {itOperators.map(op => (
+                <option key={op} value={op}>TI: {op}</option>
+              ))}
+            </select>
+
+            {(selectedDashboardFormat !== 'todos' || selectedDashboardOperator !== 'todos') && (
+              <button
+                onClick={() => {
+                  setSelectedDashboardFormat('todos');
+                  setSelectedDashboardOperator('todos');
+                }}
+                className="text-xs text-[#ba1a1a] hover:underline px-2 font-medium"
+              >
+                Limpiar
+              </button>
+            )}
+
+            <button
+              onClick={() => onNavigate('tiendas')}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#00236f] bg-[#eff4ff] hover:bg-[#dce9ff] border border-[#dce9ff] transition-all flex items-center gap-1 shrink-0"
+              title="Ir a la Planilla Completa de Tiendas"
+            >
+              <span>Ver Planilla SAP</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Map Container */}
+        <div className="rounded-xl overflow-hidden border border-[#e5eeff]">
+          <PeruStoresMap
+            stores={dashboardFilteredStores}
+            onSelectStore={() => onNavigate('tiendas')}
+            onOpenReportModal={() => onNavigate('tiendas')}
+          />
         </div>
       </div>
 

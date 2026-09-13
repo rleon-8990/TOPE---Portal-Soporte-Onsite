@@ -30,6 +30,14 @@ import {
   ClipboardCheck
 } from 'lucide-react';
 import { Store, Equipment, Region } from '../types';
+import { PeruStoresMap } from './PeruStoresMap';
+import {
+  TOTTUS_FORMATS,
+  PRECIO_UNO_FORMATS,
+  STORE_FORMAT_CONFIG,
+  normalizeStoreFormat,
+  getStoreEmpresa
+} from '../utils/storeFormats';
 
 interface StoresViewProps {
   stores: Store[];
@@ -57,7 +65,10 @@ export const StoresView: React.FC<StoresViewProps> = ({
   const [selectedRegion, setSelectedRegion] = useState<string>('todas');
   const [selectedFormat, setSelectedFormat] = useState<string>('todos');
   const [selectedCluster, setSelectedCluster] = useState<string>('todos');
+  const [selectedOperator, setSelectedOperator] = useState<string>('todos');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'table' | 'map'>('table');
+  const [highlightStoreId, setHighlightStoreId] = useState<string | undefined>(undefined);
   const [selectedStoreDetail, setSelectedStoreDetail] = useState<Store | null>(null);
   const [editingStore, setEditingStore] = useState<Store | null>(null);
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
@@ -88,7 +99,7 @@ export const StoresView: React.FC<StoresViewProps> = ({
   const uniqueFormats = useMemo(() => {
     const set = new Set<string>();
     stores.forEach(s => {
-      if (s.formato) set.add(s.formato);
+      if (s.formato) set.add(normalizeStoreFormat(s.formato));
     });
     return Array.from(set).sort();
   }, [stores]);
@@ -101,14 +112,27 @@ export const StoresView: React.FC<StoresViewProps> = ({
     return Array.from(set).sort();
   }, [stores]);
 
+  // Lista única de encargados de TI presentes en las tiendas
+  const itOperators = useMemo(() => {
+    const set = new Set<string>();
+    stores.forEach(s => {
+      if (s.itOperator && s.itOperator.trim()) {
+        set.add(s.itOperator.trim());
+      }
+    });
+    return Array.from(set).sort();
+  }, [stores]);
+
   const filteredStores = useMemo(() => {
     return stores.filter(store => {
       const matchesRegion = selectedRegion === 'todas' || store.region === selectedRegion;
-      const matchesFormat = selectedFormat === 'todos' || store.formato === selectedFormat;
+      const normFormat = normalizeStoreFormat(store.formato);
+      const matchesFormat = selectedFormat === 'todos' || normFormat === selectedFormat || store.formato === selectedFormat;
       const matchesCluster = selectedCluster === 'todos' || store.cluster === selectedCluster;
+      const matchesOperator = selectedOperator === 'todos' || (store.itOperator && store.itOperator.toLowerCase() === selectedOperator.toLowerCase());
 
       const query = searchQuery.toLowerCase().trim();
-      if (!query) return matchesRegion && matchesFormat && matchesCluster;
+      if (!query) return matchesRegion && matchesFormat && matchesCluster && matchesOperator;
 
       const codeStr = String(store.codTienda || store.code || '').toLowerCase();
       const nameStr = (store.name || '').toLowerCase();
@@ -131,7 +155,7 @@ export const StoresView: React.FC<StoresViewProps> = ({
         clusterStr.includes(query) ||
         zonalStr.includes(query);
 
-      return matchesRegion && matchesFormat && matchesCluster && matchesSearch;
+      return matchesRegion && matchesFormat && matchesCluster && matchesOperator && matchesSearch;
     }).sort((a, b) => {
       let valA: string = '';
       let valB: string = '';
@@ -164,7 +188,7 @@ export const StoresView: React.FC<StoresViewProps> = ({
       const cmp = valA.localeCompare(valB, 'es', { numeric: true, sensitivity: 'base' });
       return sortAsc ? cmp : -cmp;
     });
-  }, [stores, selectedRegion, selectedFormat, selectedCluster, searchQuery, sortField, sortAsc]);
+  }, [stores, selectedRegion, selectedFormat, selectedCluster, selectedOperator, searchQuery, sortField, sortAsc]);
 
   const totalPages = Math.ceil(filteredStores.length / itemsPerPage) || 1;
   const paginatedStores = useMemo(() => {
@@ -250,6 +274,35 @@ export const StoresView: React.FC<StoresViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {/* View Mode Switcher: Planilla SAP vs Mapa del Perú (GPS) */}
+          <div className="flex items-center bg-[#eff4ff] p-1 rounded-xl border border-[#c4dcff] shadow-xs">
+            <button
+              onClick={() => setViewMode('table')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                viewMode === 'table'
+                  ? 'bg-[#00236f] text-white shadow-xs'
+                  : 'text-[#444651] hover:text-[#00236f]'
+              }`}
+              title="Ver planilla tabular con las 16 columnas oficiales SAP"
+            >
+              <TableProperties className="w-3.5 h-3.5" />
+              <span>Planilla SAP</span>
+            </button>
+            <button
+              onClick={() => setViewMode('map')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                viewMode === 'map'
+                  ? 'bg-[#00873d] text-white shadow-xs'
+                  : 'text-[#444651] hover:text-[#00873d]'
+              }`}
+              title="Ver mapa georreferenciado del Perú con todas las tiendas y cobertura TI"
+            >
+              <Map className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Mapa del Perú (GPS)</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            </button>
+          </div>
+
           {onOpenSharePointSync && (
             <button
               onClick={onOpenSharePointSync}
@@ -257,7 +310,7 @@ export const StoresView: React.FC<StoresViewProps> = ({
               title="Conectar y sincronizar lista de tiendas con repositorio de SharePoint Online"
             >
               <TableProperties className="w-4 h-4 text-emerald-100" />
-              <span>Conectar con SharePoint (Lista)</span>
+              <span>SharePoint Sync</span>
             </button>
           )}
 
@@ -267,7 +320,7 @@ export const StoresView: React.FC<StoresViewProps> = ({
             title="Exportar planilla de tiendas a CSV"
           >
             <Download className="w-4 h-4 text-[#00236f]" />
-            <span>Exportar Planilla CSV</span>
+            <span>Exportar CSV</span>
           </button>
 
           <button
@@ -275,7 +328,7 @@ export const StoresView: React.FC<StoresViewProps> = ({
             className="bg-[#ba1a1a] text-white px-3.5 py-2 rounded-lg text-xs font-semibold shadow-md shadow-[#ba1a1a]/20 hover:bg-[#93000a] transition-all flex items-center gap-1.5 shrink-0 active:scale-95"
           >
             <ShieldAlert className="w-4 h-4" />
-            <span>Emitir Alerta a Tienda</span>
+            <span>Emitir Alerta</span>
           </button>
         </div>
       </div>
@@ -302,7 +355,7 @@ export const StoresView: React.FC<StoresViewProps> = ({
 
       {/* Filter and Search Bar */}
       <div className="bg-white p-3.5 rounded-xl border border-[#dce9ff] shadow-xs space-y-2.5">
-        <div className="flex flex-col md:flex-row gap-2.5 items-stretch md:items-center">
+        <div className="flex flex-col lg:flex-row gap-2.5 items-stretch lg:items-center">
           {/* Main search */}
           <div className="relative flex-1">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#757682]" />
@@ -318,19 +371,44 @@ export const StoresView: React.FC<StoresViewProps> = ({
             />
           </div>
 
-          {/* Formato filter */}
-          <div className="flex items-center gap-2">
+          {/* Formato, Encargado TI, and Cluster filter controls */}
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            {/* Formato filter with strict taxonomy groups */}
             <select
               value={selectedFormat}
               onChange={e => {
                 setSelectedFormat(e.target.value);
                 setCurrentPage(1);
               }}
-              className="h-9 px-3 bg-[#f8f9ff] rounded-lg text-xs text-[#0b1c30] border border-[#dce9ff] focus:outline-none focus:ring-1 focus:ring-[#00236f] focus:bg-white"
+              className="h-9 px-3 bg-[#f8f9ff] rounded-lg text-xs text-[#0b1c30] border border-[#dce9ff] focus:outline-none focus:ring-1 focus:ring-[#00236f] focus:bg-white font-medium"
+              title="Filtrar por Formato de Tienda"
             >
               <option value="todos">Todos los Formatos ({uniqueFormats.length})</option>
-              {uniqueFormats.map(fmt => (
-                <option key={fmt} value={fmt}>{fmt}</option>
+              <optgroup label="Hipermercados Tottus S.A.">
+                {TOTTUS_FORMATS.map(fmt => (
+                  <option key={fmt} value={fmt}>{fmt}</option>
+                ))}
+              </optgroup>
+              <optgroup label="HiperBodegas Precio Uno">
+                {PRECIO_UNO_FORMATS.map(fmt => (
+                  <option key={fmt} value={fmt}>{fmt}</option>
+                ))}
+              </optgroup>
+            </select>
+
+            {/* Encargado de TI filter */}
+            <select
+              value={selectedOperator}
+              onChange={e => {
+                setSelectedOperator(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="h-9 px-3 bg-[#f8f9ff] rounded-lg text-xs text-[#0b1c30] border border-[#dce9ff] focus:outline-none focus:ring-1 focus:ring-[#00236f] focus:bg-white font-medium"
+              title="Filtrar por Encargado de TI / IT Operator"
+            >
+              <option value="todos">Todos los Encargados de TI ({itOperators.length})</option>
+              {itOperators.map(op => (
+                <option key={op} value={op}>TI: {op}</option>
               ))}
             </select>
 
@@ -341,7 +419,7 @@ export const StoresView: React.FC<StoresViewProps> = ({
                 setSelectedCluster(e.target.value);
                 setCurrentPage(1);
               }}
-              className="h-9 px-3 bg-[#f8f9ff] rounded-lg text-xs text-[#0b1c30] border border-[#dce9ff] focus:outline-none focus:ring-1 focus:ring-[#00236f] focus:bg-white"
+              className="h-9 px-3 bg-[#f8f9ff] rounded-lg text-xs text-[#0b1c30] border border-[#dce9ff] focus:outline-none focus:ring-1 focus:ring-[#00236f] focus:bg-white font-medium"
             >
               <option value="todos">Todos los Clusters</option>
               {uniqueClusters.map(cl => (
@@ -349,12 +427,13 @@ export const StoresView: React.FC<StoresViewProps> = ({
               ))}
             </select>
 
-            {(searchQuery || selectedFormat !== 'todos' || selectedCluster !== 'todos' || selectedRegion !== 'todas') && (
+            {(searchQuery || selectedFormat !== 'todos' || selectedCluster !== 'todos' || selectedOperator !== 'todos' || selectedRegion !== 'todas') && (
               <button
                 onClick={() => {
                   setSearchQuery('');
                   setSelectedFormat('todos');
                   setSelectedCluster('todos');
+                  setSelectedOperator('todos');
                   setSelectedRegion('todas');
                   setCurrentPage(1);
                 }}
@@ -380,10 +459,21 @@ export const StoresView: React.FC<StoresViewProps> = ({
         </div>
       </div>
 
-      {/* Main Tabular View: 16 Columns mirroring official Tottus spreadsheet */}
-      <div className="bg-white rounded-xl border border-[#dce9ff] shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse min-w-[1700px]">
+      {/* Conditional View: Planilla SAP vs Mapa del Perú (GPS) */}
+      {viewMode === 'map' ? (
+        <div className="bg-white rounded-2xl border border-[#dce9ff] shadow-sm p-3 sm:p-4 overflow-hidden">
+          <PeruStoresMap
+            stores={filteredStores}
+            onSelectStore={onSelectStore}
+            onOpenReportModal={onGenerateReportForStore}
+            selectedStoreId={highlightStoreId}
+          />
+        </div>
+      ) : (
+        /* Main Tabular View: 16 Columns mirroring official Tottus spreadsheet */
+        <div className="bg-white rounded-xl border border-[#dce9ff] shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse min-w-[1700px]">
             <thead>
               <tr className="bg-[#f0f4ff] text-[#00236f] font-bold border-b border-[#dce9ff] select-none">
                 <th
@@ -715,11 +805,19 @@ export const StoresView: React.FC<StoresViewProps> = ({
                       </td>
 
                       {/* 12. Coordenadas */}
-                      <td className="py-3 px-3 text-center font-mono text-[10px] text-[#64748b] whitespace-nowrap">
+                      <td className="py-3 px-3 text-center font-mono text-[10px] text-[#64748b] whitespace-nowrap" onClick={e => e.stopPropagation()}>
                         {st.latitud && st.longitud ? (
-                          <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => {
+                              setHighlightStoreId(st.id);
+                              setViewMode('map');
+                            }}
+                            className="inline-flex items-center gap-1 text-[#00873d] bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200 transition-colors font-semibold"
+                            title="Localizar esta tienda en el Mapa del Perú (GPS)"
+                          >
+                            <MapPin className="w-3 h-3 text-[#00873d]" />
                             <span>{st.latitud.toFixed(3)}, {st.longitud.toFixed(3)}</span>
-                          </div>
+                          </button>
                         ) : (
                           <span>-</span>
                         )}
@@ -772,6 +870,16 @@ export const StoresView: React.FC<StoresViewProps> = ({
                       {/* 16. Acciones (Sticky) */}
                       <td className="py-3 px-3 text-center whitespace-nowrap sticky right-0 bg-inherit z-10 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)]" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => {
+                              setHighlightStoreId(st.id);
+                              setViewMode('map');
+                            }}
+                            className="p-1.5 text-[#00873d] hover:bg-emerald-50 rounded font-medium text-[11px] flex items-center gap-0.5 border border-emerald-200"
+                            title="Ver en Mapa del Perú (GPS)"
+                          >
+                            <Map className="w-3.5 h-3.5 text-[#00873d]" />
+                          </button>
                           <button
                             onClick={() => onSelectStore(st)}
                             className="p-1.5 text-[#00236f] hover:bg-[#eff4ff] rounded font-medium text-[11px] flex items-center gap-0.5 border border-[#dce9ff]"
@@ -838,6 +946,7 @@ export const StoresView: React.FC<StoresViewProps> = ({
           </div>
         </div>
       </div>
+      )}
 
       {/* Store Detail Modal */}
       {selectedStoreDetail && (
