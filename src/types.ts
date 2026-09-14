@@ -25,6 +25,8 @@ export interface CategoryInfo {
   icon: string;
   description: string;
   count: number;
+  isCustom?: boolean;
+  vidaUtilDefault?: number;
 }
 
 export interface Store {

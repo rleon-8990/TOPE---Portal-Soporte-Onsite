@@ -149,7 +149,7 @@ export const NewEquipmentModal: React.FC<NewEquipmentModalProps> = ({
             <input
               type="text"
               required
-              placeholder="Ej. Sistema Chiller Enfriador Primario"
+              placeholder="Ej. POS - CPU NCR 7603 o SCO - Balanza Bióptica"
               value={name}
               onChange={e => setName(e.target.value)}
               className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg focus:border-[#00236f] focus:outline-none"
@@ -159,7 +159,7 @@ export const NewEquipmentModal: React.FC<NewEquipmentModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
-                Categoría (20 Tipos)
+                Categoría Oficial ({EQUIPMENT_CATEGORIES.length} Tipos)
               </label>
               <select
                 value={categoryId}

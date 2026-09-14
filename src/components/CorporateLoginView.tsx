@@ -540,7 +540,7 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
                     HIPERMERCADOS TOTTUS
                   </span>
                   <span className="bg-[#00236f]/10 text-[#00236f] text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                    CMMS Mantenimiento
+                    Portal OnSite
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 font-medium">
@@ -1022,7 +1022,7 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-3 px-6 text-center text-xs text-slate-500">
-        © 2026 Hipermercados Tottus S.A. • Falabella Retail S.A. • Sistema CMMS de Mantenimiento & Infraestructura Crítica
+        © 2026 Hipermercados Tottus S.A. • Falabella Retail S.A. • Portal OnSite de Mantenimiento & Infraestructura Crítica
       </footer>
 
       {/* =========================================================================
@@ -1149,7 +1149,7 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
                     ¡Credenciales Validadas con Éxito!
                   </div>
                   <p className="text-xs text-slate-500">
-                    Ingresando al Portal CMMS...
+                    Ingresando al Portal OnSite...
                   </p>
                 </div>
               )}
@@ -1209,7 +1209,7 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
                   Acceder con Google
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Ir a Portal CMMS Hipermercados Tottus
+                  Ir a Portal OnSite Hipermercados Tottus
                 </p>
               </div>
 
@@ -1292,7 +1292,7 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
                   </div>
 
                   <div className="text-[11px] text-slate-500 leading-relaxed">
-                    Google compartirá tu nombre, dirección de correo electrónico y preferencia de idioma con Hipermercados Tottus CMMS.
+                    Google compartirá tu nombre, dirección de correo electrónico y preferencia de idioma con Hipermercados Tottus Portal OnSite.
                   </div>
                 </div>
               )}
@@ -1316,7 +1316,7 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
                     ¡Cuenta Google Verificada!
                   </div>
                   <p className="text-xs text-slate-500">
-                    Ingresando al Portal CMMS...
+                    Ingresando al Portal OnSite...
                   </p>
                 </div>
               )}
@@ -1359,7 +1359,7 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-white">
-                    Solicitud de Permisos de Acceso al CMMS
+                    Solicitud de Permisos de Acceso al Portal OnSite
                   </h3>
                   <p className="text-[11px] text-white/70">
                     Envía una notificación directa a la Dirección de Sistemas TI para tu alta

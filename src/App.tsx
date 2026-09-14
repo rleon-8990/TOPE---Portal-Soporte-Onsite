@@ -1235,7 +1235,7 @@ export default function App() {
 
     const notif: PushNotification = {
       id: `notif-req-${Date.now()}`,
-      title: '🚨 Solicitud de Acceso al CMMS Recibida',
+      title: '🚨 Solicitud de Acceso al Portal OnSite Recibida',
       message: `${newReq.name || newReq.email} solicitó credenciales (${newReq.provider.toUpperCase()}). Requiere autorización de Administrador.`,
       type: 'ticket',
       severity: 'advertencia',
@@ -1719,7 +1719,7 @@ export default function App() {
         <header className="hidden md:flex items-center justify-between px-6 lg:px-8 xl:px-10 py-3 bg-white border-b border-[#e5eeff] sticky top-0 z-30 shadow-xs">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-xs">
-              <span className="font-bold text-[#00236f]">CMMS Tottus</span>
+              <span className="font-bold text-[#00236f]">Portal OnSite Tottus</span>
               <span className="text-[#c4c6d0]">/</span>
               <span className="text-[#444651] capitalize font-semibold">
                 {currentView === 'dashboard' ? 'Panel General' :
@@ -1790,7 +1790,7 @@ export default function App() {
                     ? 'bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300'
                     : 'text-[#00236f] bg-[#eff4ff] hover:bg-[#dce9ff]'
                 }`}
-                title="Solicitudes de Acceso de Usuarios al CMMS"
+                title="Solicitudes de Acceso de Usuarios al Portal OnSite"
               >
                 <ShieldAlert className={`w-4 h-4 ${accessRequests.filter(r => r.status === 'pendiente').length > 0 ? 'text-amber-600 animate-pulse' : 'text-[#00236f]'}`} />
                 <span className="hidden xl:inline text-[11px] font-bold">
