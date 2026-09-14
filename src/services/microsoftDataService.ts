@@ -22,7 +22,7 @@ export interface MicrosoftConnectorConfig {
 
   // SharePoint Online
   sharepointSiteUrl: string; // e.g. https://tottus.sharepoint.com/sites/OperacionesMantenimiento
-  sharepointListPrefix: string; // e.g. CMMS_
+  sharepointListPrefix: string; // e.g. OnSite_
   sharepointAuthToken: string;
 
   // Power Automate / Logic Apps Webhook
@@ -68,7 +68,7 @@ export const DEFAULT_M365_CONFIG: MicrosoftConnectorConfig = {
   customPrefix: 'cr_cmms_',
 
   sharepointSiteUrl: 'https://tottus.sharepoint.com/sites/MantenimientoIndustrial',
-  sharepointListPrefix: 'CMMS_',
+  sharepointListPrefix: 'OnSite_',
   sharepointAuthToken: '',
 
   webhookEndpointUrl: '',
@@ -232,7 +232,7 @@ export const MicrosoftDataService = {
             eventType: 'RECORD_SAVED',
             entity: entityType,
             data: record,
-            source: 'Reliant CMMS Web'
+            source: 'Portal OnSite Web'
           })
         }).catch(err => console.warn('Background webhook push error:', err));
       }
@@ -296,7 +296,7 @@ export const MicrosoftDataService = {
   generateTableSchemas(mode: IntegrationMode, prefix: string) {
     if (mode === 'dataverse') {
       return {
-        solutionName: 'Reliant_CMMS_Core',
+        solutionName: 'Portal_OnSite_Core',
         publisherPrefix: prefix.replace('_', ''),
         entities: [
           {
@@ -698,7 +698,7 @@ export const MicrosoftDataService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'GET_STORES',
-          requestedBy: 'Reliant CMMS Web',
+          requestedBy: 'Portal OnSite Web',
           timestamp: new Date().toISOString()
         })
       });

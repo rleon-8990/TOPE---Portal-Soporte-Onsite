@@ -1451,7 +1451,7 @@ export const PersonnelMonitoringView: React.FC<PersonnelMonitoringViewProps> = (
                             )}
                             {(!item.source || item.source === 'manual') && (
                               <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                                Manual CMMS
+                                Manual Portal OnSite
                               </span>
                             )}
                           </td>

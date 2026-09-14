@@ -974,7 +974,7 @@ export const TechnicalReportsView: React.FC<TechnicalReportsViewProps> = ({
                           </td>
 
                           <td className="py-3 px-3.5 whitespace-nowrap text-[11px] text-[#757682]">
-                            {rep.supervisor || 'Ing. Supervisor CMMS'}
+                            {rep.supervisor || 'Ing. Supervisor Portal OnSite'}
                           </td>
 
                           <td className="py-3 px-3.5 text-center whitespace-nowrap">
@@ -1111,7 +1111,7 @@ export const TechnicalReportsView: React.FC<TechnicalReportsViewProps> = ({
                     Fecha de Emisión: <strong>{new Date().toLocaleDateString('es-PE')}</strong>
                   </div>
                   <div className="text-[11px] text-[#10b981] font-bold mt-1">
-                    SISTEMA CMMS FALABELLA / TOPE
+                    PORTAL ONSITE - SISTEMAS / TOPE
                   </div>
                 </div>
               </div>
@@ -1498,7 +1498,7 @@ export const TechnicalReportsView: React.FC<TechnicalReportsViewProps> = ({
                   </div>
                   <div className="text-[11px] text-[#0b1c30]">
                     <strong>{selectedReport.technicianName || selectedReport.technician}</strong>
-                    <div className="text-[10px] text-[#757682]">Especialista de Campo CMMS • Reg. CIP-198421</div>
+                    <div className="text-[10px] text-[#757682]">Especialista de Campo Portal OnSite • Reg. CIP-198421</div>
                   </div>
                 </div>
 

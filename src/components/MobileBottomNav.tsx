@@ -49,7 +49,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   ];
 
   // Filter main navigation based on user privileges
-  const mainNav = rawMainNav.filter(item => hasPageAccess(currentUser.role, item.id)).slice(0, 4);
+  const mainNav = rawMainNav.filter(item => hasPageAccess(currentUser, item.id)).slice(0, 4);
 
   return (
     <>

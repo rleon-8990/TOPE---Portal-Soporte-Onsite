@@ -418,7 +418,7 @@ export const GeofencingAutomationPanel: React.FC<GeofencingAutomationPanelProps>
               </span>
               <div>
                 <strong className="text-slate-800 dark:text-white block">Instalar la App (PWA)</strong>
-                <span>El técnico abre el enlace del CMMS en Google Chrome (Android) o Safari (iPhone) y selecciona <em>"Agregar a la pantalla de inicio"</em> o <em>"Instalar Aplicación"</em>.</span>
+                <span>El técnico abre el enlace de Portal OnSite en Google Chrome (Android) o Safari (iPhone) y selecciona <em>"Agregar a la pantalla de inicio"</em> o <em>"Instalar Aplicación"</em>.</span>
               </div>
             </div>
 

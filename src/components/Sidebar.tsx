@@ -68,7 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Filter modules according to the current user's role privileges
   const allowedNavItems = allNavItems.filter(item => 
-    hasPageAccess(currentUser.role, item.id)
+    hasPageAccess(currentUser, item.id)
   );
 
   const roleConfig = getRoleConfig(currentUser.role);

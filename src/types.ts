@@ -385,6 +385,9 @@ export interface AppUser {
   canEdit?: boolean; // true = puede realizar cambios en la plataforma; false = solo lectura / auditoría
   accessType?: 'escritura' | 'lectura'; // 'escritura' = Puede hacer cambios, 'lectura' = Solo lectura
   allowedModules?: string[]; // Lista personalizada de módulos que puede ver
+  canManagePrivileges?: boolean; // Capacidad exclusiva para administrar la matriz de privilegios y asignar permisos a otros
+  canManageUsers?: boolean; // Capacidad para crear, editar o dar permisos a usuarios
+  username?: string; // Nombre de usuario simplificado para login directo (ej. 'admin')
 }
 
 export interface AccessRequest {

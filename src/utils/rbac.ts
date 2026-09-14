@@ -105,129 +105,210 @@ export interface RoleConfig {
   canManageM365: boolean;
   canManageUsers: boolean;
   canBroadcastAlerts: boolean;
+  canManagePrivileges?: boolean; // Capacidad para otorgar o modificar perfiles de privilegios
 }
 
-export const ROLE_CONFIGS: Record<string, RoleConfig> = {
+export const DEFAULT_ROLE_CONFIGS: Record<string, RoleConfig> = {
   Administrador: {
     role: 'Administrador',
     label: 'Administrador General',
     description: 'Acceso irrestricto a todos los módulos del portal, sincronización M365 y administración de personal.',
-    allowedModules: ['dashboard', 'inventario', 'mantenimiento', 'custodia', 'visitas', 'monitoreo', 'informes', 'tiendas', 'helpdesk', 'usuarios', 'despachador'],
+    allowedModules: ['dashboard', 'inventario', 'mantenimiento', 'custodia', 'visitas', 'monitoreo', 'informes', 'tiendas', 'helpdesk', 'trazabilidad', 'usuarios', 'despachador'],
     badgeColor: 'bg-indigo-100 text-indigo-800 border-indigo-200',
     accessLevel: 'total',
     canManageM365: true,
     canManageUsers: true,
-    canBroadcastAlerts: true
+    canBroadcastAlerts: true,
+    canManagePrivileges: true
   },
   'Administrador General': {
     role: 'Administrador General',
     label: 'Administrador General',
     description: 'Acceso irrestricto a todos los módulos del portal, sincronización M365 y administración de personal.',
-    allowedModules: ['dashboard', 'inventario', 'mantenimiento', 'custodia', 'visitas', 'monitoreo', 'informes', 'tiendas', 'helpdesk', 'usuarios', 'despachador'],
+    allowedModules: ['dashboard', 'inventario', 'mantenimiento', 'custodia', 'visitas', 'monitoreo', 'informes', 'tiendas', 'helpdesk', 'trazabilidad', 'usuarios', 'despachador'],
     badgeColor: 'bg-indigo-100 text-indigo-800 border-indigo-200',
     accessLevel: 'total',
     canManageM365: true,
     canManageUsers: true,
-    canBroadcastAlerts: true
+    canBroadcastAlerts: true,
+    canManagePrivileges: true
   },
   'Supervisor Regional': {
     role: 'Supervisor Regional',
     label: 'Supervisor Regional',
-    description: 'Supervisión de métricas, tiendas asignadas, mantenimiento, informes técnicos y helpdesk en su región.',
-    allowedModules: ['dashboard', 'inventario', 'mantenimiento', 'custodia', 'visitas', 'monitoreo', 'informes', 'tiendas', 'helpdesk', 'despachador'],
+    description: 'Supervisión de métricas, tiendas asignadas, mantenimiento, informes técnicos, trazabilidad y helpdesk en su región.',
+    allowedModules: ['dashboard', 'inventario', 'mantenimiento', 'custodia', 'visitas', 'monitoreo', 'informes', 'tiendas', 'helpdesk', 'trazabilidad', 'despachador'],
     badgeColor: 'bg-purple-100 text-purple-800 border-purple-200',
     accessLevel: 'supervision',
     canManageM365: false,
     canManageUsers: false,
-    canBroadcastAlerts: true
+    canBroadcastAlerts: true,
+    canManagePrivileges: false
   },
   'Técnico Especialista': {
     role: 'Técnico Especialista',
     label: 'Técnico Especialista Onsite',
-    description: 'Ejecución de órdenes de trabajo en tienda, inventario técnico, informes y registro de presencia.',
-    allowedModules: ['inventario', 'mantenimiento', 'custodia', 'visitas', 'monitoreo', 'informes', 'helpdesk'],
+    description: 'Ejecución de órdenes de trabajo en tienda, inventario técnico, repuestos, bkp, informes y registro de presencia.',
+    allowedModules: ['inventario', 'mantenimiento', 'custodia', 'visitas', 'monitoreo', 'informes', 'helpdesk', 'trazabilidad'],
     badgeColor: 'bg-blue-100 text-blue-800 border-blue-200',
     accessLevel: 'operativo',
     canManageM365: false,
     canManageUsers: false,
-    canBroadcastAlerts: false
+    canBroadcastAlerts: false,
+    canManagePrivileges: false
   },
   'IT Operator': {
     role: 'IT Operator',
     label: 'IT Operator Tienda',
-    description: 'Soporte informático en sitio para cajas POS, switches, balanzas y atención de tickets locales.',
-    allowedModules: ['inventario', 'mantenimiento', 'custodia', 'visitas', 'monitoreo', 'informes', 'helpdesk', 'despachador'],
+    description: 'Soporte informático en sitio para cajas POS, switches, balanzas, trazabilidad de repuestos y atención de tickets locales.',
+    allowedModules: ['inventario', 'mantenimiento', 'custodia', 'visitas', 'monitoreo', 'informes', 'helpdesk', 'trazabilidad', 'despachador'],
     badgeColor: 'bg-cyan-100 text-cyan-800 border-cyan-200',
     accessLevel: 'operativo',
     canManageM365: false,
     canManageUsers: false,
-    canBroadcastAlerts: false
+    canBroadcastAlerts: false,
+    canManagePrivileges: false
   },
   'Jefe de Mantenimiento': {
     role: 'Jefe de Mantenimiento',
     label: 'Jefe de Mantenimiento',
-    description: 'Gestión técnica de activos de frío, clima, balanzas y supervisión de cuadrillas de tienda.',
-    allowedModules: ['dashboard', 'inventario', 'mantenimiento', 'custodia', 'visitas', 'monitoreo', 'informes', 'tiendas', 'helpdesk', 'despachador'],
+    description: 'Gestión técnica de activos de frío, clima, balanzas, stock de repuestos BKP y supervisión de cuadrillas de tienda.',
+    allowedModules: ['dashboard', 'inventario', 'mantenimiento', 'custodia', 'visitas', 'monitoreo', 'informes', 'tiendas', 'helpdesk', 'trazabilidad', 'despachador'],
     badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',
     accessLevel: 'supervision',
     canManageM365: false,
     canManageUsers: false,
-    canBroadcastAlerts: false
+    canBroadcastAlerts: false,
+    canManagePrivileges: false
   },
   'Gerente de Tienda': {
     role: 'Gerente de Tienda',
     label: 'Gerente de Tienda',
-    description: 'Visión de estado operativo de su sucursal, presencia de técnicos y reporte de incidencias en Helpdesk.',
-    allowedModules: ['dashboard', 'visitas', 'custodia', 'helpdesk', 'monitoreo', 'inventario'],
+    description: 'Visión de estado operativo de su sucursal, presencia de técnicos, trazabilidad de repuestos y reporte de incidencias en Helpdesk.',
+    allowedModules: ['dashboard', 'visitas', 'custodia', 'helpdesk', 'trazabilidad', 'monitoreo', 'inventario'],
     badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
     accessLevel: 'tienda',
     canManageM365: false,
     canManageUsers: false,
-    canBroadcastAlerts: false
+    canBroadcastAlerts: false,
+    canManagePrivileges: false
   },
   'Jefe de Tienda': {
     role: 'Jefe de Tienda',
     label: 'Jefe de Tienda',
-    description: 'Visión de estado operativo de su sucursal, presencia de técnicos y reporte de incidencias en Helpdesk.',
-    allowedModules: ['dashboard', 'visitas', 'custodia', 'helpdesk', 'monitoreo', 'inventario'],
+    description: 'Visión de estado operativo de su sucursal, presencia de técnicos, trazabilidad de repuestos y reporte de incidencias en Helpdesk.',
+    allowedModules: ['dashboard', 'visitas', 'custodia', 'helpdesk', 'trazabilidad', 'monitoreo', 'inventario'],
     badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
     accessLevel: 'tienda',
     canManageM365: false,
     canManageUsers: false,
-    canBroadcastAlerts: false
+    canBroadcastAlerts: false,
+    canManagePrivileges: false
   }
 };
 
+// Aliased export for backwards compatibility
+export const ROLE_CONFIGS = DEFAULT_ROLE_CONFIGS;
+
+export const ROLE_CONFIGS_STORAGE_KEY = 'portal_onsite_role_configs_v2';
+
 /**
- * Normaliza un rol para obtener su configuración RBAC
+ * Carga las configuraciones de roles dinámicas persistidas en localStorage
+ */
+export function getStoredRoleConfigs(): Record<string, RoleConfig> {
+  try {
+    const raw = localStorage.getItem(ROLE_CONFIGS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        return { ...DEFAULT_ROLE_CONFIGS, ...parsed };
+      }
+    }
+  } catch (e) {
+    console.warn('Error reading role configs from storage', e);
+  }
+  return DEFAULT_ROLE_CONFIGS;
+}
+
+/**
+ * Guarda y actualiza la configuración de un perfil de rol en localStorage
+ */
+export function saveRoleConfig(role: string, updatedConfig: Partial<RoleConfig>): Record<string, RoleConfig> {
+  const current = getStoredRoleConfigs();
+  const existing = current[role] || DEFAULT_ROLE_CONFIGS[role] || {
+    role,
+    label: role,
+    description: `Perfil de permisos para ${role}`,
+    allowedModules: ['dashboard', 'helpdesk', 'monitoreo'],
+    badgeColor: 'bg-slate-100 text-slate-800 border-slate-200',
+    accessLevel: 'operativo',
+    canManageM365: false,
+    canManageUsers: false,
+    canBroadcastAlerts: false,
+    canManagePrivileges: false
+  };
+
+  const updated: RoleConfig = {
+    ...existing,
+    ...updatedConfig,
+    role
+  };
+
+  const newConfigs = {
+    ...current,
+    [role]: updated
+  };
+
+  try {
+    localStorage.setItem(ROLE_CONFIGS_STORAGE_KEY, JSON.stringify(newConfigs));
+  } catch (e) {
+    console.warn('Error saving role configs', e);
+  }
+
+  return newConfigs;
+}
+
+/**
+ * Restablece todas las configuraciones de roles a los valores por defecto
+ */
+export function resetRoleConfigsToDefault(): Record<string, RoleConfig> {
+  try {
+    localStorage.removeItem(ROLE_CONFIGS_STORAGE_KEY);
+  } catch (e) {}
+  return DEFAULT_ROLE_CONFIGS;
+}
+
+/**
+ * Normaliza un rol para obtener su configuración RBAC (lee configuraciones dinámicas)
  */
 export function getRoleConfig(role: string): RoleConfig {
-  if (ROLE_CONFIGS[role]) {
-    return ROLE_CONFIGS[role];
+  const allConfigs = getStoredRoleConfigs();
+  if (allConfigs[role]) {
+    return allConfigs[role];
   }
   
   // Coincidencias aproximadas
   const lower = role.toLowerCase();
   if (lower.includes('admin') || lower.includes('director')) {
-    return ROLE_CONFIGS['Administrador'];
+    return allConfigs['Administrador General'] || allConfigs['Administrador'] || DEFAULT_ROLE_CONFIGS['Administrador'];
   }
   if (lower.includes('supervisor') || lower.includes('regional')) {
-    return ROLE_CONFIGS['Supervisor Regional'];
+    return allConfigs['Supervisor Regional'] || DEFAULT_ROLE_CONFIGS['Supervisor Regional'];
   }
   if (lower.includes('gerente') || lower.includes('subgerente')) {
-    return ROLE_CONFIGS['Gerente de Tienda'];
+    return allConfigs['Gerente de Tienda'] || DEFAULT_ROLE_CONFIGS['Gerente de Tienda'];
   }
   if (lower.includes('jefe de mantenimiento')) {
-    return ROLE_CONFIGS['Jefe de Mantenimiento'];
+    return allConfigs['Jefe de Mantenimiento'] || DEFAULT_ROLE_CONFIGS['Jefe de Mantenimiento'];
   }
   if (lower.includes('jefe')) {
-    return ROLE_CONFIGS['Jefe de Tienda'];
+    return allConfigs['Jefe de Tienda'] || DEFAULT_ROLE_CONFIGS['Jefe de Tienda'];
   }
   if (lower.includes('operator') || lower.includes('it')) {
-    return ROLE_CONFIGS['IT Operator'];
+    return allConfigs['IT Operator'] || DEFAULT_ROLE_CONFIGS['IT Operator'];
   }
   if (lower.includes('téc') || lower.includes('especialista') || lower.includes('ingeniero')) {
-    return ROLE_CONFIGS['Técnico Especialista'];
+    return allConfigs['Técnico Especialista'] || DEFAULT_ROLE_CONFIGS['Técnico Especialista'];
   }
 
   // Fallback por defecto seguro
@@ -240,14 +321,101 @@ export function getRoleConfig(role: string): RoleConfig {
     accessLevel: 'tienda',
     canManageM365: false,
     canManageUsers: false,
-    canBroadcastAlerts: false
+    canBroadcastAlerts: false,
+    canManagePrivileges: false
   };
 }
 
 /**
- * Verifica si un rol específico tiene permiso para acceder a una vista/página
+ * Determina si un usuario tiene autorización para administrar privilegios y roles
  */
-export function hasPageAccess(role: string, viewId: string): boolean {
+export function canUserManagePrivileges(user?: AppUser | null): boolean {
+  if (!user) return false;
+  
+  // La cuenta 'admin' root o con username 'admin' tiene autoridad master
+  if (
+    user.username === 'admin' ||
+    user.email.toLowerCase() === 'admin@tottus.com.pe' ||
+    user.email.toLowerCase().startsWith('admin@') ||
+    user.id === 'usr-admin-master' ||
+    user.id === 'usr-root-admin'
+  ) {
+    return true;
+  }
+
+  // Cuenta autorizada rleon@tottus.com.pe
+  if (user.email.toLowerCase().includes('rleon')) {
+    return true;
+  }
+
+  // Flag explícito de delegación en usuario
+  if (user.canManagePrivileges === true) {
+    return true;
+  }
+
+  // Por rol configurado
+  const config = getRoleConfig(user.role);
+  if (config.canManagePrivileges === true) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Verifica si un rol o usuario específico tiene permiso para acceder a una vista/página
+ */
+export function hasPageAccess(
+  roleOrUser: string | AppUser | null | undefined,
+  viewId: string,
+  maybeUser?: AppUser | null
+): boolean {
+  let user: AppUser | null | undefined = maybeUser;
+  let role = '';
+
+  if (typeof roleOrUser === 'object' && roleOrUser !== null) {
+    user = roleOrUser;
+    role = user.role || '';
+  } else if (typeof roleOrUser === 'string') {
+    role = roleOrUser;
+  }
+
+  // Si no se pasó usuario explícito, intentar resolver desde sesión si coincide el rol
+  if (!user && typeof window !== 'undefined') {
+    try {
+      const savedUserStr = localStorage.getItem('reliant_cmms_current_user');
+      if (savedUserStr) {
+        const parsed = JSON.parse(savedUserStr);
+        if (parsed && (parsed.role === role || !role)) {
+          user = parsed;
+        }
+      }
+    } catch (e) {}
+  }
+
+  if (user) {
+    // Cuenta admin root o admin master tiene acceso irrestricto universal
+    if (
+      user.username === 'admin' ||
+      user.email.toLowerCase() === 'admin@tottus.com.pe' ||
+      user.email.toLowerCase().startsWith('admin@') ||
+      user.id === 'usr-admin-master' ||
+      user.id === 'usr-root-admin'
+    ) {
+      return true;
+    }
+
+    // Cuenta autorizada rleon
+    if (user.email.toLowerCase().includes('rleon')) {
+      return true;
+    }
+
+    // Si tiene lista personalizada de módulos en el usuario
+    if (user.allowedModules && user.allowedModules.length > 0) {
+      return user.allowedModules.includes(viewId);
+    }
+  }
+
   const config = getRoleConfig(role);
   return config.allowedModules.includes(viewId);
 }
@@ -264,6 +432,14 @@ export function getAllowedModulesForRole(role: string): string[] {
  * Retorna los módulos efectivos a los que tiene acceso un usuario específico
  */
 export function getUserAllowedModules(user: AppUser): string[] {
+  if (
+    user.username === 'admin' ||
+    user.email.toLowerCase() === 'admin@tottus.com.pe' ||
+    user.id === 'usr-admin-master'
+  ) {
+    return Object.keys(APP_MODULES);
+  }
+
   if (user.allowedModules && user.allowedModules.length > 0) {
     return user.allowedModules;
   }

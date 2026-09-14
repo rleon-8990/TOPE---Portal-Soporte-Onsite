@@ -1001,7 +1001,7 @@ export const QuickEmailDispatcher: React.FC<QuickEmailDispatcherProps> = ({
               {/* Institutional Footer */}
               <div className="pt-4 border-t border-slate-100 text-[10px] text-[#757682] space-y-1">
                 <p>
-                  Este es un mensaje institucional enviado mediante la plataforma de mantenimiento y operaciones <strong>CMMS Onsite Tottus</strong>.
+                  Este es un mensaje institucional enviado mediante la plataforma de mantenimiento y operaciones <strong>Portal OnSite Tottus</strong>.
                 </p>
                 <p className="text-[#a0a5b5]">
                   Servidor: Microsoft 365 Exchange Online · Certificado SSL/TLS Corporativo

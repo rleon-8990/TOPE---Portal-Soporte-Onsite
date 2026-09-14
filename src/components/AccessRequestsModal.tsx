@@ -75,7 +75,7 @@ export const AccessRequestsModal: React.FC<AccessRequestsModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-white">
-                  Solicitudes de Acceso al Portal CMMS
+                  Solicitudes de Acceso a Portal OnSite
                 </h3>
                 {pendingCount > 0 && (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-400 text-amber-950">

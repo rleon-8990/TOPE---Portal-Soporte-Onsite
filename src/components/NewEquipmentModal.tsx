@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Plus, X, Boxes, QrCode } from 'lucide-react';
-import { Equipment, Store } from '../types';
-import { EQUIPMENT_CATEGORIES } from '../data/mockData';
+import { Plus, X, Boxes, QrCode, Tag, Sparkles } from 'lucide-react';
+import { Equipment, Store, CategoryInfo } from '../types';
+import { getStoredEquipmentCategories } from '../utils/equipmentCategories';
+import { ManageEquipmentCategoriesModal } from './ManageEquipmentCategoriesModal';
 
 interface NewEquipmentModalProps {
   isOpen: boolean;
@@ -16,8 +17,13 @@ export const NewEquipmentModal: React.FC<NewEquipmentModalProps> = ({
   stores,
   onAddEquipment,
 }) => {
+  const [categories, setCategories] = useState<CategoryInfo[]>(() => getStoredEquipmentCategories());
+  const [showManageCategories, setShowManageCategories] = useState(false);
   const [name, setName] = useState('');
-  const [categoryId, setCategoryId] = useState(EQUIPMENT_CATEGORIES[0].id);
+  const [categoryId, setCategoryId] = useState(() => {
+    const list = getStoredEquipmentCategories();
+    return list[0]?.id || 'pos_cpu';
+  });
   const [storeId, setStoreId] = useState(stores[0]?.id || '');
   const [locationInStore, setLocationInStore] = useState('Área de Cajas / Pasillo Principal');
   const [brand, setBrand] = useState('NCR');
@@ -52,7 +58,7 @@ export const NewEquipmentModal: React.FC<NewEquipmentModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const cat = EQUIPMENT_CATEGORIES.find(c => c.id === categoryId) || EQUIPMENT_CATEGORIES[0];
+    const cat = categories.find(c => c.id === categoryId) || categories[0];
     const st = stores.find(s => s.id === storeId) || stores[0];
     const code = `${cat.shortCode}-${Math.floor(100 + Math.random() * 900)}`;
 
@@ -70,7 +76,7 @@ export const NewEquipmentModal: React.FC<NewEquipmentModalProps> = ({
     const newEq: Equipment = {
       id: `eq-${Date.now()}`,
       code,
-      name,
+      name: name.trim() || cat.name,
       categoryId: cat.id,
       categoryName: cat.name,
       storeId: st.id,
@@ -158,16 +164,38 @@ export const NewEquipmentModal: React.FC<NewEquipmentModalProps> = ({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
-                Categoría Oficial ({EQUIPMENT_CATEGORIES.length} Tipos)
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-[#757682] uppercase block">
+                  Equipo / Categoría ({categories.length})
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowManageCategories(true)}
+                  className="text-[11px] font-bold text-[#00236f] hover:underline flex items-center gap-0.5"
+                  title="Añadir o gestionar tipos de equipos en el catálogo"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>Añadir Equipos</span>
+                </button>
+              </div>
               <select
                 value={categoryId}
-                onChange={e => setCategoryId(e.target.value)}
+                onChange={e => {
+                  const newCatId = e.target.value;
+                  setCategoryId(newCatId);
+                  const selectedCat = categories.find(c => c.id === newCatId);
+                  if (selectedCat) {
+                    if (!name || categories.some(c => c.name === name)) {
+                      setName(selectedCat.name);
+                    }
+                  }
+                }}
                 className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
               >
-                {EQUIPMENT_CATEGORIES.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} {c.isCustom ? '(Añadido)' : ''}
+                  </option>
                 ))}
               </select>
             </div>
@@ -457,11 +485,25 @@ export const NewEquipmentModal: React.FC<NewEquipmentModalProps> = ({
               type="submit"
               className="flex-1 py-2.5 bg-[#00236f] text-white font-bold text-xs rounded-lg shadow-md hover:bg-[#1e3a8a]"
             >
-              Registrar en CMMS
+              Registrar en Portal OnSite
             </button>
           </div>
         </form>
       </div>
+
+      <ManageEquipmentCategoriesModal
+        isOpen={showManageCategories}
+        onClose={() => setShowManageCategories(false)}
+        onCategoriesUpdated={updated => {
+          setCategories(updated);
+        }}
+        onSelectCategoryForCreation={newCat => {
+          setCategories(getStoredEquipmentCategories());
+          setCategoryId(newCat.id);
+          setName(newCat.name);
+          setShowManageCategories(false);
+        }}
+      />
     </div>
   );
 };

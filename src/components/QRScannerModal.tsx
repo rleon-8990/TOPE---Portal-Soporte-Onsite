@@ -268,7 +268,7 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
         <div className="p-3 bg-[#f8f9ff] border-t border-[#e5eeff] flex justify-between items-center text-xs">
           <span className="text-[#757682] text-[11px] flex items-center gap-1">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            Validación CMMS Corporativa
+            Validación Portal OnSite Corporativa
           </span>
           <button
             onClick={() => {

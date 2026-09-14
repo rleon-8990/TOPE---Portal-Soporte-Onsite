@@ -774,7 +774,7 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
             <div>
               <h3 className="text-base font-bold text-[#00236f] flex items-center gap-2">
                 <ShieldAlert className="w-5 h-5 text-amber-500" />
-                <span>Solicitudes de Permisos de Acceso al CMMS</span>
+                <span>Solicitudes de Permisos de Acceso a Portal OnSite</span>
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Usuarios externos o colaboradores que intentaron ingresar y solicitaron alta en el Directorio
@@ -867,6 +867,7 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
       ) : activeTab === 'privilegios' ? (
         <DirectoryPrivilegesTab
           users={users}
+          currentUser={currentUser}
           onUpdateUser={onUpdateUser}
           onNavigateToAudit={(email) => {
             setAuditFilterEmail(email || '');
@@ -1162,7 +1163,7 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
                   const cleanPhone = user.phone.replace(/[^0-9]/g, '');
                   const waNumber = cleanPhone.startsWith('51') ? cleanPhone : `51${cleanPhone}`;
                   const waMsg = encodeURIComponent(
-                    `Hola ${user.name}, te contacto desde la plataforma CMMS Tottus respecto a la Tienda ${user.tiendaNombre || 'T-' + user.codTienda}.`
+                    `Hola ${user.name}, te contacto desde la plataforma Portal OnSite respecto a la Tienda ${user.tiendaNombre || 'T-' + user.codTienda}.`
                   );
 
                   return (
@@ -1723,7 +1724,7 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
                   />
                   <div>
                     <span className="text-xs font-bold text-[#0b1c30] block">
-                      Habilitar Acceso al Portal Web CMMS
+                      Habilitar Acceso a Portal OnSite
                     </span>
                     <span className="text-[11px] text-[#757682] leading-tight block">
                       Requisito de seguridad: Si no está habilitado en directorio, el usuario no podrá iniciar sesión con su cuenta Outlook (@tottus.com.pe) y el sistema bloqueará el ingreso registrando el intento en auditoría.

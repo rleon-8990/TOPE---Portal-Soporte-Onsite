@@ -30,11 +30,13 @@ import {
   Edit2,
   Trash2,
   Save,
-  ShieldCheck
+  ShieldCheck,
+  Boxes
 } from 'lucide-react';
-import { Equipment, Store, AppUser } from '../types';
-import { EQUIPMENT_CATEGORIES } from '../data/mockData';
+import { Equipment, Store, AppUser, CategoryInfo } from '../types';
+import { getStoredEquipmentCategories } from '../utils/equipmentCategories';
 import { PortalAccessMatrixTab } from './PortalAccessMatrixTab';
+import { ManageEquipmentCategoriesModal } from './ManageEquipmentCategoriesModal';
 
 interface InventoryViewProps {
   equipments: Equipment[];
@@ -65,6 +67,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 }) => {
   // Mode toggle: 'general' vs 'enlaces_comunicacion' vs 'matriz_accesos'
   const [activeTab, setActiveTab] = useState<'general' | 'enlaces_comunicacion' | 'matriz_accesos'>('general');
+  const [categories, setCategories] = useState<CategoryInfo[]>(() => getStoredEquipmentCategories());
+  const [showManageCategories, setShowManageCategories] = useState<boolean>(false);
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
@@ -331,6 +335,15 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           </button>
 
           <button
+            onClick={() => setShowManageCategories(true)}
+            className="bg-white text-[#00236f] px-3 py-2 rounded-lg text-xs font-semibold border border-[#dce9ff] hover:bg-[#eff4ff] transition-all flex items-center gap-1.5"
+            title="Catálogo y Gestión de Equipos y Categorías"
+          >
+            <Boxes className="w-4 h-4 text-[#00236f]" />
+            <span>Equipos ({categories.length})</span>
+          </button>
+
+          <button
             onClick={onOpenQRScanner}
             className="bg-[#eff4ff] text-[#00236f] px-3 py-2 rounded-lg text-xs font-semibold border border-[#dce9ff] hover:bg-[#dce9ff] transition-all flex items-center gap-1.5"
             title="Escanear Código QR"
@@ -521,10 +534,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 }}
                 className="w-full h-9 px-2.5 bg-[#f8f9ff] rounded-lg text-xs text-[#0b1c30] border border-[#dce9ff] focus:outline-none focus:ring-1 focus:ring-[#00236f]"
               >
-                <option value="todos">Todas las Categorías (20)</option>
-                {EQUIPMENT_CATEGORIES.map(cat => (
+                <option value="todos">Todos los Equipos / Categorías ({categories.length})</option>
+                {categories.map(cat => (
                   <option key={cat.id} value={cat.id}>
-                    {cat.shortCode} - {cat.name}
+                    {cat.shortCode} - {cat.name} {cat.isCustom ? '★' : ''}
                   </option>
                 ))}
               </select>
@@ -1318,12 +1331,12 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
-                    Categoría
+                    Equipo / Categoría
                   </label>
                   <select
                     value={editingEquipment.categoryId}
                     onChange={e => {
-                      const cat = EQUIPMENT_CATEGORIES.find(c => c.id === e.target.value);
+                      const cat = categories.find(c => c.id === e.target.value);
                       setEditingEquipment({
                         ...editingEquipment,
                         categoryId: e.target.value,
@@ -1332,9 +1345,9 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                     }}
                     className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
                   >
-                    {EQUIPMENT_CATEGORIES.map(c => (
+                    {categories.map(c => (
                       <option key={c.id} value={c.id}>
-                        {c.name}
+                        {c.name} {c.isCustom ? '(Añadido)' : ''}
                       </option>
                     ))}
                   </select>
@@ -1507,6 +1520,14 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           </div>
         </div>
       )}
+
+      <ManageEquipmentCategoriesModal
+        isOpen={showManageCategories}
+        onClose={() => setShowManageCategories(false)}
+        onCategoriesUpdated={updated => {
+          setCategories(updated);
+        }}
+      />
     </div>
   );
 };

@@ -229,7 +229,7 @@ export const DeviceIncidentModal: React.FC<DeviceIncidentModalProps> = ({
                 className="mt-0.5 rounded text-[#00236f] focus:ring-0"
               />
               <div className="text-[11px] leading-tight text-[#00236f]">
-                <strong className="block">Sincronizar y generar Ticket en Mesa de Ayuda Helpdesk CMMS</strong>
+                <strong className="block">Sincronizar y generar Ticket en Mesa de Ayuda Portal OnSite</strong>
                 <span className="text-[#525e75] text-[10px]">
                   Crea automáticamente el registro en la planilla de Helpdesk & Repuestos asignado al proveedor DMS/Zebra y tienda T-{device.storeCode}.
                 </span>

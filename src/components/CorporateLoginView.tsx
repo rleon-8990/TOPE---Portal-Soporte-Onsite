@@ -145,6 +145,75 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
     setShowRequestAccessModal(true);
   };
 
+  const handleQuickAdminLogin = () => {
+    setEmail('admin');
+    setPassword('admin');
+    setError(null);
+    setIsAuthenticating(true);
+    const masterAdminUser = availableUsers.find(
+      u => u.username === 'admin' || u.email.toLowerCase() === 'admin@tottus.com.pe'
+    ) || {
+      id: 'usr-admin-master',
+      name: 'Administrador Master',
+      email: 'admin@tottus.com.pe',
+      username: 'admin',
+      password: 'admin',
+      role: 'Administrador General',
+      specialty: 'Control de Privilegios & Seguridad Central OnSite',
+      phone: '+51 999 000 001',
+      assignedRegion: 'Nacional',
+      assignedStoresCount: 90,
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+      status: 'disponible',
+      userType: 'especialista',
+      cargo: 'Administrador Master de Seguridad & Privilegios',
+      webAccessEnabled: true,
+      canEdit: true,
+      accessType: 'escritura',
+      canManagePrivileges: true,
+      canManageUsers: true,
+      lastLoginAt: 'Ahora mismo',
+      lastLoginIp: '10.24.180.1 [Seguridad Central]',
+      loginDevice: 'Consola Central OnSite',
+      loginCount: 1000,
+      allowedModules: [
+        'dashboard',
+        'inventario',
+        'mantenimiento',
+        'visitas',
+        'custodia',
+        'monitoreo',
+        'informes',
+        'tiendas',
+        'helpdesk',
+        'trazabilidad',
+        'despachador',
+        'usuarios'
+      ]
+    };
+
+    const successRecord: LoginAuditRecord = {
+      id: `audit-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      timeAgo: 'Justo ahora',
+      userEmail: masterAdminUser.email,
+      userName: masterAdminUser.name,
+      userRole: masterAdminUser.role,
+      status: 'exitoso',
+      ipAddress: '10.24.180.1 [Seguridad Central]',
+      deviceInfo: 'Consola Central OnSite / Root',
+      locationOrStore: 'Sede Central OnSite',
+      notes: 'Inicio de sesión con credenciales de Administrador Master (admin / admin).'
+    };
+    if (onRecordAuditLog) onRecordAuditLog(successRecord);
+
+    setSuccessFeedback('Autenticación maestra concedida. Acceso con autoridad total de privilegios.');
+    setTimeout(() => {
+      setIsAuthenticating(false);
+      onLoginSuccess(masterAdminUser);
+    }, 350);
+  };
+
   /**
    * Manejador de Autenticación Principal
    */
@@ -157,12 +226,87 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
     const enteredPassword = password.trim();
 
     if (!trimmedEmail) {
-      setError('Por favor, ingrese su correo electrónico institucional o registrado en el Directorio.');
+      setError('Por favor, ingrese su usuario o correo electrónico institucional.');
+      return;
+    }
+
+    // =========================================================================
+    // CASO ESPECIAL ROOT: CUENTA ADMINISTRADOR MASTER (Usuario: admin, Clave: admin)
+    // =========================================================================
+    const isAdminTarget = trimmedEmail === 'admin' || trimmedEmail === 'admin@tottus.com.pe';
+    if (isAdminTarget) {
+      if (enteredPassword !== 'admin') {
+        setError('Contraseña incorrecta para la cuenta Administrador Master. La contraseña es: admin');
+        return;
+      }
+
+      setIsAuthenticating(true);
+      const masterAdminUser = availableUsers.find(
+        u => u.username === 'admin' || u.email.toLowerCase() === 'admin@tottus.com.pe'
+      ) || {
+        id: 'usr-admin-master',
+        name: 'Administrador Master',
+        email: 'admin@tottus.com.pe',
+        username: 'admin',
+        password: 'admin',
+        role: 'Administrador General',
+        specialty: 'Control de Privilegios & Seguridad Central OnSite',
+        phone: '+51 999 000 001',
+        assignedRegion: 'Nacional',
+        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+        status: 'disponible',
+        userType: 'especialista',
+        cargo: 'Administrador Master de Seguridad & Privilegios',
+        webAccessEnabled: true,
+        canEdit: true,
+        accessType: 'escritura',
+        canManagePrivileges: true,
+        canManageUsers: true,
+        lastLoginAt: 'Ahora mismo',
+        lastLoginIp: '10.24.180.1 [Seguridad Central]',
+        loginDevice: 'Consola Central OnSite',
+        loginCount: 1000,
+        allowedModules: [
+          'dashboard',
+          'inventario',
+          'mantenimiento',
+          'visitas',
+          'custodia',
+          'monitoreo',
+          'informes',
+          'tiendas',
+          'helpdesk',
+          'trazabilidad',
+          'despachador',
+          'usuarios'
+        ]
+      };
+
+      const successRecord: LoginAuditRecord = {
+        id: `audit-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        timeAgo: 'Justo ahora',
+        userEmail: masterAdminUser.email,
+        userName: masterAdminUser.name,
+        userRole: masterAdminUser.role,
+        status: 'exitoso',
+        ipAddress: '10.24.180.1 [Seguridad Central]',
+        deviceInfo: 'Consola Central OnSite / Root',
+        locationOrStore: 'Sede Central OnSite',
+        notes: 'Inicio de sesión con cuenta única de Administrador Master (admin).'
+      };
+      if (onRecordAuditLog) onRecordAuditLog(successRecord);
+
+      setSuccessFeedback('Autenticación maestra concedida. Acceso con autoridad total de privilegios.');
+      setTimeout(() => {
+        setIsAuthenticating(false);
+        onLoginSuccess(masterAdminUser);
+      }, 350);
       return;
     }
 
     if (!trimmedEmail.includes('@')) {
-      setError('Formato de correo electrónico inválido. Ingrese una dirección válida (ej. usuario@tottus.com.pe).');
+      setError('Formato de correo electrónico inválido. Ingrese una dirección válida (ej. usuario@tottus.com.pe) o use "admin".');
       return;
     }
 
@@ -723,20 +867,47 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
               </div>
             </div>
 
+            {/* Master Admin Direct Access Banner */}
+            <div className="mb-4 p-3 bg-linear-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl flex items-center justify-between gap-2 shadow-2xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <ShieldCheck className="w-4.5 h-4.5" />
+                </div>
+                <div className="min-w-0 text-left">
+                  <div className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                    <span>Cuenta Administrador Master</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-200 text-amber-900 font-black">ROOT</span>
+                  </div>
+                  <div className="text-[11px] text-amber-800 font-mono">
+                    Usuario: <strong className="bg-amber-100 px-1 rounded text-amber-900 font-bold">admin</strong> &bull; Clave: <strong className="bg-amber-100 px-1 rounded text-amber-900 font-bold">admin</strong>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleQuickAdminLogin}
+                className="px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded-lg text-xs font-bold shrink-0 transition-all shadow-xs cursor-pointer active:scale-95 flex items-center gap-1"
+                title="Iniciar sesión de inmediato con la cuenta Master admin"
+              >
+                <span>Entrar como Admin</span>
+                <span className="text-[10px]">⚡</span>
+              </button>
+            </div>
+
             {/* Login Form */}
             <form onSubmit={handleAuthenticate} className="space-y-4">
               
-              {/* Field 1: Email Address */}
+              {/* Field 1: Email / Username */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Correo Electrónico Registrado
+                  Usuario o Correo Electrónico Registrado
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <Mail className="w-4 h-4" />
                   </div>
                   <input
-                    type="email"
+                    type="text"
                     required
                     value={email}
                     onChange={(e) => {
@@ -745,22 +916,22 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
                     }}
                     placeholder={
                       authMode === 'corporate'
-                        ? 'nombre.apellido@tottus.com.pe'
+                        ? 'admin o nombre.apellido@tottus.com.pe'
                         : authMode === 'google'
                         ? 'usuario@falabella.com o gmail'
-                        : 'correo.registrado@reliant-cmms.pe'
+                        : 'admin o correo.registrado@reliant-cmms.pe'
                     }
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00236f]/30 focus:border-[#00236f] transition-all font-mono"
                   />
                 </div>
               </div>
 
-              {/* Field 2: Password (Visible en Modo Local y Corporativo) */}
-              {authMode === 'local' && (
+              {/* Field 2: Password (Visible en Modo Local o si se ingresa usuario admin) */}
+              {(authMode === 'local' || email.trim().toLowerCase() === 'admin' || email.trim().toLowerCase() === 'admin@tottus.com.pe') && (
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-xs font-bold text-slate-700">
-                      Contraseña de Acceso Local
+                      Contraseña de Acceso
                     </label>
                     <button
                       type="button"
@@ -782,7 +953,7 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
                         setPassword(e.target.value);
                         if (error) setError(null);
                       }}
-                      placeholder="Ingrese su contraseña asignada"
+                      placeholder="Ingrese su contraseña"
                       className="w-full pl-10 pr-10 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00236f]/30 focus:border-[#00236f] transition-all"
                     />
                     <button
@@ -794,13 +965,19 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
                     </button>
                   </div>
                   <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-                    <span>* Se valida estrictamente contra el Directorio de Sistemas.</span>
+                    <span>* Se valida contra el Directorio de Seguridad OnSite.</span>
                     <button
                       type="button"
-                      onClick={() => setPassword('Tottus2026*')}
+                      onClick={() => {
+                        if (email.trim().toLowerCase() === 'admin') {
+                          setPassword('admin');
+                        } else {
+                          setPassword('Tottus2026*');
+                        }
+                      }}
                       className="text-[#00236f] hover:underline font-semibold cursor-pointer"
                     >
-                      Rellenar clave demo
+                      {email.trim().toLowerCase() === 'admin' ? 'Rellenar "admin"' : 'Rellenar clave demo'}
                     </button>
                   </div>
                 </div>

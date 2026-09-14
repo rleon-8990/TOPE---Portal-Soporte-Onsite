@@ -466,7 +466,7 @@ export const GeoVictoriaIntegrationPanel: React.FC<GeoVictoriaIntegrationPanelPr
           <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-2">
             <h4 className="font-semibold text-emerald-300">Método 1: Webhook Push en Tiempo Real (Recomendado)</h4>
             <p className="text-slate-400 leading-relaxed">
-              GeoVictoria despacha un HTTP POST cada vez que un técnico marca su huella o rostro en cualquiera de los relojes de las 90 tiendas o en la app móvil. El CMMS lo procesa inmediatamente en menos de 200ms sin intervención humana.
+              GeoVictoria despacha un HTTP POST cada vez que un técnico marca su huella o rostro en cualquiera de los relojes de las 90 tiendas o en la app móvil. Portal OnSite lo procesa inmediatamente en menos de 200ms sin intervención humana.
             </p>
             <div className="bg-slate-900 p-2.5 rounded font-mono text-[11px] text-emerald-200 overflow-x-auto">
               {`POST /api/webhooks/geovictoria/punch HTTP/1.1
@@ -488,7 +488,7 @@ X-GeoVictoria-Signature: sha256=...
           <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-2">
             <h4 className="font-semibold text-emerald-300">Método 2: Polling Periódico API REST GeoVictoria</h4>
             <p className="text-slate-400 leading-relaxed">
-              El CMMS consulta automáticamente cada 5 o 10 minutos el endpoint oficial <code className="text-emerald-300 font-mono">GET /api/v1/punches</code> autenticado con la API Key corporativa de Tottus Perú para importar las marcaciones consolidadas del día.
+              Portal OnSite consulta automáticamente cada 5 o 10 minutos el endpoint oficial <code className="text-emerald-300 font-mono">GET /api/v1/punches</code> autenticado con la API Key corporativa de Tottus Perú para importar las marcaciones consolidadas del día.
             </p>
             <div className="bg-slate-900 p-2.5 rounded font-mono text-[11px] text-slate-300 overflow-x-auto">
               {`curl -X GET "https://api.geovictoria.com/v1/punches?company=TOTTUS_PE&date=2026-09-09" \\
@@ -517,7 +517,7 @@ X-GeoVictoria-Signature: sha256=...
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-400">
-              Genera una marcación idéntica a la que emite un reloj control biométrico o la app GeoVictoria para comprobar cómo el CMMS actualiza la tienda y presencia del técnico automáticamente.
+              Genera una marcación idéntica a la que emite un reloj control biométrico o la app GeoVictoria para comprobar cómo Portal OnSite actualiza la tienda y presencia del técnico automáticamente.
             </p>
 
             <form onSubmit={handleSimulatePunchSubmit} className="space-y-4">
@@ -609,7 +609,7 @@ X-GeoVictoria-Signature: sha256=...
               <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
                 <span>
-                  Al pulsar emitir, el CMMS simula el webhook entrante, registra el check-in automático y traslada al técnico al radar de la tienda seleccionada.
+                  Al pulsar emitir, Portal OnSite simula el webhook entrante, registra el check-in automático y traslada al técnico al radar de la tienda seleccionada.
                 </span>
               </div>
 

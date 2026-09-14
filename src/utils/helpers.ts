@@ -58,7 +58,7 @@ export function generatePdfFromReport(report: TechnicalReport) {
   doc.text('Sistemas de la Información | Informe Técnico de Mantenimiento', 14, 21);
 
   const repDate = report.date || report.dateGenerated || new Date().toISOString().split('T')[0];
-  const techName = report.technician || report.technicianName || 'Ing. Especialista CMMS';
+  const techName = report.technician || report.technicianName || 'Ing. Especialista Portal OnSite';
   const supName = report.supervisor || report.storeRepresentativeName || 'Ing. Supervisor Nacional';
 
   doc.setFontSize(9);
@@ -251,7 +251,7 @@ export function generatePdfFromReport(report: TechnicalReport) {
   doc.setFontSize(6.5);
   doc.setTextColor(100, 100, 110);
   doc.text(`Hash SHA-256: 8f4c2e...b901 | Fecha: ${repDate}`, 18, currentY + 23);
-  doc.text('Sello de tiempo CMMS auditado conforme', 18, currentY + 28);
+  doc.text('Sello de tiempo Portal OnSite auditado conforme', 18, currentY + 28);
 
   // Box 2: Foto DESPUÉS
   doc.setFillColor(240, 253, 244);
@@ -308,7 +308,7 @@ export function generatePdfFromReport(report: TechnicalReport) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
   doc.setTextColor(80, 80, 90);
-  doc.text('TÉCNICO ESPECIALISTA CMMS', 58, currentY + 26, { align: 'center' });
+  doc.text('TÉCNICO ESPECIALISTA PORTAL ONSITE', 58, currentY + 26, { align: 'center' });
   doc.setTextColor(0, 122, 51);
   doc.setFont('helvetica', 'bold');
   doc.text('✓ FIRMA DIGITALIZADA & VERIFICADA', 58, currentY + 30, { align: 'center' });

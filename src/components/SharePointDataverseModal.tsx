@@ -596,7 +596,7 @@ export const SharePointDataverseModal: React.FC<SharePointDataverseModalProps> =
                         type="text"
                         value={config.sharepointListPrefix}
                         onChange={(e) => setConfig({ ...config, sharepointListPrefix: e.target.value })}
-                        placeholder="CMMS_"
+                        placeholder="OnSite_"
                         className="w-full text-xs px-3 py-2 rounded-lg border border-[#c4c6d0] focus:border-[#00236f] focus:outline-none"
                       />
                     </div>
@@ -743,7 +743,7 @@ export const SharePointDataverseModal: React.FC<SharePointDataverseModalProps> =
                 </div>
                 <p className="pl-7 text-[11px]">
                   1. Ingresa a tu sitio de SharePoint (ej. <code>https://tottus.sharepoint.com/sites/Mantenimiento</code>).<br />
-                  2. En la pestaña <strong>Esquemas & Tablas</strong> descarga la plantilla CSV o JSON y crea las listas <code>CMMS_Activos</code>, <code>CMMS_Tickets</code> y <code>CMMS_Ordenes_Trabajo</code>.<br />
+                  2. En la pestaña <strong>Esquemas & Tablas</strong> descarga la plantilla CSV o JSON y crea las listas <code>OnSite_Activos</code>, <code>OnSite_Tickets</code> y <code>OnSite_Ordenes_Trabajo</code>.<br />
                   3. Vincula el sitio colocando la URL en la pestaña de configuración.
                 </p>
               </div>

@@ -110,7 +110,25 @@ export default function App() {
       const saved = localStorage.getItem('reliant_cmms_users_data');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Guarantee that the master admin account exists
+          const hasAdmin = parsed.some((u: any) => u.username === 'admin' || u.email?.toLowerCase() === 'admin@tottus.com.pe');
+          let list = hasAdmin ? parsed : [INITIAL_USERS[0], ...parsed];
+          // Guarantee that admin and rleon have trazabilidad and canManagePrivileges
+          list = list.map((u: AppUser) => {
+            if (u.username === 'admin' || u.email?.toLowerCase() === 'admin@tottus.com.pe' || u.email?.toLowerCase() === 'rleon@tottus.com.pe') {
+              const currentMods = u.allowedModules || [];
+              const withTraza = currentMods.includes('trazabilidad') ? currentMods : [...currentMods, 'trazabilidad'];
+              return {
+                ...u,
+                allowedModules: withTraza,
+                canManagePrivileges: true
+              };
+            }
+            return u;
+          });
+          return list;
+        }
       }
     } catch (e) {
       console.warn('Error reading saved users', e);
@@ -231,7 +249,19 @@ export default function App() {
       const saved = localStorage.getItem('reliant_cmms_current_user');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.email) return parsed;
+        if (parsed && parsed.email) {
+          // If currentUser is admin or rleon, ensure trazabilidad and canManagePrivileges
+          if (parsed.username === 'admin' || parsed.email.toLowerCase() === 'admin@tottus.com.pe' || parsed.email.toLowerCase() === 'rleon@tottus.com.pe') {
+            const currentMods = parsed.allowedModules || [];
+            const withTraza = currentMods.includes('trazabilidad') ? currentMods : [...currentMods, 'trazabilidad'];
+            return {
+              ...parsed,
+              allowedModules: withTraza,
+              canManagePrivileges: true
+            };
+          }
+          return parsed;
+        }
       }
     } catch (e) {}
     return INITIAL_USERS[0];
@@ -505,7 +535,7 @@ export default function App() {
       return d;
     }));
 
-    // If requested, synchronize and create Ticket in Helpdesk CMMS
+    // If requested, synchronize and create Ticket in Helpdesk Portal OnSite
     if (incident.createHelpdeskTicket) {
       const targetStore = stores.find(s => s.id === device.storeId);
       const storeRegion = targetStore?.region || 'Región 1 - Lima Norte';
@@ -760,7 +790,7 @@ export default function App() {
     } catch (e) {}
 
     // Verify if current view is allowed for this role, redirect if needed
-    if (!hasPageAccess(user.role, currentView)) {
+    if (!hasPageAccess(user, currentView)) {
       setCurrentView(getDefaultViewForRole(user.role));
     }
   };
@@ -1201,6 +1231,15 @@ export default function App() {
       } catch (e) {}
       return next;
     });
+
+    // If updated user is current user, sync currentUser state
+    if (currentUser && (currentUser.id === updatedUser.id || currentUser.email.toLowerCase() === updatedUser.email.toLowerCase())) {
+      setCurrentUser(updatedUser);
+      try {
+        localStorage.setItem('reliant_cmms_current_user', JSON.stringify(updatedUser));
+      } catch (e) {}
+    }
+
     MicrosoftDataService.pushRecord('users', updatedUser);
   };
 
@@ -1751,7 +1790,7 @@ export default function App() {
             <div className="h-5 w-px bg-[#e5eeff]" />
 
             {/* Quick action buttons */}
-            {hasPageAccess(currentUser.role, 'custodia') && (
+            {hasPageAccess(currentUser, 'custodia') && (
               <button
                 onClick={() => setCurrentView('custodia')}
                 className={`p-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-semibold ${
@@ -1766,7 +1805,7 @@ export default function App() {
               </button>
             )}
 
-            {hasPageAccess(currentUser.role, 'despachador') && (
+            {hasPageAccess(currentUser, 'despachador') && (
               <button
                 onClick={() => setCurrentView('despachador')}
                 className={`p-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-semibold ${
@@ -1915,7 +1954,7 @@ export default function App() {
 
         {/* Main Content Area: Protected by Role-Based Access Control (RBAC) */}
         <main className="flex-1 pt-20 md:pt-6 px-3.5 sm:px-6 lg:px-8 xl:px-10 w-full min-w-0 pb-12">
-          {!hasPageAccess(currentUser.role, currentView) ? (
+          {!hasPageAccess(currentUser, currentView) ? (
             <AccessDeniedView
               currentView={currentView}
               currentUser={currentUser}

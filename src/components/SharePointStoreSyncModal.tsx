@@ -882,7 +882,7 @@ export const SharePointStoreSyncModal: React.FC<SharePointStoreSyncModalProps> =
               <div className="p-4 bg-[#eff4ff] rounded-2xl border border-[#dce9ff] space-y-2.5">
                 <h5 className="font-bold text-[#00236f] flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  ¿Cómo funciona la permanencia de datos en Tottus CMMS?
+                  ¿Cómo funciona la permanencia de datos en Portal OnSite?
                 </h5>
                 <ul className="space-y-1.5 text-[11px] text-[#444651] leading-relaxed list-disc list-inside">
                   <li>
@@ -905,7 +905,7 @@ export const SharePointStoreSyncModal: React.FC<SharePointStoreSyncModalProps> =
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-[#f8f9ff] rounded-xl border border-[#dce9ff]">
                 <div>
                   <h4 className="font-bold text-[#0b1c30] text-sm">
-                    Tiendas actualmente cargadas en Reliant CMMS ({currentStores.length})
+                    Tiendas actualmente cargadas en Portal OnSite ({currentStores.length})
                   </h4>
                   <p className="text-[11px] text-[#757682] mt-0.5">
                     Estas son las sucursales registradas activas en los módulos de Inventario, Helpdesk, OTs e Informes.
