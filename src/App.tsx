@@ -27,15 +27,30 @@ import {
   DeviceCustodyItem,
   StoreColaborador,
   PreventiveVisit,
-  AccessRequest
+  AccessRequest,
+  ProviderQuoteSparePart,
+  BackupEquipment,
+  EquipmentCoverageMovement,
+  InternalSparePart,
+  InternalSpareConsumption,
+  CoverageValidationAudit,
+  ValidationAuditStatus
 } from './types';
 import { INITIAL_LOGIN_AUDIT_LOGS } from './data/loginAuditData';
 import { INITIAL_DEVICE_CUSTODY_ITEMS, INITIAL_COLABORADORES, FALABELLA_AI_MONITORING_URL, playScannerBeep } from './data/deviceCustodyData';
 import { INITIAL_PREVENTIVE_VISITS, enrichStoresWithVisits } from './data/preventiveVisitsData';
+import {
+  INITIAL_PROVIDER_QUOTE_PARTS,
+  INITIAL_BACKUP_EQUIPMENT,
+  INITIAL_COVERAGE_MOVEMENTS,
+  INITIAL_INTERNAL_SPARE_PARTS,
+  INITIAL_INTERNAL_CONSUMPTIONS,
+  INITIAL_COVERAGE_AUDITS
+} from './data/mockSparePartsAndBkpData';
 import { playNotificationChime } from './utils/helpers';
 import { MicrosoftDataService, AutoSyncConfig } from './services/microsoftDataService';
 import { INITIAL_ATTENDANCE_LOGS, INITIAL_ACTIVE_PRESENCES } from './data/attendanceMockData';
-import { QrCode, AlertTriangle, Bell, CheckCircle2, ShieldCheck, LogOut, ChevronDown, User, ExternalLink, Send, Smartphone, ShieldAlert } from 'lucide-react';
+import { QrCode, AlertTriangle, Bell, CheckCircle2, ShieldCheck, LogOut, ChevronDown, User, ExternalLink, Send, Smartphone, ShieldAlert, Repeat } from 'lucide-react';
 import { hasPageAccess, getDefaultViewForRole, getRoleConfig, getAllowedModulesForRole, APP_MODULES } from './utils/rbac';
 
 // Components
@@ -48,6 +63,7 @@ import { StoresView } from './components/StoresView';
 import { MaintenanceView } from './components/MaintenanceView';
 import { TechnicalReportsView } from './components/TechnicalReportsView';
 import { HelpdeskView } from './components/HelpdeskView';
+import { CoverageAndSparePartsView } from './components/CoverageAndSparePartsView';
 import { UserDirectoryView } from './components/UserDirectoryView';
 import { PersonnelMonitoringView } from './components/PersonnelMonitoringView';
 import { DeviceCustodyView } from './components/DeviceCustodyView';
@@ -129,6 +145,73 @@ export default function App() {
       console.warn('Error reading saved active presences', e);
     }
     return INITIAL_ACTIVE_PRESENCES;
+  });
+
+  // Repuestos Cotizados por Proveedores, Stock BKP, Repuestos de Taller & Trazabilidad
+  const [providerQuoteParts, setProviderQuoteParts] = useState<ProviderQuoteSparePart[]>(() => {
+    try {
+      const saved = localStorage.getItem('reliant_cmms_quote_parts');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_PROVIDER_QUOTE_PARTS;
+  });
+
+  const [backupEquipments, setBackupEquipments] = useState<BackupEquipment[]>(() => {
+    try {
+      const saved = localStorage.getItem('reliant_cmms_backup_equipments');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_BACKUP_EQUIPMENT;
+  });
+
+  const [coverageMovements, setCoverageMovements] = useState<EquipmentCoverageMovement[]>(() => {
+    try {
+      const saved = localStorage.getItem('reliant_cmms_coverage_movements');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_COVERAGE_MOVEMENTS;
+  });
+
+  const [internalSpareParts, setInternalSpareParts] = useState<InternalSparePart[]>(() => {
+    try {
+      const saved = localStorage.getItem('reliant_cmms_internal_spares');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_INTERNAL_SPARE_PARTS;
+  });
+
+  const [internalConsumptions, setInternalConsumptions] = useState<InternalSpareConsumption[]>(() => {
+    try {
+      const saved = localStorage.getItem('reliant_cmms_internal_consumptions');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_INTERNAL_CONSUMPTIONS;
+  });
+
+  const [coverageAudits, setCoverageAudits] = useState<CoverageValidationAudit[]>(() => {
+    try {
+      const saved = localStorage.getItem('reliant_cmms_coverage_audits');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_COVERAGE_AUDITS;
   });
 
   // Authentication & Corporate Session State
@@ -476,6 +559,176 @@ export default function App() {
       read: false
     };
     setNotifications(prev => [newNotif, ...prev]);
+  };
+
+  // Repuestos Cotizados, Pool BKP & Trazabilidad Handlers
+  const handleAddQuotePart = (newPart: ProviderQuoteSparePart) => {
+    setProviderQuoteParts(prev => {
+      const updated = [newPart, ...prev];
+      try { localStorage.setItem('reliant_cmms_quote_parts', JSON.stringify(updated)); } catch (e) {}
+      return updated;
+    });
+
+    const notif: PushNotification = {
+      id: `notif-part-${Date.now()}`,
+      title: 'Repuesto x Cotización Registrado',
+      message: `Repuesto ${newPart.partNumber} (${newPart.proveedor}) para ${newPart.storeName} - Cotización: ${newPart.numeroCotizacion} ($${newPart.precioTotal.toFixed(2)} USD).`,
+      type: 'mantenimiento',
+      severity: 'info',
+      timestamp: new Date().toLocaleTimeString('es-PE'),
+      timeAgo: 'Ahora',
+      read: false,
+      linkModule: 'trazabilidad'
+    };
+    setNotifications(prev => [notif, ...prev]);
+  };
+
+  const handleUpdateQuotePartStatus = (partId: string, status: ValidationAuditStatus, observations?: string) => {
+    setProviderQuoteParts(prev => {
+      const updated = prev.map(p => {
+        if (p.id === partId) {
+          return {
+            ...p,
+            estadoValidacion: status,
+            validadoPor: `${currentUser.name} - ${currentUser.role}`,
+            fechaValidacion: new Date().toLocaleDateString('es-PE'),
+            observacionesValidacion: observations || p.observacionesValidacion
+          };
+        }
+        return p;
+      });
+      try { localStorage.setItem('reliant_cmms_quote_parts', JSON.stringify(updated)); } catch (e) {}
+      return updated;
+    });
+  };
+
+  const handleAddCoverageMovement = (newMov: EquipmentCoverageMovement) => {
+    setCoverageMovements(prev => {
+      const updated = [newMov, ...prev];
+      try { localStorage.setItem('reliant_cmms_coverage_movements', JSON.stringify(updated)); } catch (e) {}
+      return updated;
+    });
+
+    // Mark BKP as en_prestamo_cobertura
+    setBackupEquipments(prev => {
+      const updated = prev.map(b => {
+        if (b.id === newMov.backupEquipmentId) {
+          return {
+            ...b,
+            estado: 'en_prestamo_cobertura' as const,
+            coberturaActivaId: newMov.id,
+            tiendaActualPrestamo: `${newMov.tiendaNombre} (T-${newMov.codTienda})`,
+            fechaPrestamoActual: newMov.fechaInicioCobertura,
+            totalVecesPrestado: (b.totalVecesPrestado || 0) + 1
+          };
+        }
+        return b;
+      });
+      try { localStorage.setItem('reliant_cmms_backup_equipments', JSON.stringify(updated)); } catch (e) {}
+      return updated;
+    });
+
+    const notif: PushNotification = {
+      id: `notif-cov-${Date.now()}`,
+      title: 'BKP Asignado a Tienda',
+      message: `Equipo BKP ${newMov.backupCodigo} (${newMov.backupModelo}) asignado a ${newMov.tiendaNombre} para cubrir ${newMov.equipoTitularNombre}.`,
+      type: 'alerta_regional',
+      severity: 'advertencia',
+      timestamp: new Date().toLocaleTimeString('es-PE'),
+      timeAgo: 'Ahora',
+      read: false,
+      linkModule: 'trazabilidad'
+    };
+    setNotifications(prev => [notif, ...prev]);
+  };
+
+  const handleReturnCoverageBkp = (movementId: string, returnDate: string, testOk: boolean, notes: string) => {
+    let returnedBkpId = '';
+
+    setCoverageMovements(prev => {
+      const updated = prev.map(m => {
+        if (m.id === movementId) {
+          returnedBkpId = m.backupEquipmentId;
+          return {
+            ...m,
+            estadoCobertura: 'retornado_a_bkp' as const,
+            fechaRetornoEfectivo: returnDate,
+            validadoRetorno: true,
+            testOperativoBkpOk: testOk,
+            observacionesCierre: notes,
+            estadoTitular: 'reparado_listo' as const
+          };
+        }
+        return m;
+      });
+      try { localStorage.setItem('reliant_cmms_coverage_movements', JSON.stringify(updated)); } catch (e) {}
+      return updated;
+    });
+
+    // Reset BKP status to disponible
+    if (returnedBkpId) {
+      setBackupEquipments(prev => {
+        const updated = prev.map(b => {
+          if (b.id === returnedBkpId) {
+            return {
+              ...b,
+              estado: 'disponible' as const,
+              coberturaActivaId: undefined,
+              tiendaActualPrestamo: undefined,
+              fechaPrestamoActual: undefined,
+              ultimoMantenimiento: returnDate
+            };
+          }
+          return b;
+        });
+        try { localStorage.setItem('reliant_cmms_backup_equipments', JSON.stringify(updated)); } catch (e) {}
+        return updated;
+      });
+    }
+
+    const notif: PushNotification = {
+      id: `notif-ret-${Date.now()}`,
+      title: 'BKP Retornado a Pool Central',
+      message: `Retorno de BKP validado con éxito. Equipo titular restablecido en tienda.`,
+      type: 'mantenimiento',
+      severity: 'info',
+      timestamp: new Date().toLocaleTimeString('es-PE'),
+      timeAgo: 'Ahora',
+      read: false,
+      linkModule: 'trazabilidad'
+    };
+    setNotifications(prev => [notif, ...prev]);
+  };
+
+  const handleAddInternalConsumption = (newCons: InternalSpareConsumption) => {
+    setInternalConsumptions(prev => {
+      const updated = [newCons, ...prev];
+      try { localStorage.setItem('reliant_cmms_internal_consumptions', JSON.stringify(updated)); } catch (e) {}
+      return updated;
+    });
+
+    // Reduce stock from internal parts
+    setInternalSpareParts(prev => {
+      const updated = prev.map(sp => {
+        if (sp.id === newCons.repuestoId) {
+          return {
+            ...sp,
+            stockDisponible: Math.max(0, sp.stockDisponible - newCons.cantidad)
+          };
+        }
+        return sp;
+      });
+      try { localStorage.setItem('reliant_cmms_internal_spares', JSON.stringify(updated)); } catch (e) {}
+      return updated;
+    });
+  };
+
+  const handleAddAuditRecord = (audit: CoverageValidationAudit) => {
+    setCoverageAudits(prev => {
+      const updated = [audit, ...prev];
+      try { localStorage.setItem('reliant_cmms_coverage_audits', JSON.stringify(updated)); } catch (e) {}
+      return updated;
+    });
   };
 
   // Corporate Login / SSO Handlers
@@ -1811,6 +2064,29 @@ export default function App() {
                   onDeleteTicket={handleDeleteTicket}
                   onUpdateTicketStatus={handleUpdateTicketStatus}
                   onAssignTechnician={handleAssignTechnician}
+                  onNavigateToTrazabilidad={() => setCurrentView('trazabilidad')}
+                />
+              )}
+
+              {currentView === 'trazabilidad' && (
+                <CoverageAndSparePartsView
+                  providerQuoteParts={providerQuoteParts}
+                  backupEquipments={backupEquipments}
+                  coverageMovements={coverageMovements}
+                  internalSpareParts={internalSpareParts}
+                  internalConsumptions={internalConsumptions}
+                  coverageAudits={coverageAudits}
+                  equipments={equipments}
+                  stores={stores}
+                  currentUser={currentUser}
+                  onAddQuotePart={handleAddQuotePart}
+                  onUpdateQuotePartStatus={handleUpdateQuotePartStatus}
+                  onAddCoverageMovement={handleAddCoverageMovement}
+                  onReturnCoverageBkp={handleReturnCoverageBkp}
+                  onAddInternalConsumption={handleAddInternalConsumption}
+                  onAddAuditRecord={handleAddAuditRecord}
+                  onNavigateToHelpdesk={() => setCurrentView('helpdesk')}
+                  onNavigateToInventory={() => setCurrentView('inventario')}
                 />
               )}
 

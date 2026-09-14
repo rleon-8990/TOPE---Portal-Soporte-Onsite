@@ -136,6 +136,81 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
           </div>
         </div>
 
+        {/* SECCIÓN ACTIVO FIJO & ANÁLISIS DE OBSOLESCENCIA POR FABRICANTE */}
+        <div className="p-3.5 bg-gradient-to-br from-[#f8f9ff] to-[#eff4ff] rounded-xl border border-[#dce9ff] space-y-2.5 text-xs">
+          <div className="flex items-center justify-between">
+            <h4 className="font-bold text-xs text-[#00236f] flex items-center gap-1.5 uppercase tracking-wide">
+              <Tag className="w-4 h-4 text-[#00236f]" />
+              <span>Control Financiero de Activo & Obsolescencia</span>
+            </h4>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-[#757682] bg-white border border-[#dce9ff] px-2 py-0.5 rounded font-mono">
+                🔒 Fecha Compra Inmutable
+              </span>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  equipment.estadoObsolescencia === 'obsoleto'
+                    ? 'bg-red-100 text-red-800'
+                    : equipment.estadoObsolescencia === 'proximo_vencer'
+                    ? 'bg-amber-100 text-amber-800'
+                    : 'bg-emerald-100 text-emerald-800'
+                }`}
+              >
+                {equipment.estadoObsolescencia === 'obsoleto'
+                  ? '⚠️ OBSOLETO / RENOVACIÓN REQUERIDA'
+                  : equipment.estadoObsolescencia === 'proximo_vencer'
+                  ? '⏳ PRÓXIMO A VENCER'
+                  : '✓ VIGENTE'}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="bg-white p-2.5 rounded-lg border border-[#dce9ff]">
+              <span className="text-[10px] text-[#757682] uppercase font-semibold block">Código de Activo Fijo</span>
+              <div className="flex items-center justify-between mt-0.5">
+                <strong className="font-mono text-[#00236f] text-xs">
+                  {equipment.codigoActivo || `ACT-${equipment.code}`}
+                </strong>
+                <button
+                  onClick={() => handleCopy('activo', equipment.codigoActivo || equipment.code)}
+                  className="text-[#757682] hover:text-[#00236f]"
+                  title="Copiar código de activo para sistema de gastos"
+                >
+                  {copiedKey === 'activo' ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                </button>
+              </div>
+              <span className="text-[9px] text-[#757682] block mt-0.5">Cruzado con Sistema de Gastos</span>
+            </div>
+
+            <div className="bg-white p-2.5 rounded-lg border border-[#dce9ff]">
+              <span className="text-[10px] text-[#757682] uppercase font-semibold block">Fecha / Año de Compra</span>
+              <strong className="text-[#0b1c30] text-xs block mt-0.5">
+                {equipment.fechaCompra || `${equipment.anoCompra || 2023}-01-15`}
+              </strong>
+              <span className="text-[9px] text-[#757682] block mt-0.5">Año: {equipment.anoCompra || 2023}</span>
+            </div>
+
+            <div className="bg-white p-2.5 rounded-lg border border-[#dce9ff]">
+              <span className="text-[10px] text-[#757682] uppercase font-semibold block">Fecha de Instalación</span>
+              <strong className="text-[#0b1c30] text-xs block mt-0.5">
+                {equipment.fechaInstalacion || equipment.lastMaintenance}
+              </strong>
+              <span className="text-[9px] text-emerald-700 font-semibold block mt-0.5">No modificable tras traslado</span>
+            </div>
+
+            <div className="bg-white p-2.5 rounded-lg border border-[#dce9ff]">
+              <span className="text-[10px] text-[#757682] uppercase font-semibold block">Vida Útil del Fabricante</span>
+              <strong className="text-[#00236f] text-xs block mt-0.5">
+                {equipment.vidaUtilAnosFabricante || 5} Años
+              </strong>
+              <span className="text-[9px] text-[#fd761a] font-bold block mt-0.5">
+                Renovación: {equipment.fechaRenovacionEstimada || '2028-12-31'}
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* SECCIÓN DESTACADA: ENLACE A SWITCH Y EQUIPO DE COMUNICACIÓN */}
         <div className="p-3.5 bg-gradient-to-br from-[#eff4ff] to-[#f4f7ff] rounded-xl border border-[#dce9ff] space-y-2.5">
           <div className="flex items-center justify-between">

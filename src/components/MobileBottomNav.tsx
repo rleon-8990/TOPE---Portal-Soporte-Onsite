@@ -15,7 +15,8 @@ import {
   LogOut,
   Send,
   Smartphone,
-  ClipboardCheck
+  ClipboardCheck,
+  Repeat
 } from 'lucide-react';
 import { AppUser } from '../types';
 import { hasPageAccess } from '../utils/rbac';
@@ -194,6 +195,22 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   <Headphones className="w-5 h-5 text-[#fd761a]" />
                   <span className="font-semibold text-xs">Helpdesk & Repuestos</span>
                   <span className="text-[10px] text-[#757682]">Tickets, repuestos & SAP</span>
+                </button>
+              )}
+
+              {hasPageAccess(currentUser.role, 'trazabilidad') && (
+                <button
+                  onClick={() => {
+                    onSelectView('trazabilidad');
+                    setShowMoreMenu(false);
+                  }}
+                  className={`p-3.5 rounded-xl text-left border flex flex-col gap-1 transition-colors ${
+                    currentView === 'trazabilidad' ? 'bg-emerald-50 border-emerald-500 text-emerald-900' : 'bg-[#f8f9ff] border-[#e5eeff] text-[#444651]'
+                  }`}
+                >
+                  <Repeat className="w-5 h-5 text-emerald-600" />
+                  <span className="font-semibold text-xs">Repuestos & Pool BKP</span>
+                  <span className="text-[10px] text-[#757682]">Trazabilidad & Validación</span>
                 </button>
               )}
 

@@ -39,7 +39,9 @@ import {
   ChevronDown,
   Edit2,
   Trash2,
-  AlertCircle
+  AlertCircle,
+  ShieldCheck,
+  Repeat
 } from 'lucide-react';
 import { Ticket, Equipment, Store, AppUser, TicketStatus, TicketPriority } from '../types';
 import { INITIAL_USERS } from '../data/mockData';
@@ -55,6 +57,7 @@ interface HelpdeskViewProps {
   onDeleteTicket?: (ticketId: string) => void;
   onUpdateTicketStatus: (ticketId: string, status: TicketStatus) => void;
   onAssignTechnician: (ticketId: string, technician: string) => void;
+  onNavigateToTrazabilidad?: () => void;
 }
 
 export const HelpdeskView: React.FC<HelpdeskViewProps> = ({
@@ -67,6 +70,7 @@ export const HelpdeskView: React.FC<HelpdeskViewProps> = ({
   onDeleteTicket,
   onUpdateTicketStatus,
   onAssignTechnician,
+  onNavigateToTrazabilidad,
 }) => {
   // Tab view modes:
   // 'planilla': Vista Planilla Onsite Completa con todas las columnas de la foto del usuario
@@ -784,6 +788,18 @@ export const HelpdeskView: React.FC<HelpdeskViewProps> = ({
               <Headphones className="w-3.5 h-3.5" />
               <span>Gestión Rápida Helpdesk</span>
             </button>
+
+            {onNavigateToTrazabilidad && (
+              <button
+                type="button"
+                onClick={onNavigateToTrazabilidad}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 shadow-2xs"
+                title="Abrir Centro de Repuestos, Pool de Equipos BKP y Trazabilidad 360°"
+              >
+                <Repeat className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Pool BKP & Trazabilidad 360°</span>
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -1756,11 +1772,24 @@ export const HelpdeskView: React.FC<HelpdeskViewProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
-                    <label className="text-[11px] font-bold text-[#444651] block mb-1">TIENDA (90)</label>
+                    <label className="text-[11px] font-bold text-[#444651] block mb-1">TIENDA (90 SEDES)</label>
                     <select
                       value={formStoreId}
-                      onChange={e => setFormStoreId(e.target.value)}
-                      className="w-full p-2 text-xs bg-white border border-[#c5c5d3] rounded-lg"
+                      onChange={e => {
+                        const newSid = e.target.value;
+                        setFormStoreId(newSid);
+                        const storeEqs = equipments.filter(eq => eq.storeId === newSid);
+                        if (storeEqs.length > 0) {
+                          const firstEq = storeEqs[0];
+                          setFormEquipmentId(firstEq.id);
+                          setFormTipoEquipo(firstEq.name);
+                          setFormMarca(firstEq.brand || '');
+                          setFormModelo(firstEq.model || '');
+                          setFormSerie(firstEq.serialNumber || '');
+                          setFormPartNumber(firstEq.partNumber || '');
+                        }
+                      }}
+                      className="w-full p-2 text-xs bg-white border border-[#c5c5d3] rounded-lg font-medium"
                     >
                       {stores.map(s => (
                         <option key={s.id} value={s.id}>
@@ -1773,14 +1802,30 @@ export const HelpdeskView: React.FC<HelpdeskViewProps> = ({
                     <label className="text-[11px] font-bold text-[#444651] block mb-1">EQUIPO / ACTIVO DE TIENDA</label>
                     <select
                       value={formEquipmentId}
-                      onChange={e => setFormEquipmentId(e.target.value)}
-                      className="w-full p-2 text-xs bg-white border border-[#c5c5d3] rounded-lg"
+                      onChange={e => {
+                        const selectedId = e.target.value;
+                        setFormEquipmentId(selectedId);
+                        const eqObj = equipments.find(eq => eq.id === selectedId);
+                        if (eqObj) {
+                          setFormTipoEquipo(eqObj.name);
+                          setFormMarca(eqObj.brand || '');
+                          setFormModelo(eqObj.model || '');
+                          setFormSerie(eqObj.serialNumber || '');
+                          setFormPartNumber(eqObj.partNumber || '');
+                        }
+                      }}
+                      className="w-full p-2 text-xs bg-white border border-[#c5c5d3] rounded-lg font-bold text-[#00236f]"
                     >
-                      {equipments.map(eq => (
-                        <option key={eq.id} value={eq.id}>
-                          {eq.code} - {eq.name.substring(0, 30)}
-                        </option>
-                      ))}
+                      {equipments
+                        .filter(eq => !formStoreId || eq.storeId === formStoreId)
+                        .map(eq => (
+                          <option key={eq.id} value={eq.id}>
+                            {eq.code} - {eq.name} (SN: {eq.serialNumber})
+                          </option>
+                        ))}
+                      {equipments.filter(eq => !formStoreId || eq.storeId === formStoreId).length === 0 && (
+                        <option value="">No hay equipos registrados en esta tienda</option>
+                      )}
                     </select>
                   </div>
                 </div>

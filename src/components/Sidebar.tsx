@@ -18,7 +18,8 @@ import {
   ShieldCheck,
   Send,
   Smartphone,
-  ClipboardCheck
+  ClipboardCheck,
+  Repeat
 } from 'lucide-react';
 import { AppUser } from '../types';
 import { hasPageAccess, getRoleConfig, getAllowedModulesForRole } from '../utils/rbac';
@@ -60,6 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'informes', label: 'Informes', icon: FileText },
     { id: 'tiendas', label: 'Tiendas (90)', icon: StoreIcon },
     { id: 'helpdesk', label: 'Helpdesk & Repuestos', icon: Headphones },
+    { id: 'trazabilidad', label: 'Repuestos & Pool BKP', icon: Repeat },
     { id: 'despachador', label: 'Despacho Correos', icon: Send },
     { id: 'usuarios', label: 'Directorio', icon: Users },
   ];

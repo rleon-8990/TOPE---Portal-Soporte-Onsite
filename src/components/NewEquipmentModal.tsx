@@ -25,6 +25,12 @@ export const NewEquipmentModal: React.FC<NewEquipmentModalProps> = ({
   const [serialNumber, setSerialNumber] = useState(`SN-${Math.floor(100000 + Math.random() * 900000)}`);
   const [status, setStatus] = useState<Equipment['status']>('operativo');
 
+  // Asset Code (Sistema de Gastos / Finanzas) & Obsolescence parameters
+  const [codigoActivo, setCodigoActivo] = useState(`ACT-2026-${Math.floor(1000 + Math.random() * 9000)}`);
+  const [fechaCompra, setFechaCompra] = useState('2024-01-15');
+  const [fechaInstalacion, setFechaInstalacion] = useState(new Date().toISOString().split('T')[0]);
+  const [vidaUtilAnosFabricante, setVidaUtilAnosFabricante] = useState(5);
+
   // Network & Switch link state
   const [showNetworkFields, setShowNetworkFields] = useState(false);
   const [hostName, setHostName] = useState('');
@@ -50,6 +56,17 @@ export const NewEquipmentModal: React.FC<NewEquipmentModalProps> = ({
     const st = stores.find(s => s.id === storeId) || stores[0];
     const code = `${cat.shortCode}-${Math.floor(100 + Math.random() * 900)}`;
 
+    const purchaseYear = parseInt(fechaCompra.substring(0, 4), 10) || 2024;
+    const renewalYear = purchaseYear + (vidaUtilAnosFabricante || 5);
+    const currentYear = new Date().getFullYear();
+    const renewalDate = `${renewalYear}-12-31`;
+    let estadoObsolescencia: 'vigente' | 'proximo_renovacion' | 'obsoleto' = 'vigente';
+    if (currentYear > renewalYear) {
+      estadoObsolescencia = 'obsoleto';
+    } else if (renewalYear - currentYear <= 1) {
+      estadoObsolescencia = 'proximo_renovacion';
+    }
+
     const newEq: Equipment = {
       id: `eq-${Date.now()}`,
       code,
@@ -69,6 +86,15 @@ export const NewEquipmentModal: React.FC<NewEquipmentModalProps> = ({
       lastMaintenance: new Date().toISOString().split('T')[0],
       nextMaintenance: '2026-11-30',
       imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=300&auto=format&fit=crop&q=80',
+      // Asset Code & Obsolescence Lifecycle (Protected on store transfer)
+      codigoActivo: codigoActivo || `ACT-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+      fechaCompra,
+      anoCompra: purchaseYear,
+      fechaInstalacion,
+      vidaUtilAnosFabricante,
+      fechaRenovacionEstimada: renewalDate,
+      estadoObsolescencia,
+      fechaCompraBloqueada: true,
       // Network & Infrastructure
       hostName: hostName || (name.includes('POS') ? `PE-T014-POS${Math.floor(10+Math.random()*90)}` : undefined),
       ipAddress: ipAddress || (switchName ? `10.24.10.${Math.floor(10+Math.random()*200)}` : undefined),
@@ -215,6 +241,86 @@ export const NewEquipmentModal: React.FC<NewEquipmentModalProps> = ({
                 onChange={e => setLocationInStore(e.target.value)}
                 className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
               />
+            </div>
+          </div>
+
+          {/* Bloque Financiero & Control de Obsolescencia */}
+          <div className="p-3 bg-[#f8f9ff] border border-[#dce9ff] rounded-xl space-y-3 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-[#00236f] text-xs uppercase flex items-center gap-1.5">
+                <span>🏷️ Datos de Activo Fijo y Ciclo de Vida</span>
+              </span>
+              <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-medium">
+                🔒 Inmutable en traslados
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] font-bold text-[#757682] uppercase mb-1 block">
+                  Código de Activo (Sistema de Gastos) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={codigoActivo}
+                  onChange={e => setCodigoActivo(e.target.value)}
+                  placeholder="Ej. ACT-2026-0981"
+                  className="w-full p-2 text-xs bg-white border border-[#c5c5d3] rounded-lg font-mono font-bold text-[#00236f]"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-[#757682] uppercase mb-1 block">
+                  Vida Útil Fabricante (Años) *
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={25}
+                  required
+                  value={vidaUtilAnosFabricante}
+                  onChange={e => setVidaUtilAnosFabricante(parseInt(e.target.value, 10) || 5)}
+                  className="w-full p-2 text-xs bg-white border border-[#c5c5d3] rounded-lg font-bold"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] font-bold text-[#757682] uppercase mb-1 block">
+                  Fecha de Compra (Obligatorio) *
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={fechaCompra}
+                  onChange={e => setFechaCompra(e.target.value)}
+                  className="w-full p-2 text-xs bg-white border border-[#c5c5d3] rounded-lg font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-[#757682] uppercase mb-1 block">
+                  Fecha de Instalación (Obligatorio) *
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={fechaInstalacion}
+                  onChange={e => setFechaInstalacion(e.target.value)}
+                  className="w-full p-2 text-xs bg-white border border-[#c5c5d3] rounded-lg font-medium"
+                />
+              </div>
+            </div>
+
+            <div className="p-2 bg-white rounded-lg border border-[#e5eeff] flex items-center justify-between text-[11px]">
+              <span className="text-[#757682]">
+                Renovación Estimada por Fabricante:
+              </span>
+              <strong className="text-[#00236f] font-mono">
+                {(parseInt(fechaCompra.substring(0, 4), 10) || 2024) + (vidaUtilAnosFabricante || 5)} (en {(vidaUtilAnosFabricante || 5)} años)
+              </strong>
             </div>
           </div>
 

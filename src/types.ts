@@ -154,6 +154,16 @@ export interface Equipment {
   vlan?: string; // e.g. 'VLAN 101 - POS', 'VLAN 10 - Red Gestión'
   linkStatus?: 'up' | 'down' | 'warning'; // Estado de enlace de red
   speedDuplex?: string; // e.g. '1 Gbps Full Duplex', '100 Mbps'
+
+  // Código de Activo Fijo (Sistema de Gastos SAP FI-AA) y Medición de Obsolescencia
+  codigoActivo?: string; // e.g. 'AF-70014291', 'AF-TOT-2022-004' (identificador para control de gastos)
+  fechaCompra?: string; // e.g. '2022-03-15' (Obligatoria al registrar)
+  anoCompra?: number | string; // e.g. 2022
+  fechaInstalacion?: string; // e.g. '2022-04-01' (Obligatoria al registrar - INMUTABLE en traslados)
+  vidaUtilAnosFabricante?: number; // e.g. 4 o 5 años según especificación del fabricante
+  fechaRenovacionEstimada?: string; // e.g. '2027-03-15' calculada para reemplazo de hardware
+  estadoObsolescencia?: 'vigente' | 'proximo_renovacion' | 'obsoleto'; // Cruzado con vida útil del fabricante
+  fechaCompraBloqueada?: boolean; // Bloqueo contable de fecha ante traslados
 }
 
 export interface Ticket {
@@ -318,8 +328,13 @@ export interface TechnicalReport {
     supervisorSigned: boolean;
     clientStoreSigned: boolean;
   };
+  evidenceBefore?: string; // Evidencia fotográfica ANTES (condición inicial / falla)
+  evidenceAfter?: string; // Evidencia fotográfica DESPUÉS (condición final / operativo)
   technicianName?: string;
-  technicianSignature?: string;
+  technicianSignature?: string; // Firma digital del técnico especialista
+  clientName?: string; // Nombre del interlocutor / supervisor del cliente
+  clientRole?: string; // Cargo del cliente
+  clientSignature?: string; // Firma digital del cliente / responsable de tienda
   storeRepresentativeName?: string;
   storeRepresentativeSignature?: string;
   generalObservations?: string;
@@ -409,7 +424,7 @@ export interface PushNotification {
   id: string;
   title: string;
   message: string;
-  type: 'falla_critica' | 'ticket' | 'mantenimiento' | 'informe' | 'calibracion';
+  type: 'falla_critica' | 'ticket' | 'mantenimiento' | 'informe' | 'calibracion' | 'alerta_regional';
   severity: 'critica' | 'advertencia' | 'info' | 'exito';
   storeId?: string;
   storeName?: string;
@@ -418,7 +433,7 @@ export interface PushNotification {
   timestamp: string;
   timeAgo: string;
   read: boolean;
-  linkModule?: 'dashboard' | 'inventario' | 'tiendas' | 'mantenimiento' | 'informes' | 'helpdesk' | 'usuarios' | 'visitas' | 'custodia' | 'monitoreo';
+  linkModule?: 'dashboard' | 'inventario' | 'tiendas' | 'mantenimiento' | 'informes' | 'helpdesk' | 'usuarios' | 'visitas' | 'custodia' | 'monitoreo' | 'trazabilidad' | 'despachador';
 }
 
 export interface RegionalAlertConfig {
@@ -803,5 +818,196 @@ export interface PreventiveVisit {
   createdAt: string;
   updatedAt: string;
 }
+
+// ==========================================
+// SISTEMA DE REPUESTOS, EQUIPOS BKP & TRAZABILIDAD DE COBERTURA
+// ==========================================
+
+export type ValidationAuditStatus =
+  | 'pendiente_validacion'
+  | 'validado_conforme'
+  | 'observado_diferencia'
+  | 'rechazado';
+
+export type BackupEquipmentStatus =
+  | 'disponible'
+  | 'en_prestamo_cobertura'
+  | 'en_mantenimiento_bkp'
+  | 'baja';
+
+export type CoverageMovementStatus =
+  | 'activo_en_tienda'
+  | 'retornado_a_bkp'
+  | 'reemplazo_definitivo'
+  | 'observado';
+
+export type EquipmentDamageOrigin =
+  | 'desgaste_operativo'
+  | 'golpe_caida'
+  | 'pico_electrico'
+  | 'derrame_liquido'
+  | 'obsolescencia';
+
+/** Repuestos suministrados por proveedores externos amarrados a Cotizaciones */
+export interface ProviderQuoteSparePart {
+  id: string;
+  ticketId?: string;
+  ticketJR?: string; // e.g. 'OCR-020126'
+  ticketProveedor?: string; // e.g. '98638'
+  equipmentId?: string;
+  equipmentCode?: string; // e.g. 'TC26-001'
+  equipmentName?: string;
+  storeId: string;
+  storeName: string;
+  codTienda: number | string;
+  cecoSap?: string;
+  proveedor: string; // e.g. 'DMS PERU S.A.C', 'NCR', 'PRECISION'
+  numeroCotizacion: string; // e.g. '003-00071073'
+  fechaCotizacion: string;
+  partNumber: string; // e.g. 'P1058930-010A'
+  descripcionRepuesto: string; // e.g. 'CABEZAL 300 DPI PARA IMPRESORA ZT410'
+  cantidad: number;
+  precioUnitario: number;
+  moneda: 'USD' | 'PEN';
+  precioTotal: number;
+  // Campos SAP
+  solpedSap?: string;
+  ordenCompraSap?: string;
+  hesSap?: string;
+  presupuestoMes?: string; // e.g. 'Enero 2026'
+  // Fechas y Garantía
+  fechaInstalacion?: string;
+  garantiaMeses: number; // e.g. 6 meses
+  fechaFinGarantia?: string;
+  // Validación y Conformidad Técnica
+  estadoValidacion: ValidationAuditStatus;
+  validadoPor?: string; // e.g. 'Roger Leon Apolinario - IT Operator'
+  fechaValidacion?: string;
+  observacionesValidacion?: string;
+  actaEntregaUrl?: string;
+  numeroSerieAnterior?: string;
+  numeroSerieNuevo?: string;
+}
+
+/** Equipos de Backup (BKP / Stock de Contingencia) de Sistemas */
+export interface BackupEquipment {
+  id: string;
+  codigoBkp: string; // e.g. 'BKP-ZBR-001', 'BKP-POS-004'
+  tipoEquipo: string; // e.g. 'Terminal Móvil', 'POS / CPU', 'Impresora Térmica', 'Balanza'
+  marca: string; // e.g. 'ZEBRA', 'NCR', 'PRECISION'
+  modelo: string; // e.g. 'TC26', '7603(XR6)', 'ZT410'
+  numeroSerie: string; // e.g. '22067523021608-BKP'
+  almacenUbicacion: string; // e.g. 'Almacén Central TI Santa Anita', 'Taller TI San Isidro', 'BKP Local T-103'
+  condicionFisica: 'Excelente' | 'Bueno' | 'Regular';
+  estado: BackupEquipmentStatus;
+  ultimoMantenimiento?: string;
+  // Cobertura activa actual (si está en préstamo)
+  coberturaActivaId?: string;
+  tiendaActualPrestamo?: string;
+  fechaPrestamoActual?: string;
+  totalVecesPrestado: number;
+}
+
+/** Movimientos de Cobertura y Reemplazo Temporal con Equipos BKP */
+export interface EquipmentCoverageMovement {
+  id: string;
+  codigoMovimiento: string; // e.g. 'COB-2026-042'
+  ticketId?: string;
+  ticketJR?: string; // e.g. 'OCR-150126'
+  tiendaId: string;
+  tiendaNombre: string;
+  codTienda: number | string;
+  fechaInicioCobertura: string; // e.g. '10/09/2026'
+  // Equipo Titular Afectado
+  equipoTitularId: string;
+  equipoTitularCodigo: string; // e.g. 'HND-002'
+  equipoTitularNombre: string;
+  equipoTitularSerie: string;
+  equipoTitularModelo: string;
+  motivoReemplazo: string; // e.g. 'Gatillo roto y pantalla rajada'
+  origenDano?: EquipmentDamageOrigin;
+  estadoTitular: 'en_taller_proveedor' | 'en_reparacion_interna' | 'espera_repuesto' | 'reparado_listo' | 'dado_de_baja';
+  // Equipo BKP Asignado
+  backupEquipmentId: string;
+  backupCodigo: string; // e.g. 'BKP-ZBR-001'
+  backupSerie: string;
+  backupModelo: string;
+  // Responsables
+  responsableEntrega: string; // IT Operator / Técnico
+  receptorTienda: string; // Supervisor / Gerente de Tienda
+  // Plazos y Estados
+  fechaEstimadaRetorno: string;
+  fechaRetornoEfectivo?: string;
+  diasEnCobertura: number;
+  estadoCobertura: CoverageMovementStatus;
+  // Validación de Retorno y Conformidad
+  validadoRetorno: boolean;
+  testOperativoBkpOk?: boolean; // Checklist de prueba al reingresar al stock
+  observacionesCierre?: string;
+  actaMovimientoFirmada?: boolean;
+}
+
+/** Repuestos Internos de TI para Reparaciones en Taller Local Tottus */
+export interface InternalSparePart {
+  id: string;
+  codigoInterno: string; // e.g. 'REP-INT-001'
+  partNumberFabricante?: string;
+  descripcion: string; // e.g. 'Fuente de Poder 24V 2.5A para POS NCR'
+  categoria: 'POS / Cajas' | 'Impresoras' | 'Terminales Handheld' | 'Redes' | 'Balanzas' | 'Cómputo';
+  marcaCompatible: string; // e.g. 'NCR / Posiflex', 'Zebra', 'Cisco'
+  stockDisponible: number;
+  stockMinimo: number;
+  costoUnitarioEstimado: number; // en USD
+  almacenUbicacion: string; // e.g. 'Taller TI San Isidro'
+  ultimaReposicion?: string;
+}
+
+/** Registro de Consumo de Repuestos Internos de TI */
+export interface InternalSpareConsumption {
+  id: string;
+  repuestoId: string;
+  codigoInterno: string;
+  descripcionRepuesto: string;
+  cantidad: number;
+  equipoDestinoId: string;
+  equipoDestinoCodigo: string;
+  equipoDestinoNombre: string;
+  equipoDestinoSerie: string;
+  tiendaId: string;
+  tiendaNombre: string;
+  codTienda: number | string;
+  ticketJR?: string;
+  fechaConsumo: string;
+  tecnicoInstalo: string; // e.g. 'Roger Leon Apolinario'
+  diagnosticoPrevio: string;
+  trabajoRealizado: string;
+  resultadoOperativo: 'Operativo Conforme' | 'Requiere Proveedor Externo' | 'En Observación';
+}
+
+/** Auditoría Integral de Trazabilidad & Validación de Coberturas */
+export interface CoverageValidationAudit {
+  id: string;
+  codigoAuditoria: string; // e.g. 'AUD-COB-2026-08'
+  tipoCobertura: 'proveedor_cotizado' | 'equipo_bkp' | 'repuesto_interno';
+  referenciaCodigo: string; // Cotización, BKP o Consumo Interno
+  ticketJR?: string;
+  tiendaNombre: string;
+  equipoAfectado: string;
+  serieTitular: string;
+  serieBkpOrRepuesto?: string;
+  proveedorOrTaller: string;
+  montoInvolucrado: number; // USD
+  fechaAuditoria: string;
+  auditorNombre: string;
+  // Checklist de Validación
+  criterio1_SerieCoincide: boolean; // ¿El repuesto o BKP entregado coincide con el número de serie registrado?
+  criterio2_CotizacionAprobada: boolean; // ¿Tiene cotización y Solped/OC válida en SAP?
+  criterio3_TestOperativoSuperado: boolean; // ¿Se realizaron pruebas de carga y escaneo en línea de cajas/picking?
+  criterio4_TitularRetornadoOValidado: boolean; // ¿Se devolvió el BKP o se dio de baja el titular con informe?
+  dictamenFinal: ValidationAuditStatus;
+  observaciones: string;
+  actaConformidadPdfUrl?: string;
+}
+
 
 

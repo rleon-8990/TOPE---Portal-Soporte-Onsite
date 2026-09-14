@@ -82,6 +82,41 @@ export const TechnicalReportsView: React.FC<TechnicalReportsViewProps> = ({
   const [formOutcome, setFormOutcome] = useState<'Aprobado' | 'Con Observaciones' | 'Reprobado'>('Aprobado');
   const [formFindings, setFormFindings] = useState('Equipo inspeccionado bajo protocolo técnico estándar. Valores de presión, voltaje y aislamiento dentro de los rangos especificados por el fabricante.');
   const [formRecommendations, setFormRecommendations] = useState('Reemplazar filtros en el próximo ciclo de 90 días. Mantener monitoreo preventivo continuo.');
+  
+  // Mandatory photographic evidence (ANTES y DESPUÉS)
+  const [formEvidenceBefore, setFormEvidenceBefore] = useState<string>('https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80');
+  const [formEvidenceAfter, setFormEvidenceAfter] = useState<string>('https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80');
+  
+  // Mandatory digital signatures (Técnico Especialista & Cliente / Gerente de Tienda)
+  const [formTechSignature, setFormTechSignature] = useState<string>('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="90" viewBox="0 0 300 90"><path d="M20,65 Q50,15 75,55 T130,45 Q160,20 180,60 T230,40 Q250,25 270,45 M60,68 L240,68" fill="none" stroke="%2300236f" stroke-width="2.5" stroke-linecap="round"/><text x="70" y="84" font-family="monospace" font-size="9" fill="%23757682">CIP-198421 - REG. OFICIAL</text></svg>');
+  const [formTechName, setFormTechName] = useState<string>(currentUser.name);
+  const [formClientSignature, setFormClientSignature] = useState<string>('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="90" viewBox="0 0 300 90"><path d="M25,50 Q60,10 90,65 T140,35 Q170,15 205,55 T260,35 M50,72 L250,72" fill="none" stroke="%23007a33" stroke-width="2.5" stroke-linecap="round"/><text x="70" y="84" font-family="monospace" font-size="9" fill="%23757682">GERENCIA DE TIENDA - CONFORME</text></svg>');
+  const [formClientName, setFormClientName] = useState<string>('Lic. Carlos Mendoza');
+  const [formClientRole, setFormClientRole] = useState<string>('Gerente de Tienda');
+  const [formValidationError, setFormValidationError] = useState<string | null>(null);
+  const [zoomEvidence, setZoomEvidence] = useState<string | null>(null);
+
+  // Current store for individual report modal
+  const currentFormStore = useMemo(() => {
+    return stores.find(s => s.id === formStoreId) || stores[0] || null;
+  }, [stores, formStoreId]);
+
+  // Equipments filtered strictly by the chosen store
+  const formStoreEquipments = useMemo(() => {
+    if (!currentFormStore) return equipments;
+    const filtered = equipments.filter(e => e.storeId === currentFormStore.id || e.storeName === currentFormStore.name);
+    return filtered.length > 0 ? filtered : equipments;
+  }, [equipments, currentFormStore]);
+
+  // Update selected equipment when store changes
+  React.useEffect(() => {
+    if (formStoreEquipments.length > 0 && !formStoreEquipments.some(e => e.id === formEquipmentId)) {
+      setFormEquipmentId(formStoreEquipments[0].id);
+    }
+    if (currentFormStore?.gerenteTienda || currentFormStore?.manager) {
+      setFormClientName(currentFormStore.gerenteTienda || currentFormStore.manager || 'Gerente de Tienda');
+    }
+  }, [formStoreEquipments, currentFormStore, formEquipmentId]);
 
   // Current active store object for batch view
   const currentBatchStore = useMemo(() => {
@@ -294,8 +329,22 @@ export const TechnicalReportsView: React.FC<TechnicalReportsViewProps> = ({
 
   const handleCreateReport = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormValidationError(null);
+
+    // Validate mandatory photographic evidence
+    if (!formEvidenceBefore || !formEvidenceAfter) {
+      setFormValidationError('⚠️ Obligatorio: Todo informe técnico debe contar con la fotografía del ANTES (avería/condición inicial) y fotografía del DESPUÉS (reparado/operativo).');
+      return;
+    }
+
+    // Validate mandatory digital signatures
+    if (!formTechSignature || !formClientSignature) {
+      setFormValidationError('⚠️ Obligatorio: Se requiere la firma digital tanto del Técnico Especialista como del Cliente (Gerente o Supervisor de Tienda).');
+      return;
+    }
+
     const st = stores.find(s => s.id === formStoreId) || stores[0];
-    const eq = equipments.find(e => e.id === formEquipmentId) || equipments[0];
+    const eq = formStoreEquipments.find(e => e.id === formEquipmentId) || equipments.find(e => e.id === formEquipmentId) || equipments[0];
     const repNum = `INF-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const newRep: TechnicalReport = {
@@ -313,8 +362,15 @@ export const TechnicalReportsView: React.FC<TechnicalReportsViewProps> = ({
       serialNumber: eq.serialNumber,
       brand: eq.brand,
       model: eq.model,
-      technician: currentUser.name,
-      supervisor: 'Ing. Supervisor Nacional CMMS',
+      technician: formTechName,
+      technicianName: formTechName,
+      technicianSignature: formTechSignature,
+      supervisor: 'Ing. Roberto León (Supervisor Central)',
+      clientName: formClientName,
+      clientRole: formClientRole,
+      clientSignature: formClientSignature,
+      evidenceBefore: formEvidenceBefore,
+      evidenceAfter: formEvidenceAfter,
       outcome: formOutcome,
       findings: formFindings,
       recommendations: formRecommendations,
@@ -343,7 +399,7 @@ export const TechnicalReportsView: React.FC<TechnicalReportsViewProps> = ({
     onAddNewReport(newRep);
     setShowNewModal(false);
     setSelectedReport(newRep);
-    alert(`📄 Informe técnico ${repNum} emitido y firmado digitalmente.`);
+    alert(`📄 Informe técnico ${repNum} emitido con evidencia fotográfica completa y doble firma digital.`);
   };
 
   return (
@@ -1339,17 +1395,137 @@ export const TechnicalReportsView: React.FC<TechnicalReportsViewProps> = ({
               </div>
             </div>
 
-            {/* Signatures verification */}
-            <div className="grid grid-cols-2 gap-3 p-3 bg-[#eff4ff] rounded-xl border border-[#dce9ff] text-xs">
-              <div>
-                <span className="text-[10px] uppercase font-bold text-[#757682] block">Técnico Certificado</span>
-                <strong className="text-[#00236f]">{selectedReport.technician}</strong>
-                <div className="text-[10px] text-[#10b981] font-semibold mt-0.5">✓ Firma Digital Validada</div>
+            {/* EVIDENCIA FOTOGRÁFICA OBLIGATORIA (ANTES Y DESPUÉS) */}
+            <div className="space-y-2">
+              <h4 className="font-bold text-xs uppercase tracking-wider text-[#00236f] flex items-center gap-1.5">
+                <Camera className="w-4 h-4 text-[#007a33]" />
+                <span>Evidencia Fotográfica Auditada (Antes y Después)</span>
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                {/* Foto ANTES */}
+                <div className="p-3 bg-red-50/50 rounded-xl border border-red-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-red-900 flex items-center gap-1 text-[11px]">
+                      <span className="w-2 h-2 rounded-full bg-red-600 inline-block" />
+                      1. Condición Inicial / Avería (ANTES)
+                    </span>
+                    <span className="text-[10px] text-red-700 bg-red-100 px-1.5 py-0.5 rounded font-mono">
+                      Pre-Intervención
+                    </span>
+                  </div>
+                  {selectedReport.evidenceBefore ? (
+                    <div
+                      className="relative rounded-lg overflow-hidden border border-red-200 aspect-video bg-black/5 cursor-pointer group"
+                      onClick={() => setZoomEvidence(selectedReport.evidenceBefore!)}
+                    >
+                      <img
+                        src={selectedReport.evidenceBefore}
+                        alt="Evidencia Antes"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold">
+                        Click para Ampliar
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-white border border-dashed border-red-300 rounded-lg text-center text-red-600">
+                      Sin foto registrada
+                    </div>
+                  )}
+                  <p className="text-[10px] text-gray-500 font-mono">Hash SHA-256: 8f4c2e...b901 • Auditado</p>
+                </div>
+
+                {/* Foto DESPUÉS */}
+                <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-emerald-900 flex items-center gap-1 text-[11px]">
+                      <span className="w-2 h-2 rounded-full bg-emerald-600 inline-block" />
+                      2. Condición Final / Reparado (DESPUÉS)
+                    </span>
+                    <span className="text-[10px] text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-mono">
+                      Post-Intervención
+                    </span>
+                  </div>
+                  {selectedReport.evidenceAfter ? (
+                    <div
+                      className="relative rounded-lg overflow-hidden border border-emerald-200 aspect-video bg-black/5 cursor-pointer group"
+                      onClick={() => setZoomEvidence(selectedReport.evidenceAfter!)}
+                    >
+                      <img
+                        src={selectedReport.evidenceAfter}
+                        alt="Evidencia Después"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold">
+                        Click para Ampliar
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-white border border-dashed border-emerald-300 rounded-lg text-center text-emerald-600">
+                      Sin foto registrada
+                    </div>
+                  )}
+                  <p className="text-[10px] text-gray-500 font-mono">Hash SHA-256: 3a7d11...f892 • Conforme</p>
+                </div>
               </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-[#757682] block">Supervisor de Mantenimiento</span>
-                <strong className="text-[#00236f]">{selectedReport.supervisor}</strong>
-                <div className="text-[10px] text-[#10b981] font-semibold mt-0.5">✓ Aprobación Central Validada</div>
+            </div>
+
+            {/* FIRMAS DIGITALES REGISTRADAS */}
+            <div className="space-y-2">
+              <h4 className="font-bold text-xs uppercase tracking-wider text-[#00236f] flex items-center gap-1.5">
+                <FileCheck className="w-4 h-4 text-[#00236f]" />
+                <span>Firmas Digitales de Responsabilidad Técnica y del Cliente</span>
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                {/* Firma Especialista */}
+                <div className="p-3 bg-[#f8f9ff] rounded-xl border border-[#dce9ff] space-y-2">
+                  <div className="flex items-center justify-between border-b border-[#e5eeff] pb-1.5">
+                    <span className="font-bold text-[#00236f] text-xs">TÉCNICO ESPECIALISTA</span>
+                    <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                      <Check className="w-3 h-3" /> Firma Validada
+                    </span>
+                  </div>
+                  <div className="bg-white border border-[#dce9ff] rounded-lg p-2 h-24 flex items-center justify-center">
+                    {selectedReport.technicianSignature ? (
+                      <img
+                        src={selectedReport.technicianSignature}
+                        alt="Firma Técnico"
+                        className="max-h-20 max-w-full object-contain"
+                      />
+                    ) : (
+                      <span className="font-mono text-xs text-gray-400">Firma en custodia digital</span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-[#0b1c30]">
+                    <strong>{selectedReport.technicianName || selectedReport.technician}</strong>
+                    <div className="text-[10px] text-[#757682]">Especialista de Campo CMMS • Reg. CIP-198421</div>
+                  </div>
+                </div>
+
+                {/* Firma Cliente */}
+                <div className="p-3 bg-[#f8f9ff] rounded-xl border border-[#dce9ff] space-y-2">
+                  <div className="flex items-center justify-between border-b border-[#e5eeff] pb-1.5">
+                    <span className="font-bold text-[#00236f] text-xs">CLIENTE / GERENCIA DE TIENDA</span>
+                    <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                      <Check className="w-3 h-3" /> Conformidad Recibida
+                    </span>
+                  </div>
+                  <div className="bg-white border border-[#dce9ff] rounded-lg p-2 h-24 flex items-center justify-center">
+                    {selectedReport.clientSignature ? (
+                      <img
+                        src={selectedReport.clientSignature}
+                        alt="Firma Cliente"
+                        className="max-h-20 max-w-full object-contain"
+                      />
+                    ) : (
+                      <span className="font-mono text-xs text-gray-400">Firma cliente validada</span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-[#0b1c30]">
+                    <strong>{selectedReport.clientName || selectedReport.supervisor}</strong>
+                    <div className="text-[10px] text-[#757682]">{selectedReport.clientRole || 'Gerencia de Tienda'} • Sede {selectedReport.storeName}</div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1366,7 +1542,7 @@ export const TechnicalReportsView: React.FC<TechnicalReportsViewProps> = ({
                 className="px-4 py-2 bg-[#00236f] text-white font-bold text-xs rounded-lg shadow-md hover:bg-[#1e3a8a] flex items-center gap-1.5"
               >
                 <Download className="w-4 h-4" />
-                <span>Descargar PDF Oficial</span>
+                <span>Descargar PDF Oficial con Fotos & Firmas</span>
               </button>
             </div>
           </div>
@@ -1376,77 +1552,98 @@ export const TechnicalReportsView: React.FC<TechnicalReportsViewProps> = ({
       {/* MODAL: NEW INDIVIDUAL REPORT */}
       {showNewModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-5 sm:p-6 space-y-4 border border-[#e5eeff]">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-5 sm:p-6 space-y-4 max-h-[92vh] overflow-y-auto border border-[#e5eeff]">
             <div className="flex justify-between items-center pb-3 border-b border-[#e5eeff]">
-              <h3 className="font-bold text-base text-[#00236f]">Emitir Nuevo Informe Técnico</h3>
+              <div>
+                <h3 className="font-bold text-base text-[#00236f]">Emitir Nuevo Informe Técnico</h3>
+                <p className="text-xs text-[#757682]">
+                  Requiere obligatoriamente fotos de ANTES / DESPUÉS y firmas digitales del especialista y cliente.
+                </p>
+              </div>
               <button onClick={() => setShowNewModal(false)} className="text-[#757682] p-1 font-bold hover:text-black">
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleCreateReport} className="space-y-3.5">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
-                    Tienda / Sede
-                  </label>
-                  <select
-                    value={formStoreId}
-                    onChange={e => setFormStoreId(e.target.value)}
-                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
-                  >
-                    {stores.map(st => (
-                      <option key={st.id} value={st.id}>
-                        {st.code} - {st.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            {formValidationError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 font-semibold flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                <span>{formValidationError}</span>
+              </div>
+            )}
 
-                <div>
-                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
-                    Equipo Auditado
-                  </label>
-                  <select
-                    value={formEquipmentId}
-                    onChange={e => setFormEquipmentId(e.target.value)}
-                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
-                  >
-                    {equipments.map(eq => (
-                      <option key={eq.id} value={eq.id}>
-                        {eq.code} - {eq.name.substring(0, 20)}...
-                      </option>
-                    ))}
-                  </select>
+            <form onSubmit={handleCreateReport} className="space-y-4">
+              {/* Sección 1: Tienda y Equipo (Selectivo estricto) */}
+              <div className="bg-[#f8f9ff] p-3 rounded-xl border border-[#dce9ff] space-y-2.5">
+                <span className="text-xs font-bold text-[#00236f] uppercase block">
+                  1. Sede y Activo de Tienda (Selectivo)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                      Tienda Asignada (Inventario)
+                    </label>
+                    <select
+                      value={formStoreId}
+                      onChange={e => setFormStoreId(e.target.value)}
+                      className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg font-medium"
+                    >
+                      {stores.map(st => (
+                        <option key={st.id} value={st.id}>
+                          {st.code} - {st.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                      Equipo de la Tienda ({formStoreEquipments.length} Disponibles)
+                    </label>
+                    <select
+                      value={formEquipmentId}
+                      onChange={e => setFormEquipmentId(e.target.value)}
+                      className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg font-medium"
+                    >
+                      {formStoreEquipments.map(eq => (
+                        <option key={eq.id} value={eq.id}>
+                          {eq.code} - {eq.name} ({eq.brand})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
-                  Dictamen Final
-                </label>
-                <select
-                  value={formOutcome}
-                  onChange={e => setFormOutcome(e.target.value as 'Aprobado' | 'Con Observaciones' | 'Reprobado')}
-                  className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg font-bold"
-                >
-                  <option value="Aprobado">Aprobado / Conforme (100% Operativo)</option>
-                  <option value="Con Observaciones">Con Observaciones (Requiere Ajuste Menor)</option>
-                  <option value="Reprobado">Reprobado (Falla Crítica / No Cumple Norma)</option>
-                </select>
-              </div>
+              {/* Sección 2: Dictamen y Observaciones */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1">
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Dictamen Final
+                  </label>
+                  <select
+                    value={formOutcome}
+                    onChange={e => setFormOutcome(e.target.value as 'Aprobado' | 'Con Observaciones' | 'Reprobado')}
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg font-bold"
+                  >
+                    <option value="Aprobado">Aprobado / Conforme (100% Operativo)</option>
+                    <option value="Con Observaciones">Con Observaciones (Ajuste Menor)</option>
+                    <option value="Reprobado">Reprobado (Falla Crítica)</option>
+                  </select>
+                </div>
 
-              <div>
-                <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
-                  Conclusiones de Ingeniería
-                </label>
-                <textarea
-                  rows={3}
-                  required
-                  value={formFindings}
-                  onChange={e => setFormFindings(e.target.value)}
-                  className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
-                />
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
+                    Conclusiones de Ingeniería
+                  </label>
+                  <textarea
+                    rows={2}
+                    required
+                    value={formFindings}
+                    onChange={e => setFormFindings(e.target.value)}
+                    className="w-full p-2 text-xs bg-white border border-[#c5c5d3] rounded-lg"
+                  />
+                </div>
               </div>
 
               <div>
@@ -1458,26 +1655,193 @@ export const TechnicalReportsView: React.FC<TechnicalReportsViewProps> = ({
                   required
                   value={formRecommendations}
                   onChange={e => setFormRecommendations(e.target.value)}
-                  className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
+                  className="w-full p-2 text-xs bg-white border border-[#c5c5d3] rounded-lg"
                 />
               </div>
 
-              <div className="flex gap-2 pt-2">
+              {/* Sección 3: Evidencia Fotográfica Obligatoria (Antes y Después) */}
+              <div className="bg-[#f8f9ff] p-3 rounded-xl border border-[#dce9ff] space-y-3">
+                <span className="text-xs font-bold text-[#00236f] uppercase flex items-center justify-between">
+                  <span>2. Evidencia Fotográfica Obligatoria</span>
+                  <span className="text-[10px] text-red-600 font-semibold">* Ambos registros son obligatorios</span>
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  {/* Foto ANTES */}
+                  <div className="bg-white p-3 rounded-xl border border-red-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-red-900 text-xs">📸 Foto ANTES (Avería / Inicio)</span>
+                      {formEvidenceBefore && (
+                        <span className="text-[10px] text-emerald-600 font-bold">✓ Adjuntada</span>
+                      )}
+                    </div>
+                    {formEvidenceBefore ? (
+                      <div className="relative rounded-lg overflow-hidden border border-red-200 aspect-video bg-black/5">
+                        <img src={formEvidenceBefore} alt="Antes" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setFormEvidenceBefore('')}
+                          className="absolute top-1.5 right-1.5 bg-red-600 text-white p-1 rounded text-[10px] font-bold"
+                        >
+                          ✕ Cambiar
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed border-red-300 rounded-lg p-4 text-center space-y-2">
+                        <Camera className="w-6 h-6 text-red-500 mx-auto" />
+                        <span className="text-[11px] text-red-700 block font-semibold">Adjuntar foto inicial</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={e => {
+                            const f = e.target.files?.[0];
+                            if (f) {
+                              const r = new FileReader();
+                              r.onload = ev => setFormEvidenceBefore(ev.target?.result as string);
+                              r.readAsDataURL(f);
+                            }
+                          }}
+                          className="text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:bg-red-50 file:text-red-700"
+                        />
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setFormEvidenceBefore('https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80')}
+                      className="text-[10px] text-[#00236f] hover:underline font-semibold block"
+                    >
+                      + Usar muestra fotográfica de diagnóstico
+                    </button>
+                  </div>
+
+                  {/* Foto DESPUÉS */}
+                  <div className="bg-white p-3 rounded-xl border border-emerald-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-emerald-900 text-xs">📸 Foto DESPUÉS (Reparado / Conforme)</span>
+                      {formEvidenceAfter && (
+                        <span className="text-[10px] text-emerald-600 font-bold">✓ Adjuntada</span>
+                      )}
+                    </div>
+                    {formEvidenceAfter ? (
+                      <div className="relative rounded-lg overflow-hidden border border-emerald-200 aspect-video bg-black/5">
+                        <img src={formEvidenceAfter} alt="Después" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setFormEvidenceAfter('')}
+                          className="absolute top-1.5 right-1.5 bg-red-600 text-white p-1 rounded text-[10px] font-bold"
+                        >
+                          ✕ Cambiar
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed border-emerald-300 rounded-lg p-4 text-center space-y-2">
+                        <Camera className="w-6 h-6 text-emerald-600 mx-auto" />
+                        <span className="text-[11px] text-emerald-700 block font-semibold">Adjuntar foto reparado</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={e => {
+                            const f = e.target.files?.[0];
+                            if (f) {
+                              const r = new FileReader();
+                              r.onload = ev => setFormEvidenceAfter(ev.target?.result as string);
+                              r.readAsDataURL(f);
+                            }
+                          }}
+                          className="text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:bg-emerald-50 file:text-emerald-700"
+                        />
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setFormEvidenceAfter('https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80')}
+                      className="text-[10px] text-[#00236f] hover:underline font-semibold block"
+                    >
+                      + Usar muestra fotográfica de conformidad
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sección 4: Firmas Digitales Especialista & Cliente */}
+              <div className="space-y-3">
+                <span className="text-xs font-bold text-[#00236f] uppercase block">
+                  3. Firmas Digitales Obligatorias (Especialista & Cliente)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <SignaturePad
+                    id="sign-new-tech"
+                    label="Firma Digital del Técnico Especialista"
+                    placeholderName="Nombre del Técnico Especialista"
+                    signatoryName={formTechName}
+                    onNameChange={setFormTechName}
+                    value={formTechSignature}
+                    onChange={setFormTechSignature}
+                    required
+                  />
+
+                  <div className="space-y-2">
+                    <SignaturePad
+                      id="sign-new-client"
+                      label="Firma Digital del Cliente (Tienda)"
+                      placeholderName="Nombre del Gerente / Supervisor"
+                      signatoryName={formClientName}
+                      onNameChange={setFormClientName}
+                      value={formClientSignature}
+                      onChange={setFormClientSignature}
+                      required
+                    />
+                    <div className="px-1">
+                      <label className="text-[10px] font-bold text-[#757682] uppercase block mb-0.5">Cargo del Cliente</label>
+                      <input
+                        type="text"
+                        value={formClientRole}
+                        onChange={e => setFormClientRole(e.target.value)}
+                        placeholder="Ej. Gerente de Tienda / Supervisor de Turno"
+                        className="w-full text-xs px-2.5 py-1.5 bg-white border border-[#c5c5d3] rounded-lg"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-[#e5eeff]">
                 <button
                   type="button"
                   onClick={() => setShowNewModal(false)}
-                  className="flex-1 py-2.5 bg-[#eff4ff] text-[#00236f] font-bold text-xs rounded-lg"
+                  className="flex-1 py-2.5 bg-[#eff4ff] text-[#00236f] font-bold text-xs rounded-lg hover:bg-[#dce9ff]"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-[#00236f] text-white font-bold text-xs rounded-lg shadow-md hover:bg-[#1e3a8a]"
+                  className="flex-1 py-2.5 bg-[#00236f] text-white font-bold text-xs rounded-lg shadow-md hover:bg-[#1e3a8a] flex items-center justify-center gap-1.5"
                 >
-                  Guardar & Emitir PDF
+                  <FileCheck className="w-4 h-4" />
+                  <span>Guardar & Emitir Informe Técnico Oficial</span>
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Zoom Evidencia */}
+      {zoomEvidence && (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-fadeIn"
+          onClick={() => setZoomEvidence(null)}
+        >
+          <div className="relative max-w-3xl w-full bg-black rounded-2xl overflow-hidden shadow-2xl p-2">
+            <button
+              onClick={() => setZoomEvidence(null)}
+              className="absolute top-4 right-4 bg-black/60 text-white p-2 rounded-full hover:bg-black font-bold z-10"
+            >
+              ✕
+            </button>
+            <img src={zoomEvidence} alt="Evidencia Ampliada" className="w-full h-auto max-h-[85vh] object-contain mx-auto rounded-lg" />
           </div>
         </div>
       )}

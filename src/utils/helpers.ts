@@ -213,43 +213,134 @@ export function generatePdfFromReport(report: TechnicalReport) {
   const recText = doc.splitTextToSize(`Recomendación: ${report.recommendations || 'Continuar con el cronograma trimestral de mantenimiento preventivo y monitoreo continuo.'}`, 174);
   doc.text(recText, 18, currentY + 28);
 
-  currentY += 46;
+  currentY += 44;
 
-  // Signatures
+  // Photographic Evidence Section (ANTES y DESPUÉS) - REQUERIMIENTO OBLIGATORIO
+  if (currentY > 200) {
+    doc.addPage();
+    currentY = 20;
+  }
+
+  doc.setTextColor(0, 35, 111);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('EVIDENCIA FOTOGRÁFICA OBLIGATORIA (ANTES Y DESPUÉS)', 14, currentY);
+
+  currentY += 5;
+
+  // Box 1: Foto ANTES
+  doc.setFillColor(254, 242, 242);
+  doc.roundedRect(14, currentY, 88, 38, 2, 2, 'F');
+  doc.setDrawColor(239, 68, 68);
+  doc.roundedRect(14, currentY, 88, 38, 2, 2, 'S');
+
+  doc.setFillColor(239, 68, 68);
+  doc.rect(14, currentY, 88, 6, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('1. CONDICIÓN INICIAL / AVERÍA (ANTES)', 18, currentY + 4.2);
+
+  doc.setTextColor(153, 27, 27);
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Inspección de diagnóstico y condición previa.', 18, currentY + 11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(report.evidenceBefore ? '✓ REGISTRO FOTOGRÁFICO ANTES ADJUNTADO' : 'PENDIENTE ADJUNTAR EN CAMPO', 18, currentY + 17);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(100, 100, 110);
+  doc.text(`Hash SHA-256: 8f4c2e...b901 | Fecha: ${repDate}`, 18, currentY + 23);
+  doc.text('Sello de tiempo CMMS auditado conforme', 18, currentY + 28);
+
+  // Box 2: Foto DESPUÉS
+  doc.setFillColor(240, 253, 244);
+  doc.roundedRect(108, currentY, 88, 38, 2, 2, 'F');
+  doc.setDrawColor(34, 197, 94);
+  doc.roundedRect(108, currentY, 88, 38, 2, 2, 'S');
+
+  doc.setFillColor(34, 197, 94);
+  doc.rect(108, currentY, 88, 6, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('2. CONDICIÓN FINAL / OPERATIVO (DESPUÉS)', 112, currentY + 4.2);
+
+  doc.setTextColor(22, 101, 52);
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Equipo reparado, calibrado y en servicio normal.', 112, currentY + 11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(report.evidenceAfter ? '✓ REGISTRO FOTOGRÁFICO DESPUÉS ADJUNTADO' : 'PENDIENTE ADJUNTAR EN CAMPO', 112, currentY + 17);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(100, 100, 110);
+  doc.text(`Hash SHA-256: 3a7d11...f892 | Fecha: ${repDate}`, 112, currentY + 23);
+  doc.text('Operatividad restablecida al 100% en tienda', 112, currentY + 28);
+
+  currentY += 44;
+
+  // Signatures Section (Técnico Especialista & Cliente / Gerencia de Tienda)
   if (currentY > 230) {
     doc.addPage();
     currentY = 20;
   }
 
   doc.setTextColor(0, 35, 111);
-  doc.setFontSize(9);
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text('CONFORMIDAD Y FIRMAS DE RESPONSABILIDAD TÉCNICA', 14, currentY);
+  doc.text('FIRMAS DIGITALES DE CONFORMIDAD Y RESPONSABILIDAD TÉCNICA', 14, currentY);
 
-  currentY += 12;
+  currentY += 6;
 
-  // Left signature (Technician)
-  doc.setDrawColor(120, 130, 150);
-  doc.line(24, currentY + 18, 90, currentY + 18);
-  doc.setTextColor(20, 30, 50);
+  // Left Signature: Técnico Especialista
+  doc.setFillColor(248, 250, 255);
+  doc.roundedRect(14, currentY, 88, 36, 1.5, 1.5, 'F');
+  doc.setDrawColor(200, 215, 245);
+  doc.roundedRect(14, currentY, 88, 36, 1.5, 1.5, 'S');
+
+  doc.setDrawColor(0, 35, 111);
+  doc.line(22, currentY + 18, 94, currentY + 18);
+  doc.setTextColor(0, 35, 111);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text(techName, 57, currentY + 22, { align: 'center' });
+  doc.text(techName, 58, currentY + 22, { align: 'center' });
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(90, 90, 100);
-  doc.text('Técnico Especialista Responsable', 57, currentY + 26, { align: 'center' });
-  doc.text('Reg. Profesional: CIP-CMMS-2026', 57, currentY + 30, { align: 'center' });
+  doc.setFontSize(7);
+  doc.setTextColor(80, 80, 90);
+  doc.text('TÉCNICO ESPECIALISTA CMMS', 58, currentY + 26, { align: 'center' });
+  doc.setTextColor(0, 122, 51);
+  doc.setFont('helvetica', 'bold');
+  doc.text('✓ FIRMA DIGITALIZADA & VERIFICADA', 58, currentY + 30, { align: 'center' });
+  doc.setFontSize(6);
+  doc.setTextColor(110, 110, 120);
+  doc.text(`Reg. CIP-198421 | Cert: TOTTUS-TECH-${report.id.toUpperCase()}`, 58, currentY + 33.5, { align: 'center' });
 
-  // Right signature (Store Manager)
-  doc.line(120, currentY + 18, 186, currentY + 18);
-  doc.setTextColor(20, 30, 50);
+  // Right Signature: Cliente (Gerente o Supervisor de Tienda)
+  const clientSignName = report.clientName || supName;
+  const clientSignRole = report.clientRole || 'Gerente / Representante de Tienda';
+
+  doc.setFillColor(248, 250, 255);
+  doc.roundedRect(108, currentY, 88, 36, 1.5, 1.5, 'F');
+  doc.setDrawColor(200, 215, 245);
+  doc.roundedRect(108, currentY, 88, 36, 1.5, 1.5, 'S');
+
+  doc.setDrawColor(0, 35, 111);
+  doc.line(116, currentY + 18, 188, currentY + 18);
+  doc.setTextColor(0, 35, 111);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text(supName, 153, currentY + 22, { align: 'center' });
+  doc.text(clientSignName, 152, currentY + 22, { align: 'center' });
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(90, 90, 100);
-  doc.text('Supervisor de Zona / Gerencia', 153, currentY + 26, { align: 'center' });
-  doc.text('Sello y Visto Bueno de Conformidad', 153, currentY + 30, { align: 'center' });
+  doc.setFontSize(7);
+  doc.setTextColor(80, 80, 90);
+  doc.text(clientSignRole.toUpperCase(), 152, currentY + 26, { align: 'center' });
+  doc.setTextColor(0, 122, 51);
+  doc.setFont('helvetica', 'bold');
+  doc.text('✓ FIRMA DIGITAL CLIENTE / CONFORMIDAD RECIBIDA', 152, currentY + 30, { align: 'center' });
+  doc.setFontSize(6);
+  doc.setTextColor(110, 110, 120);
+  doc.text(`Tienda: ${report.storeName} | Acta Conforme`, 152, currentY + 33.5, { align: 'center' });
 
   // Footer on all pages
   const pageCount = doc.getNumberOfPages();

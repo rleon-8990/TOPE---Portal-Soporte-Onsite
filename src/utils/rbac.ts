@@ -58,6 +58,13 @@ export const APP_MODULES: Record<string, ModulePermission> = {
     requiredRoles: ['Administrador', 'Administrador General', 'Supervisor Regional', 'Técnico Especialista', 'IT Operator', 'Gerente de Tienda', 'Jefe de Tienda', 'Jefe de Mantenimiento'],
     category: 'operativo'
   },
+  trazabilidad: {
+    id: 'trazabilidad',
+    name: 'Repuestos, BKP & Trazabilidad',
+    description: 'Control de repuestos de proveedores x cotización, stock de contingencia BKP, repuestos de taller interno y auditoría de validación técnica.',
+    requiredRoles: ['Administrador', 'Administrador General', 'Supervisor Regional', 'Técnico Especialista', 'IT Operator', 'Gerente de Tienda', 'Jefe de Tienda', 'Jefe de Mantenimiento'],
+    category: 'operativo'
+  },
   custodia: {
     id: 'custodia',
     name: 'Custodia CCTV & Equipos Móviles',

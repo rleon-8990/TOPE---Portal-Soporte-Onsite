@@ -2507,7 +2507,92 @@ export const INITIAL_REGIONAL_ALERTS: RegionalAlertConfig[] = [
 ];
 
 export const INITIAL_STORES: Store[] = ALL_STORES;
-export const INITIAL_EQUIPMENTS: Equipment[] = INITIAL_EQUIPMENT_LIST;
+
+// Helper to determine manufacturer lifespan by category
+const getManufacturerLifeYears = (categoryId: string): number => {
+  switch (categoryId) {
+    case 'pos_cajas':
+    case 'computo':
+      return 5; // Cajas POS y servidores: 5 años
+    case 'balanzas':
+      return 7; // Balanzas y pesaje: 7 años
+    case 'hvac':
+    case 'refrigeracion':
+    case 'frio_alimentario':
+      return 8; // Sistemas de climatización y frío: 8 años
+    case 'redes':
+    case 'cctv':
+      return 6; // Switches y CCTV: 6 años
+    case 'bombas':
+    case 'motores':
+      return 10; // Bombas y motores: 10 años
+    default:
+      return 5;
+  }
+};
+
+export const INITIAL_EQUIPMENTS: Equipment[] = INITIAL_EQUIPMENT_LIST.map((eq, index) => {
+  const storeNum = eq.storeCodeNumber || eq.storeCode?.replace(/\D/g, '') || String(100 + (index % 80));
+  const cleanCode = eq.code.replace(/[^A-Z0-9]/gi, '');
+  const assetCode = eq.codigoActivo || `AF-TOT-${storeNum}-${cleanCode || String(1000 + index)}`;
+  
+  // Calculate purchase & install date based on installDate or pseudo-historical date
+  let purchaseDate = eq.fechaCompra;
+  if (!purchaseDate) {
+    if (eq.installDate) {
+      const d = new Date(eq.installDate);
+      d.setDate(d.getDate() - 20); // Compra 20 días antes de instalación
+      purchaseDate = d.toISOString().split('T')[0];
+    } else {
+      const year = 2020 + (index % 4);
+      purchaseDate = `${year}-0${1 + (index % 9)}-15`;
+    }
+  }
+
+  const pDate = new Date(purchaseDate);
+  const anoCompra = pDate.getFullYear();
+  const installDate = eq.fechaInstalacion || eq.installDate || purchaseDate;
+  const lifeYears = eq.vidaUtilAnosFabricante || getManufacturerLifeYears(eq.categoryId);
+  
+  // Expiration / Renovation date according to manufacturer specs
+  const renDate = new Date(pDate);
+  renDate.setFullYear(renDate.getFullYear() + lifeYears);
+  const fechaRenovacionEstimada = renDate.toISOString().split('T')[0];
+
+  // Obsolescence Status Calculation (cruzado con año actual 2026)
+  const currentYear = 2026;
+  const remainingYears = renDate.getFullYear() - currentYear;
+  let estadoObsolescencia: 'vigente' | 'proximo_renovacion' | 'obsoleto' = 'vigente';
+  if (remainingYears < 0 || (remainingYears === 0 && renDate.getMonth() < 8)) {
+    estadoObsolescencia = 'obsoleto'; // Vida útil agotada
+  } else if (remainingYears <= 1) {
+    estadoObsolescencia = 'proximo_renovacion'; // < 1 año de vida útil remanente
+  }
+
+  return {
+    ...eq,
+    codigoActivo: assetCode,
+    fechaCompra: purchaseDate,
+    anoCompra,
+    fechaInstalacion: installDate,
+    vidaUtilAnosFabricante: lifeYears,
+    fechaRenovacionEstimada,
+    estadoObsolescencia,
+    fechaCompraBloqueada: true, // Bloqueado por auditoría fiscal
+  };
+});
+
+// Sample crisp signature SVGs encoded as Data URLs
+const SAMPLE_TECH_SIGNATURE = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="90" viewBox="0 0 300 90"><path d="M20,65 Q50,15 75,55 T130,45 Q160,20 180,60 T230,40 Q250,25 270,45 M60,68 L240,68" fill="none" stroke="%2300236f" stroke-width="2.5" stroke-linecap="round"/><text x="70" y="84" font-family="monospace" font-size="9" fill="%23757682">CIP-198421 - REG. OFICIAL</text></svg>';
+const SAMPLE_CLIENT_SIGNATURE = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="90" viewBox="0 0 300 90"><path d="M25,50 Q60,10 90,65 T140,35 Q170,15 205,55 T260,35 M50,72 L250,72" fill="none" stroke="%23007a33" stroke-width="2.5" stroke-linecap="round"/><text x="70" y="84" font-family="monospace" font-size="9" fill="%23757682">GERENCIA DE TIENDA - CONFORME</text></svg>';
+
+// Evidence photos (realistic technical maintenance images)
+const SAMPLE_BEFORE_PHOTO_1 = 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80'; // Serpentín sucio / inspección previa
+const SAMPLE_AFTER_PHOTO_1 = 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80'; // Limpio y calibrado
+const SAMPLE_BEFORE_PHOTO_2 = 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?auto=format&fit=crop&w=600&q=80'; // Rodamiento con vibración / desgaste
+const SAMPLE_AFTER_PHOTO_2 = 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=600&q=80'; // Rodamiento sustituido y alineado
+const SAMPLE_BEFORE_PHOTO_3 = 'https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=600&q=80'; // Balanza descalibrada
+const SAMPLE_AFTER_PHOTO_3 = 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=600&q=80'; // Calibrada con masa patrón
 
 export const INITIAL_REPORTS: TechnicalReport[] = [
   {
@@ -2526,7 +2611,14 @@ export const INITIAL_REPORTS: TechnicalReport[] = [
     brand: 'Carrier Commercial',
     model: 'AquaForce 30XA-080',
     technician: 'Ing. Carlos Ramos',
+    technicianName: 'Ing. Carlos Ramos (CIP 198421)',
+    technicianSignature: SAMPLE_TECH_SIGNATURE,
     supervisor: 'Ing. Roberto León',
+    clientName: 'Lic. Roberto León P.',
+    clientRole: 'Gerente de Tienda Sede Central',
+    clientSignature: SAMPLE_CLIENT_SIGNATURE,
+    evidenceBefore: SAMPLE_BEFORE_PHOTO_1,
+    evidenceAfter: SAMPLE_AFTER_PHOTO_1,
     outcome: 'Aprobado',
     findings: 'Condensador y evaporador en perfecto estado tras lavado químico. Presiones de succión y descarga 65/220 PSI. Consumo nominal 142 Amperios.',
     recommendations: 'Mantener rutina mensual de purga de aire y monitoreo de acidez de aceite en compresor B.',
@@ -2567,7 +2659,14 @@ export const INITIAL_REPORTS: TechnicalReport[] = [
     brand: 'WEG Electric Corp',
     model: 'W22 Premium Efficiency 15HP',
     technician: 'Téc. Fernando Ruiz',
+    technicianName: 'Téc. Fernando Ruiz (Mecatrónica)',
+    technicianSignature: SAMPLE_TECH_SIGNATURE,
     supervisor: 'Lic. Diana Flores',
+    clientName: 'Lic. Diana Flores',
+    clientRole: 'Jefe de Operaciones Tienda Trujillo',
+    clientSignature: SAMPLE_CLIENT_SIGNATURE,
+    evidenceBefore: SAMPLE_BEFORE_PHOTO_2,
+    evidenceAfter: SAMPLE_AFTER_PHOTO_2,
     outcome: 'Con Observaciones',
     findings: 'Desgaste moderado en rodamientos lado acople con ruido audible (3.8 mm/s). Aislamiento de bobinado en 25 MegaOhms (Aceptable).',
     recommendations: 'Programar cambio de rodamientos SKF 6308-2RS en un plazo no mayor a 15 días.',
@@ -2607,7 +2706,14 @@ export const INITIAL_REPORTS: TechnicalReport[] = [
     brand: 'Sartorius Metrology',
     model: 'Secura 225D-1S',
     technician: 'Ing. Javier Salazar',
+    technicianName: 'Ing. Javier Salazar (Metrología)',
+    technicianSignature: SAMPLE_TECH_SIGNATURE,
     supervisor: 'Ing. Roberto León',
+    clientName: 'Ing. Gonzalo Morales',
+    clientRole: 'Administrador Tienda Porongoche',
+    clientSignature: SAMPLE_CLIENT_SIGNATURE,
+    evidenceBefore: SAMPLE_BEFORE_PHOTO_3,
+    evidenceAfter: SAMPLE_AFTER_PHOTO_3,
     outcome: 'Aprobado',
     findings: 'Calibración con masa patrón de clase E2 (100g, 200g). Error de excentricidad < 0.0001g. Nivel de burbuja alineado.',
     recommendations: 'Válido por 12 meses según norma de metrología legal.',
