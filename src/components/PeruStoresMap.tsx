@@ -24,9 +24,10 @@ import {
   ShieldCheck,
   AlertTriangle,
   ChevronRight,
-  Maximize2
+  Maximize2,
+  Globe
 } from 'lucide-react';
-import { Store } from '../types';
+import { Store, AppUser } from '../types';
 import {
   TOTTUS_FORMATS,
   PRECIO_UNO_FORMATS,
@@ -34,9 +35,11 @@ import {
   normalizeStoreFormat,
   getStoreEmpresa
 } from '../utils/storeFormats';
+import { resolveStoreItOperator, getRegisteredItSpecialists } from '../utils/storeItOperators';
 
 interface PeruStoresMapProps {
   stores: Store[];
+  users?: AppUser[];
   onSelectStore?: (store: Store) => void;
   onOpenReportModal?: (store: Store) => void;
   selectedStoreId?: string;
@@ -55,6 +58,7 @@ const REGION_BOUNDS: Record<string, { lat: number; lng: number; zoom: number }> 
 
 export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
   stores,
+  users = [],
   onSelectStore,
   onOpenReportModal,
   selectedStoreId,
@@ -76,14 +80,25 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
   const [copiedCoords, setCopiedCoords] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  // Lista única de encargados de TI presentes en las tiendas
-  const itOperators = useMemo(() => {
-    const set = new Set<string>();
+  // Lista de especialistas IT registrados en Directorio y tiendas por definir
+  const itOperatorsData = useMemo(() => {
+    const assignedSpecialists = new Set<string>();
+    let porDefinirCount = 0;
+
     stores.forEach(s => {
-      if (s.itOperator) set.add(s.itOperator);
+      const resolved = resolveStoreItOperator(s.itOperator, users);
+      if (resolved.isRegistered) {
+        assignedSpecialists.add(resolved.name);
+      } else {
+        porDefinirCount++;
+      }
     });
-    return Array.from(set).sort();
-  }, [stores]);
+
+    return {
+      assignedSpecialists: Array.from(assignedSpecialists).sort(),
+      porDefinirCount
+    };
+  }, [stores, users]);
 
   // Filtrado reactivo de tiendas
   const filteredStores = useMemo(() => {
@@ -98,8 +113,15 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
       // Filtro específico por Formato
       if (selectedFormat !== 'all' && normFormat !== selectedFormat) return false;
 
-      // Filtro por Encargado de TI
-      if (selectedOperator !== 'all' && store.itOperator !== selectedOperator) return false;
+      // Filtro por Encargado de TI (relacionado con Directorio)
+      if (selectedOperator !== 'all') {
+        const resolved = resolveStoreItOperator(store.itOperator, users);
+        if (selectedOperator === 'por_definir') {
+          if (resolved.isRegistered) return false;
+        } else {
+          if (resolved.name.toLowerCase() !== selectedOperator.toLowerCase()) return false;
+        }
+      }
 
       // Filtro por Región
       if (selectedRegion !== 'all' && store.region !== selectedRegion) return false;
@@ -107,11 +129,12 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
       // Búsqueda de texto
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
+        const resolved = resolveStoreItOperator(store.itOperator, users);
         const matchName = store.name.toLowerCase().includes(q);
         const matchCode = store.code.toLowerCase().includes(q);
         const matchCeco = (store.centroCostoSap || store.cecoSap || '').toLowerCase().includes(q);
         const matchDist = (store.distrito || store.city || '').toLowerCase().includes(q);
-        const matchOp = (store.itOperator || '').toLowerCase().includes(q);
+        const matchOp = (store.itOperator || '').toLowerCase().includes(q) || resolved.name.toLowerCase().includes(q);
         const matchForm = normFormat.toLowerCase().includes(q);
         if (!matchName && !matchCode && !matchCeco && !matchDist && !matchOp && !matchForm) {
           return false;
@@ -125,7 +148,7 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
 
       return true;
     });
-  }, [stores, selectedEmpresa, selectedFormat, selectedOperator, selectedRegion, searchQuery]);
+  }, [stores, users, selectedEmpresa, selectedFormat, selectedOperator, selectedRegion, searchQuery]);
 
   // Conteo de tiendas según filtros actuales
   const stats = useMemo(() => {
@@ -151,7 +174,7 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
     };
   }, [filteredStores]);
 
-  // Inicialización de Leaflet
+  // Inicialización de Leaflet con observador de redimensionamiento
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
@@ -163,10 +186,10 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
       attributionControl: false
     });
 
-    // Añadir CartoDB Voyager tiles (estilo moderno, limpio y claro)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    // Añadir OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      subdomains: 'abcd',
+      attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
     // Controles de zoom abajo a la derecha
@@ -177,11 +200,45 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
     markersLayerRef.current = markersLayer;
     mapInstanceRef.current = map;
 
+    // Observador de redimensionamiento para evitar desajustes o distorsión de coordenadas
+    const resizeObserver = new ResizeObserver(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize({ debounceMoveSpeed: 100 });
+      }
+    });
+    resizeObserver.observe(mapContainerRef.current);
+
+    // Múltiples invalidaciones post-montaje para sincronizar con el layout flex
+    const timer1 = setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    }, 120);
+
+    const timer2 = setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    }, 380);
+
     return () => {
+      resizeObserver.disconnect();
+      clearTimeout(timer1);
+      clearTimeout(timer2);
       map.remove();
       mapInstanceRef.current = null;
     };
   }, []);
+
+  // Reaccionar al alternar el sidebar para reajustar Leaflet
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [isSidebarOpen]);
 
   // Actualizar marcadores cuando cambian los filtros o tiendas
   useEffect(() => {
@@ -189,6 +246,7 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
     const markersLayer = markersLayerRef.current;
     if (!map || !markersLayer) return;
 
+    map.invalidateSize();
     markersLayer.clearLayers();
 
     filteredStores.forEach(store => {
@@ -197,6 +255,7 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
       const config = STORE_FORMAT_CONFIG[normFormat] || STORE_FORMAT_CONFIG['Hiper'];
       const pinColor = config.color;
       const isTottus = config.empresa === 'Hipermercados Tottus S.A.';
+      const itOpInfo = resolveStoreItOperator(store.itOperator, users);
 
       // Crear icono SVG personalizado para el marcador
       const markerHtml = `
@@ -228,7 +287,7 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
 
       // Contenido del Popup al hacer clic
       const popupHtml = `
-        <div class="p-1 font-sans min-w-[210px]">
+        <div class="p-1 font-sans min-w-[220px]">
           <div class="flex items-center justify-between gap-2 pb-1.5 border-b border-gray-100">
             <span class="text-[10px] font-bold uppercase tracking-wider ${isTottus ? 'text-emerald-700' : 'text-orange-700'}">
               ${config.empresa}
@@ -248,7 +307,14 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
             </div>
             <div class="text-right">
               <span class="text-gray-400 block">Encargado TI:</span>
-              <span class="font-bold text-blue-700">${store.itOperator || 'No asignado'}</span>
+              ${itOpInfo.isRegistered ? `
+                <span class="font-bold text-blue-700 block">${itOpInfo.name}</span>
+                <span class="text-[9px] text-emerald-600 font-semibold">✓ Especialista Directorio</span>
+              ` : `
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                  ⚠️ Por definir
+                </span>
+              `}
             </div>
           </div>
           <div class="text-center">
@@ -284,8 +350,20 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
     // Si hay un store seleccionado inicialmente, centrar en él
     if (activeStore) {
       map.panTo([activeStore.latitud, activeStore.longitud], { animate: true });
+    } else if (!selectedStoreId && filteredStores.length > 0) {
+      // Visualización masiva: Encuadrar armónicamente todas las tiendas de todo el Perú
+      const validPoints = filteredStores
+        .filter(s => typeof s.latitud === 'number' && typeof s.longitud === 'number' && !isNaN(s.latitud) && !isNaN(s.longitud))
+        .map(s => [s.latitud, s.longitud] as [number, number]);
+
+      if (validPoints.length > 0) {
+        const bounds = L.latLngBounds(validPoints);
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
+        }
+      }
     }
-  }, [filteredStores, activeStore, selectedStoreId, onSelectStore]);
+  }, [filteredStores, activeStore, selectedStoreId, onSelectStore, users]);
 
   // Si cambia selectedStoreId desde fuera, activar
   useEffect(() => {
@@ -370,12 +448,28 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
           <div className="flex items-center gap-1 bg-gray-100/80 p-1 rounded-lg border border-gray-200 text-xs">
             <button
               id="btn-zoom-all-peru"
-              onClick={() => handleFlyToRegion('all')}
-              className={`px-2.5 py-1 rounded font-medium transition-colors ${
-                selectedRegion === 'all' ? 'bg-white text-gray-900 shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900'
+              onClick={() => {
+                setActiveStore(null);
+                handleFlyToRegion('all');
+                if (mapInstanceRef.current && filteredStores.length > 0) {
+                  const validPoints = filteredStores
+                    .filter(s => typeof s.latitud === 'number' && typeof s.longitud === 'number' && !isNaN(s.latitud) && !isNaN(s.longitud))
+                    .map(s => [s.latitud, s.longitud] as [number, number]);
+                  if (validPoints.length > 0) {
+                    const bounds = L.latLngBounds(validPoints);
+                    if (bounds.isValid()) {
+                      mapInstanceRef.current.fitBounds(bounds, { padding: [35, 35], maxZoom: 12 });
+                    }
+                  }
+                }
+              }}
+              className={`px-2.5 py-1 rounded font-medium transition-colors flex items-center gap-1 ${
+                selectedRegion === 'all' && !activeStore ? 'bg-white text-gray-900 shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900'
               }`}
+              title="Alinear vista masiva de todas las tiendas de todo el Perú"
             >
-              Todo el Perú
+              <Globe className="w-3.5 h-3.5 text-[#00873d]" />
+              Vista Masiva (Perú)
             </button>
             <button
               id="btn-zoom-lima"
@@ -468,7 +562,7 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
             </select>
           </div>
 
-          {/* Selector de Encargado de TI */}
+          {/* Selector de Encargado de TI (Integrado con Directorio) */}
           <div className="md:col-span-3 flex items-center gap-2">
             <span className="text-xs font-semibold text-gray-700 whitespace-nowrap flex items-center gap-1">
               <UserCheck className="w-3.5 h-3.5 text-blue-600" />
@@ -481,11 +575,21 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
               className="w-full text-xs font-medium border border-gray-300 rounded-lg px-2.5 py-1.5 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
             >
               <option value="all">👤 Todos los Encargados de TI</option>
-              {itOperators.map(op => (
-                <option key={op} value={op}>
-                  {op}
+              {itOperatorsData.porDefinirCount > 0 && (
+                <option value="por_definir" className="text-amber-700 font-semibold">
+                  ⚠️ Por definir / Sin asignar ({itOperatorsData.porDefinirCount})
                 </option>
-              ))}
+              )}
+              <optgroup label="Especialistas Asignados (Directorio)">
+                {itOperatorsData.assignedSpecialists.map(op => {
+                  const count = stores.filter(s => resolveStoreItOperator(s.itOperator, users).name === op).length;
+                  return (
+                    <option key={op} value={op}>
+                      {op} ({count} {count === 1 ? 'tienda' : 'tiendas'})
+                    </option>
+                  );
+                })}
+              </optgroup>
             </select>
           </div>
 
@@ -685,7 +789,7 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
                     </div>
                   </div>
 
-                  {/* Encargado de TI (Clave solicitada por el usuario) */}
+                  {/* Encargado de TI (Clave solicitada por el usuario, integrada con Directorio) */}
                   <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200">
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-[11px] font-bold text-blue-900 flex items-center gap-1.5">
@@ -696,12 +800,35 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
                         Soporte Onsite
                       </span>
                     </div>
-                    <p className="text-sm font-bold text-blue-950">
-                      {activeStore.itOperator || 'Sin técnico fijo asignado'}
-                    </p>
-                    <p className="text-[11px] text-blue-700 mt-0.5">
-                      Responsable de mantenimiento preventivo, infraestructura y contingencias POS.
-                    </p>
+                    {(() => {
+                      const itOp = resolveStoreItOperator(activeStore.itOperator, users);
+                      if (itOp.isRegistered) {
+                        return (
+                          <div>
+                            <p className="text-sm font-bold text-blue-950 flex items-center gap-1.5">
+                              <span>{itOp.name}</span>
+                              <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                ✓ Registrado en Directorio
+                              </span>
+                            </p>
+                            <p className="text-[11px] text-blue-700 mt-0.5">
+                              {itOp.roleOrCargo || 'Especialista OnSite'} {itOp.contactEmail ? `· ${itOp.contactEmail}` : ''}
+                            </p>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div>
+                          <p className="text-sm font-bold text-amber-800 flex items-center gap-1.5">
+                            <AlertTriangle className="w-4 h-4 text-amber-600" />
+                            <span>Por definir</span>
+                          </p>
+                          <p className="text-[11px] text-amber-700 mt-0.5">
+                            Esta tienda no tiene un especialista registrado en el Directorio asignado.
+                          </p>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Coordenadas GPS con Copiado */}
@@ -845,9 +972,21 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
                                 }`}>
                                   {normFormat}
                                 </span>
-                                <span className="text-[10px] text-blue-600 font-medium">
-                                  TI: {store.itOperator}
-                                </span>
+                                {(() => {
+                                  const itOp = resolveStoreItOperator(store.itOperator, users);
+                                  if (itOp.isRegistered) {
+                                    return (
+                                      <span className="text-[10px] text-blue-700 font-medium">
+                                        TI: {itOp.name}
+                                      </span>
+                                    );
+                                  }
+                                  return (
+                                    <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-1 rounded border border-amber-200">
+                                      TI: Por definir
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             </div>
                           </div>

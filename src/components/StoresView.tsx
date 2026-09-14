@@ -5,6 +5,8 @@ import {
   MapPin,
   Phone,
   User,
+  UserCheck,
+  AlertCircle,
   AlertTriangle,
   Boxes,
   CheckCircle2,
@@ -29,7 +31,7 @@ import {
   Save,
   ClipboardCheck
 } from 'lucide-react';
-import { Store, Equipment, Region } from '../types';
+import { Store, Equipment, Region, AppUser } from '../types';
 import { PeruStoresMap } from './PeruStoresMap';
 import {
   TOTTUS_FORMATS,
@@ -38,10 +40,12 @@ import {
   normalizeStoreFormat,
   getStoreEmpresa
 } from '../utils/storeFormats';
+import { resolveStoreItOperator, getRegisteredItSpecialists } from '../utils/storeItOperators';
 
 interface StoresViewProps {
   stores: Store[];
   equipments: Equipment[];
+  users?: AppUser[];
   onSelectStore: (store: Store) => void;
   onGenerateReportForStore: (store: Store) => void;
   onOpenRegionalAlerts: () => void;
@@ -54,6 +58,7 @@ interface StoresViewProps {
 export const StoresView: React.FC<StoresViewProps> = ({
   stores,
   equipments,
+  users = [],
   onSelectStore,
   onGenerateReportForStore,
   onOpenRegionalAlerts,
@@ -112,16 +117,27 @@ export const StoresView: React.FC<StoresViewProps> = ({
     return Array.from(set).sort();
   }, [stores]);
 
-  // Lista única de encargados de TI presentes en las tiendas
-  const itOperators = useMemo(() => {
-    const set = new Set<string>();
+  // Lista de especialistas IT registrados y asignaciones relacionadas con Directorio
+  const itOperatorsData = useMemo(() => {
+    const directorySpecialists = getRegisteredItSpecialists(users);
+    const assignedSpecialists = new Set<string>();
+    let porDefinirCount = 0;
+
     stores.forEach(s => {
-      if (s.itOperator && s.itOperator.trim()) {
-        set.add(s.itOperator.trim());
+      const resolved = resolveStoreItOperator(s.itOperator, users);
+      if (resolved.isRegistered) {
+        assignedSpecialists.add(resolved.name);
+      } else {
+        porDefinirCount++;
       }
     });
-    return Array.from(set).sort();
-  }, [stores]);
+
+    return {
+      assignedSpecialists: Array.from(assignedSpecialists).sort(),
+      directorySpecialists,
+      porDefinirCount
+    };
+  }, [stores, users]);
 
   const filteredStores = useMemo(() => {
     return stores.filter(store => {
@@ -129,33 +145,45 @@ export const StoresView: React.FC<StoresViewProps> = ({
       const normFormat = normalizeStoreFormat(store.formato);
       const matchesFormat = selectedFormat === 'todos' || normFormat === selectedFormat || store.formato === selectedFormat;
       const matchesCluster = selectedCluster === 'todos' || store.cluster === selectedCluster;
-      const matchesOperator = selectedOperator === 'todos' || (store.itOperator && store.itOperator.toLowerCase() === selectedOperator.toLowerCase());
+      
+      // Filtro por Encargado de TI relacionado con Directorio
+      let matchesOperator = true;
+      if (selectedOperator !== 'todos') {
+        const resolved = resolveStoreItOperator(store.itOperator, users);
+        if (selectedOperator === 'por_definir') {
+          matchesOperator = !resolved.isRegistered;
+        } else {
+          matchesOperator = resolved.name.toLowerCase() === selectedOperator.toLowerCase();
+        }
+      }
 
       const query = searchQuery.toLowerCase().trim();
       if (!query) return matchesRegion && matchesFormat && matchesCluster && matchesOperator;
 
+      const resolvedOp = resolveStoreItOperator(store.itOperator, users);
       const codeStr = String(store.codTienda || store.code || '').toLowerCase();
       const nameStr = (store.name || '').toLowerCase();
       const sapStr = (store.centroCostoSap || store.cecoSap || '').toLowerCase();
       const managerStr = (store.gerenteTienda || store.manager || '').toLowerCase();
       const operatorStr = (store.itOperator || '').toLowerCase();
+      const resolvedOpStr = resolvedOp.name.toLowerCase();
       const addressStr = (store.direccion || store.address || '').toLowerCase();
       const districtStr = (store.distrito || store.city || '').toLowerCase();
       const clusterStr = (store.cluster || '').toLowerCase();
       const zonalStr = (store.gZonal || '').toLowerCase();
 
-      const matchesSearch =
+      return matchesRegion && matchesFormat && matchesCluster && matchesOperator && (
         codeStr.includes(query) ||
         nameStr.includes(query) ||
         sapStr.includes(query) ||
         managerStr.includes(query) ||
         operatorStr.includes(query) ||
+        resolvedOpStr.includes(query) ||
         addressStr.includes(query) ||
         districtStr.includes(query) ||
         clusterStr.includes(query) ||
-        zonalStr.includes(query);
-
-      return matchesRegion && matchesFormat && matchesCluster && matchesOperator && matchesSearch;
+        zonalStr.includes(query)
+      );
     }).sort((a, b) => {
       let valA: string = '';
       let valB: string = '';

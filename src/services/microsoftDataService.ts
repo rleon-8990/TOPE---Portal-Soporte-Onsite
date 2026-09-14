@@ -301,20 +301,46 @@ export const MicrosoftDataService = {
         entities: [
           {
             logicalName: `${prefix}activo`,
-            displayName: 'Activo / Equipo Industrial',
+            displayName: 'Activo / Equipo Portal OnSite',
             primaryField: `${prefix}codigo`,
             fields: [
               { name: `${prefix}codigo`, type: 'SingleLineText', length: 50, required: true },
               { name: `${prefix}nombre`, type: 'SingleLineText', length: 200, required: true },
-              { name: `${prefix}categoria`, type: 'Choice', choices: ['HVAC / Climatización', 'Refrigeración Central', 'Grupos Electrógenos', 'Transformadores', 'Subestaciones'] },
+              { name: `${prefix}categoria`, type: 'Choice', choices: [
+                'POS - CPU', 'POS - DINAKEY', 'POS - GAVETA', 'POS - IMPRESORA TÉRMICA',
+                'POS - SCANNER/BALANZA Y/O SCANNER DE MANO', 'POS - MONITOR CLIENTE',
+                'SCO - CPU', 'SCO - CHASIS', 'SCO - MONITOR CLIENTE', 'SCO - SCANNER MANO',
+                'SCO - SCANNER TORRE', 'TERMINAL MOVIL', 'BALANZAS', 'CONSULTA PRECIOS',
+                'RELOJ MARCADOR', 'SCANNER DE MANO', 'IMPRESORA PORTATIL', 'IMPRESORA INDUSTRIAL',
+                'IMPRESORA DEVOLUCIONES C&C'
+              ] },
               { name: `${prefix}tienda_codigo`, type: 'SingleLineText', length: 20 },
               { name: `${prefix}marca`, type: 'SingleLineText', length: 100 },
               { name: `${prefix}modelo`, type: 'SingleLineText', length: 100 },
               { name: `${prefix}serie`, type: 'SingleLineText', length: 100 },
+              { name: `${prefix}ip_address`, type: 'SingleLineText', length: 50 },
+              { name: `${prefix}switch_nombre`, type: 'SingleLineText', length: 100 },
+              { name: `${prefix}puerto_switch`, type: 'SingleLineText', length: 50 },
               { name: `${prefix}estado_operativo`, type: 'Choice', choices: ['Operativo', 'En Mantenimiento', 'En Falla', 'Fuera de Servicio'] },
               { name: `${prefix}criticidad`, type: 'Choice', choices: ['Critico_A', 'Alto_B', 'Medio_C', 'Bajo_D'] },
               { name: `${prefix}fecha_instalacion`, type: 'DateOnly' },
               { name: `${prefix}proximo_mto`, type: 'DateOnly' }
+            ]
+          },
+          {
+            logicalName: `${prefix}tienda`,
+            displayName: 'Tienda / Sucursal Tottus',
+            primaryField: `${prefix}codigo_tienda`,
+            fields: [
+              { name: `${prefix}codigo_tienda`, type: 'SingleLineText', length: 20, required: true },
+              { name: `${prefix}nombre`, type: 'SingleLineText', length: 150, required: true },
+              { name: `${prefix}cluster`, type: 'SingleLineText', length: 50 },
+              { name: `${prefix}ceco_sap`, type: 'SingleLineText', length: 50 },
+              { name: `${prefix}gerente_tienda`, type: 'SingleLineText', length: 150 },
+              { name: `${prefix}it_operator`, type: 'SingleLineText', length: 150 },
+              { name: `${prefix}direccion`, type: 'SingleLineText', length: 250 },
+              { name: `${prefix}region`, type: 'SingleLineText', length: 50 },
+              { name: `${prefix}formato`, type: 'Choice', choices: ['Hipermercado', 'Supermercado', 'Express', 'Centro de Distribución'] }
             ]
           },
           {

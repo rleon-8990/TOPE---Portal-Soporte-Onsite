@@ -134,7 +134,7 @@ export const SharePointDataverseModal: React.FC<SharePointDataverseModalProps> =
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `schema_${config.mode}_cmms.json`;
+    a.download = `schema_${config.mode}_portal_onsite.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
