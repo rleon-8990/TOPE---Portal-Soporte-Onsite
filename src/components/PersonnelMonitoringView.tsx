@@ -45,7 +45,7 @@ import {
   GeoVictoriaConfig,
   GeoVictoriaPunchRecord
 } from '../types';
-import { GeoVictoriaIntegrationPanel } from './GeoVictoriaIntegrationPanel';
+import { GeoVictoriaReconciliationPanel } from './GeoVictoriaReconciliationPanel';
 import { GeofencingAutomationPanel } from './GeofencingAutomationPanel';
 import {
   getGeoVictoriaConfig,
@@ -82,6 +82,13 @@ export const PersonnelMonitoringView: React.FC<PersonnelMonitoringViewProps> = (
   onQuickCheckOut,
   onQuickTransfer,
 }) => {
+  // Authority check: Only general admins have access to integration views
+  const isGeneralAdmin =
+    currentUser.role === 'Administrador General' ||
+    currentUser.role === 'Administrador' ||
+    currentUser.username === 'admin' ||
+    currentUser.email.toLowerCase().includes('admin');
+
   // Navigation Tabs
   const [activeTab, setActiveTab] = useState<'radar' | 'personal' | 'geovictoria' | 'geofence' | 'log'>('radar');
 
@@ -708,35 +715,39 @@ export const PersonnelMonitoringView: React.FC<PersonnelMonitoringViewProps> = (
           </span>
         </button>
 
-        <button
-          onClick={() => setActiveTab('geovictoria')}
-          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'geovictoria'
-              ? 'bg-emerald-700 text-white shadow-xs'
-              : 'bg-white text-emerald-900 hover:bg-emerald-50 border border-emerald-300'
-          }`}
-        >
-          <Fingerprint className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Conexión GeoVictoria (Biometría)</span>
-          <span className="bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded-full text-[10px]">
-            {geoVictoriaPunches.length}
-          </span>
-        </button>
+        {isGeneralAdmin && (
+          <>
+            <button
+              onClick={() => setActiveTab('geovictoria')}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'geovictoria'
+                  ? 'bg-emerald-700 text-white shadow-xs'
+                  : 'bg-white text-emerald-900 hover:bg-emerald-50 border border-emerald-300'
+              }`}
+            >
+              <Fingerprint className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Cruce GeoVictoria vs OnSite</span>
+              <span className="bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded-full text-[10px]">
+                Planillas
+              </span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('geofence')}
-          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'geofence'
-              ? 'bg-blue-700 text-white shadow-xs'
-              : 'bg-white text-blue-900 hover:bg-blue-50 border border-blue-300'
-          }`}
-        >
-          <Smartphone className="w-3.5 h-3.5 text-blue-600" />
-          <span>Servicio Móvil & Geocercas GPS</span>
-          <span className="bg-blue-100 text-blue-800 font-bold px-1.5 py-0.2 rounded-full text-[10px]">
-            Auto Check-in
-          </span>
-        </button>
+            <button
+              onClick={() => setActiveTab('geofence')}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'geofence'
+                  ? 'bg-blue-700 text-white shadow-xs'
+                  : 'bg-white text-blue-900 hover:bg-blue-50 border border-blue-300'
+              }`}
+            >
+              <Smartphone className="w-3.5 h-3.5 text-blue-600" />
+              <span>Servicio Móvil & Geocercas GPS</span>
+              <span className="bg-blue-100 text-blue-800 font-bold px-1.5 py-0.2 rounded-full text-[10px]">
+                Auto Check-in
+              </span>
+            </button>
+          </>
+        )}
 
         <button
           onClick={() => setActiveTab('log')}
@@ -1135,18 +1146,14 @@ export const PersonnelMonitoringView: React.FC<PersonnelMonitoringViewProps> = (
       )}
 
       {/* ========================================================= */}
-      {/* TAB 3: INTEGRACIÓN GEOVICTORIA (BIOMETRÍA Y PUNCHES)      */}
+      {/* TAB 3: CRUCE GEOVICTORIA (PLANILLAS DESCARGADAS VS ONSITE) */}
       {/* ========================================================= */}
-      {activeTab === 'geovictoria' && (
+      {activeTab === 'geovictoria' && isGeneralAdmin && (
         <div className="space-y-4">
-          <GeoVictoriaIntegrationPanel
-            config={geoVictoriaConfig}
-            punches={geoVictoriaPunches}
+          <GeoVictoriaReconciliationPanel
             users={users}
             stores={stores}
-            onUpdateConfig={handleUpdateGeoVictoriaConfig}
-            onReceivePunch={handleReceiveGeoVictoriaPunch}
-            onBulkSyncPunches={handleBulkSyncGeoVictoria}
+            activePresences={presences}
           />
         </div>
       )}
@@ -1154,7 +1161,7 @@ export const PersonnelMonitoringView: React.FC<PersonnelMonitoringViewProps> = (
       {/* ========================================================= */}
       {/* TAB 4: SERVICIO MÓVIL & GEOCERCAS GPS (AUTO CHECK-IN)     */}
       {/* ========================================================= */}
-      {activeTab === 'geofence' && (
+      {activeTab === 'geofence' && isGeneralAdmin && (
         <div className="space-y-4">
           <GeofencingAutomationPanel
             stores={stores}

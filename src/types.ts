@@ -388,6 +388,8 @@ export interface AppUser {
   canManagePrivileges?: boolean; // Capacidad exclusiva para administrar la matriz de privilegios y asignar permisos a otros
   canManageUsers?: boolean; // Capacidad para crear, editar o dar permisos a usuarios
   username?: string; // Nombre de usuario simplificado para login directo (ej. 'admin')
+  mustChangePassword?: boolean; // true si debe cambiar su clave de inicio en el primer login
+  accountType?: 'microsoft' | 'google' | 'local'; // Tipo de autenticación
 }
 
 export interface AccessRequest {
@@ -1012,6 +1014,65 @@ export interface CoverageValidationAudit {
   dictamenFinal: ValidationAuditStatus;
   observaciones: string;
   actaConformidadPdfUrl?: string;
+}
+
+/** Reporte Diario Consolidado descargado de GeoVictoria (Foto 1) */
+export interface GeoVictoriaDailyReportRow {
+  id: string;
+  apellidos: string;
+  nombre: string;
+  identificado: string; // DNI
+  grupo: string; // ej. 'Sistemas Perú'
+  fecha: string; // ej. 'Mar 28-07-2026 (F)' o 'Jue 30-07-2026'
+  permiso?: string; // ej. 'Ninguno'
+  turno: string; // ej. '07:00 - 16:00(13:00-14:00)'
+  entro?: string; // ej. '07:00 M', '07:02', '06:49'
+  atraso?: string; // ej. '00:00', '00:06', '00:22'
+  salio?: string; // ej. '16:14', '16:27', '16:36'
+  ht?: string; // Horas trabajadas, ej. '08:00', '07:54'
+  cargo: string; // ej. 'PECARGTOT000287 - It Operator'
+}
+
+/** Marcaciones Detalladas descargadas de GeoVictoria (Foto 2) */
+export interface GeoVictoriaPunchRow {
+  id: string;
+  apellidos: string;
+  nombre: string;
+  rut: string; // DNI
+  grupoUsuario: string; // ej. 'Sistemas Perú'
+  fecha: string; // ej. '10-09-2026 06:52:59'
+  tipo: 'Ingreso' | 'Salida';
+  metodoMarca: 'Reloj Control' | 'Marca Web' | string;
+  nombreReloj?: string; // ej. 'IN01-A - TIENDA AQP CAYMA', 'IN01-A - TIENDA PROCERES'
+  relojControl?: string; // ej. 'HHF2244400113'
+}
+
+/** Cruce de Información: Especialista Portal OnSite vs Reporte GeoVictoria */
+export interface GeoVictoriaReconciliationItem {
+  id: string;
+  dni: string;
+  specialistName: string;
+  cargo: string;
+  fecha: string;
+  
+  // Datos registrados en Portal OnSite
+  onsiteStoreName?: string;
+  onsiteStoreCod?: number | string;
+  onsiteActivity?: string; // ej. 'Visita Preventiva POS', 'Atención Ticket JR'
+  onsiteCheckInTime?: string;
+  
+  // Datos descargados de GeoVictoria
+  geoVictoriaTurno?: string;
+  geoVictoriaIngreso?: string;
+  geoVictoriaSalida?: string;
+  geoVictoriaAtraso?: string;
+  geoVictoriaHorasTrabajadas?: string;
+  geoVictoriaRelojTienda?: string;
+  geoVictoriaMetodo?: string;
+  
+  // Estado del cruce
+  status: 'conforme' | 'atraso' | 'desvio_tienda' | 'sin_marcacion_geovictoria' | 'sin_actividad_onsite';
+  diagnostico: string;
 }
 
 

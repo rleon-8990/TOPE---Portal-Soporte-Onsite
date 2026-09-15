@@ -2014,6 +2014,7 @@ export default function App() {
                   stores={stores}
                   equipments={equipments}
                   users={users}
+                  currentUser={currentUser}
                   onSelectStore={(st) => {
                     setCurrentView('inventario');
                   }}

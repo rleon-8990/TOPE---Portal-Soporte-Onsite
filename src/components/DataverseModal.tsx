@@ -23,6 +23,7 @@ import { Store } from '../types';
 import {
   DATAVERSE_CODE_SNIPPETS,
   DATAVERSE_STORE_SCHEMA,
+  DATAVERSE_TABLES,
   DEFAULT_DATAVERSE_CONFIG,
   DataverseConfig,
   queryDataverseLive
@@ -43,6 +44,7 @@ export const DataverseModal: React.FC<DataverseModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'snippets' | 'schema' | 'live'>('snippets');
   const [activeSnippetTab, setActiveSnippetTab] = useState<'nodejs' | 'curl' | 'powerautomate'>('nodejs');
+  const [selectedTableId, setSelectedTableId] = useState<string>('cr_cmms_tiendas');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Live connection state
@@ -270,70 +272,101 @@ export const DataverseModal: React.FC<DataverseModalProps> = ({
         )}
 
         {/* TAB 2: SCHEMA MAPPING */}
-        {activeTab === 'schema' && (
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <div>
-                <h4 className="font-bold text-xs text-[#00236f]">
-                  Tabla Maestra de Tiendas: <code className="bg-[#eff4ff] text-[#00236f] px-1.5 py-0.5 rounded font-mono">cr_cmms_tiendas</code>
-                </h4>
-                <p className="text-[11px] text-[#757682]">
-                  Definición formal de tipos OData, columnas de coordenadas GPS y equivalencias en el sistema Tottus.
-                </p>
+        {activeTab === 'schema' && (() => {
+          const currentTable = DATAVERSE_TABLES.find(t => t.id === selectedTableId) || DATAVERSE_TABLES[0];
+          const activeSchema = currentTable.schema;
+
+          return (
+            <div className="space-y-3">
+              {/* Table Selector Pills */}
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {DATAVERSE_TABLES.map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => setSelectedTableId(t.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                      selectedTableId === t.id
+                        ? 'bg-[#00236f] text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span>{t.name}</span>
+                    <code className="text-[10px] opacity-80">({t.id})</code>
+                  </button>
+                ))}
               </div>
 
-              <button
-                onClick={exportSchemaAsJson}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-[#00236f] font-bold text-xs rounded-lg flex items-center gap-1.5 border border-[#c5c5d3] transition-colors"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Exportar Esquema JSON</span>
-              </button>
-            </div>
+              <div className="flex justify-between items-center pt-1">
+                <div>
+                  <h4 className="font-bold text-xs text-[#00236f]">
+                    Tabla Seleccionada: <code className="bg-[#eff4ff] text-[#00236f] px-1.5 py-0.5 rounded font-mono">{currentTable.id}</code>
+                  </h4>
+                  <p className="text-[11px] text-[#757682]">
+                    {currentTable.description} &bull; {activeSchema.length} columnas mapeadas con Dataverse OData v9.2
+                  </p>
+                </div>
 
-            <div className="border border-[#e2edff] rounded-xl overflow-hidden shadow-xs">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-[#f0f4ff] text-[#00236f] font-bold border-b border-[#dce9ff]">
-                    <th className="py-2.5 px-3">Columna en Dataverse</th>
-                    <th className="py-2.5 px-3">Nombre Lógico / Display</th>
-                    <th className="py-2.5 px-3">Tipo de Dato</th>
-                    <th className="py-2.5 px-3">Campo en la App</th>
-                    <th className="py-2.5 px-3">Descripción</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#f0f4ff]">
-                  {DATAVERSE_STORE_SCHEMA.map(col => (
-                    <tr
-                      key={col.dataverseColumn}
-                      className={`hover:bg-[#fbfdff] ${col.isCoordinate ? 'bg-emerald-50/50 font-medium' : ''}`}
-                    >
-                      <td className="py-2.5 px-3 font-mono font-bold text-[#00236f]">
-                        <span className="flex items-center gap-1.5">
-                          {col.dataverseColumn}
-                          {col.isCoordinate && (
-                            <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-800 text-[10px] rounded font-bold">
-                              GPS
-                            </span>
-                          )}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 text-slate-800">{col.displayName}</td>
-                      <td className="py-2.5 px-3 font-mono text-[11px] text-slate-600">
-                        {col.dataType}
-                        {col.precision && ` (${col.precision}, ${col.scale})`}
-                      </td>
-                      <td className="py-2.5 px-3 font-mono text-emerald-700 font-semibold">
-                        {String(col.appField)}
-                      </td>
-                      <td className="py-2.5 px-3 text-[#757682] text-[11px]">{col.description}</td>
+                <button
+                  onClick={() => {
+                    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(activeSchema, null, 2));
+                    const downloadAnchor = document.createElement('a');
+                    downloadAnchor.setAttribute('href', dataStr);
+                    downloadAnchor.setAttribute('download', `${currentTable.id}_schema.json`);
+                    document.body.appendChild(downloadAnchor);
+                    downloadAnchor.click();
+                    downloadAnchor.remove();
+                  }}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-[#00236f] font-bold text-xs rounded-lg flex items-center gap-1.5 border border-[#c5c5d3] transition-colors cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Exportar JSON ({currentTable.id})</span>
+                </button>
+              </div>
+
+              <div className="border border-[#e2edff] rounded-xl overflow-hidden shadow-xs">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-[#f0f4ff] text-[#00236f] font-bold border-b border-[#dce9ff]">
+                      <th className="py-2.5 px-3">Columna en Dataverse</th>
+                      <th className="py-2.5 px-3">Nombre Lógico / Display</th>
+                      <th className="py-2.5 px-3">Tipo de Dato</th>
+                      <th className="py-2.5 px-3">Campo en la App</th>
+                      <th className="py-2.5 px-3">Descripción</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-[#f0f4ff]">
+                    {activeSchema.map(col => (
+                      <tr
+                        key={col.dataverseColumn}
+                        className={`hover:bg-[#fbfdff] ${col.isCoordinate ? 'bg-emerald-50/50 font-medium' : ''}`}
+                      >
+                        <td className="py-2.5 px-3 font-mono font-bold text-[#00236f]">
+                          <span className="flex items-center gap-1.5">
+                            {col.dataverseColumn}
+                            {col.isCoordinate && (
+                              <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-800 text-[10px] rounded font-bold">
+                                GPS
+                              </span>
+                            )}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-800">{col.displayName}</td>
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-slate-600">
+                          {col.dataType}
+                          {col.precision && ` (${col.precision}, ${col.scale})`}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-emerald-700 font-semibold">
+                          {String(col.appField)}
+                        </td>
+                        <td className="py-2.5 px-3 text-[#757682] text-[11px]">{col.description}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* TAB 3: LIVE CONNECTION & SYNC */}
         {activeTab === 'live' && (

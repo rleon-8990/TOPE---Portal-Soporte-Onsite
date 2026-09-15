@@ -31,6 +31,12 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
 }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
+  const isGeneralAdmin =
+    currentUser.role === 'Administrador General' ||
+    currentUser.role === 'Administrador' ||
+    currentUser.username === 'admin' ||
+    currentUser.email.toLowerCase().includes('admin');
+
   const getTitle = () => {
     switch (currentView) {
       case 'dashboard': return 'Dashboard';
@@ -71,13 +77,15 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
           </button>
         )}
 
-        <button
-          onClick={onOpenM365Sync}
-          className="p-2 rounded-full text-[#00236f] bg-[#eff4ff] hover:bg-[#dce9ff] transition-transform active:scale-95"
-          title="SharePoint & Dataverse"
-        >
-          <TableProperties className="w-4 h-4" />
-        </button>
+        {isGeneralAdmin && (
+          <button
+            onClick={onOpenM365Sync}
+            className="p-2 rounded-full text-[#00236f] bg-[#eff4ff] hover:bg-[#dce9ff] transition-transform active:scale-95"
+            title="SharePoint & Dataverse"
+          >
+            <TableProperties className="w-4 h-4" />
+          </button>
+        )}
 
         <button
           onClick={onOpenQRScanner}

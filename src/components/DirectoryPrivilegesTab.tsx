@@ -359,14 +359,14 @@ export const DirectoryPrivilegesTab: React.FC<DirectoryPrivilegesTabProps> = ({
               👑
             </div>
             <div>
-              <span className="font-bold text-amber-200">Cuenta Administrador Master para Control de Privilegios:</span>
+              <span className="font-bold text-amber-200">Administración General de Privilegios:</span>
               <span className="text-blue-100 ml-1">
-                Usuario: <code className="bg-black/30 px-1 py-0.5 rounded font-mono text-amber-300 font-bold">admin</code> &bull; Clave: <code className="bg-black/30 px-1 py-0.5 rounded font-mono text-amber-300 font-bold">admin</code>
+                El Administrador General tiene potestad para decidir la visibilidad de 1 o varios módulos para los usuarios registrados en el Directorio.
               </span>
             </div>
           </div>
-          <span className="text-[11px] text-blue-200/90 italic">
-            Esta cuenta única es la que otorga los privilegios y asigna quién más los puede dar.
+          <span className="text-[11px] text-blue-200/90 font-medium">
+            Seguridad y Privilegios OnSite
           </span>
         </div>
 

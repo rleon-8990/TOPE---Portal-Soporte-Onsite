@@ -22,7 +22,7 @@ import {
   Repeat
 } from 'lucide-react';
 import { AppUser } from '../types';
-import { hasPageAccess, getRoleConfig, getAllowedModulesForRole } from '../utils/rbac';
+import { hasPageAccess, getRoleConfig, getAllowedModulesForRole, canUserManagePrivileges } from '../utils/rbac';
 
 interface SidebarProps {
   currentView: string;
@@ -73,6 +73,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const roleConfig = getRoleConfig(currentUser.role);
   const totalAllowed = getAllowedModulesForRole(currentUser.role).length;
+  const isGeneralAdmin =
+    currentUser.role === 'Administrador General' ||
+    currentUser.role === 'Administrador' ||
+    currentUser.username === 'admin' ||
+    currentUser.email.toLowerCase().includes('admin') ||
+    canUserManagePrivileges(currentUser);
 
   return (
     <aside
@@ -216,50 +222,54 @@ export const Sidebar: React.FC<SidebarProps> = ({
           );
         })}
 
-        {!isCollapsed && (
-          <div className="pt-4 px-3 pb-1 text-[10px] font-bold text-[#757682] uppercase tracking-wider">
-            Integración & Seguridad
-          </div>
-        )}
-
-        {/* Microsoft SharePoint / Dataverse Connector Button */}
-        <button
-          onClick={onOpenM365Sync}
-          title={isCollapsed ? "SharePoint / Dataverse (Tablas M365)" : undefined}
-          className={`w-full flex items-center rounded-lg text-xs font-semibold transition-colors text-[#00236f] bg-[#eff4ff] hover:bg-[#dce9ff] border border-[#dce9ff] ${
-            isCollapsed ? 'justify-center p-3' : 'gap-3 px-3.5 py-2.5'
-          }`}
-        >
-          <TableProperties className="w-4 h-4 shrink-0 text-[#00236f]" />
-          {!isCollapsed && (
-            <div className="text-left flex-1 min-w-0">
-              <div className="truncate font-bold">SharePoint / Dataverse</div>
-              <div className="text-[10px] font-normal text-[#757682]">
-                Tablas Microsoft 365
-              </div>
-            </div>
-          )}
-        </button>
-
-        {/* Privileges Matrix Button */}
-        {onOpenPrivilegesMatrix && (
-          <button
-            onClick={onOpenPrivilegesMatrix}
-            title={isCollapsed ? "Matriz de Privilegios RBAC" : undefined}
-            className={`w-full flex items-center rounded-lg text-xs font-semibold transition-colors text-slate-700 hover:text-[#00236f] hover:bg-[#eff4ff] border border-transparent hover:border-[#dce9ff] ${
-              isCollapsed ? 'justify-center p-3' : 'gap-3 px-3.5 py-2'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-600" />
+        {isGeneralAdmin && (
+          <>
             {!isCollapsed && (
-              <div className="text-left flex-1 min-w-0">
-                <div className="truncate font-semibold">Matriz de Privilegios</div>
-                <div className="text-[10px] font-normal text-[#757682]">
-                  Roles & Permisos
-                </div>
+              <div className="pt-4 px-3 pb-1 text-[10px] font-bold text-[#757682] uppercase tracking-wider">
+                Integración & Seguridad
               </div>
             )}
-          </button>
+
+            {/* Microsoft SharePoint / Dataverse Connector Button */}
+            <button
+              onClick={onOpenM365Sync}
+              title={isCollapsed ? "SharePoint / Dataverse (Tablas M365)" : undefined}
+              className={`w-full flex items-center rounded-lg text-xs font-semibold transition-colors text-[#00236f] bg-[#eff4ff] hover:bg-[#dce9ff] border border-[#dce9ff] ${
+                isCollapsed ? 'justify-center p-3' : 'gap-3 px-3.5 py-2.5'
+              }`}
+            >
+              <TableProperties className="w-4 h-4 shrink-0 text-[#00236f]" />
+              {!isCollapsed && (
+                <div className="text-left flex-1 min-w-0">
+                  <div className="truncate font-bold">SharePoint / Dataverse</div>
+                  <div className="text-[10px] font-normal text-[#757682]">
+                    Tablas Microsoft 365
+                  </div>
+                </div>
+              )}
+            </button>
+
+            {/* Privileges Matrix Button */}
+            {onOpenPrivilegesMatrix && (
+              <button
+                onClick={onOpenPrivilegesMatrix}
+                title={isCollapsed ? "Matriz de Privilegios RBAC" : undefined}
+                className={`w-full flex items-center rounded-lg text-xs font-semibold transition-colors text-slate-700 hover:text-[#00236f] hover:bg-[#eff4ff] border border-transparent hover:border-[#dce9ff] ${
+                  isCollapsed ? 'justify-center p-3' : 'gap-3 px-3.5 py-2'
+                }`}
+              >
+                <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-600" />
+                {!isCollapsed && (
+                  <div className="text-left flex-1 min-w-0">
+                    <div className="truncate font-semibold">Matriz de Privilegios</div>
+                    <div className="text-[10px] font-normal text-[#757682]">
+                      Roles & Permisos
+                    </div>
+                  </div>
+                )}
+              </button>
+            )}
+          </>
         )}
 
         <button

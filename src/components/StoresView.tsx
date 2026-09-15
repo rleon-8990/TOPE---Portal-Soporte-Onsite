@@ -53,6 +53,7 @@ interface StoresViewProps {
   stores: Store[];
   equipments: Equipment[];
   users?: AppUser[];
+  currentUser?: AppUser;
   onSelectStore: (store: Store) => void;
   onGenerateReportForStore: (store: Store) => void;
   onOpenRegionalAlerts: () => void;
@@ -66,6 +67,7 @@ export const StoresView: React.FC<StoresViewProps> = ({
   stores,
   equipments,
   users = [],
+  currentUser,
   onSelectStore,
   onGenerateReportForStore,
   onOpenRegionalAlerts,
@@ -74,6 +76,12 @@ export const StoresView: React.FC<StoresViewProps> = ({
   onDeleteStore,
   onNavigateToVisitas,
 }) => {
+  const isGeneralAdmin =
+    currentUser?.role === 'Administrador General' ||
+    currentUser?.role === 'Administrador' ||
+    currentUser?.username === 'admin' ||
+    currentUser?.email?.toLowerCase().includes('admin');
+
   const [selectedRegion, setSelectedRegion] = useState<string>('todas');
   const [selectedFormat, setSelectedFormat] = useState<string>('todos');
   const [selectedCluster, setSelectedCluster] = useState<string>('todos');
@@ -358,7 +366,7 @@ export const StoresView: React.FC<StoresViewProps> = ({
             </button>
           </div>
 
-          {onOpenSharePointSync && (
+          {isGeneralAdmin && onOpenSharePointSync && (
             <button
               onClick={onOpenSharePointSync}
               className="bg-emerald-600 text-white px-3.5 py-2 rounded-lg text-xs font-semibold hover:bg-emerald-700 transition-all flex items-center gap-1.5 shadow-sm shadow-emerald-600/20 shrink-0 active:scale-95"
@@ -369,14 +377,16 @@ export const StoresView: React.FC<StoresViewProps> = ({
             </button>
           )}
 
-          <button
-            onClick={() => setShowDataverseModal(true)}
-            className="bg-[#00236f] text-white px-3.5 py-2 rounded-lg text-xs font-semibold hover:bg-[#1e3a8a] transition-all flex items-center gap-1.5 shadow-sm shadow-[#00236f]/20 shrink-0 active:scale-95"
-            title="Ver códigos establecidos y conectar a tablas de Microsoft Dataverse"
-          >
-            <Database className="w-4 h-4 text-emerald-400" />
-            <span>Conexión Dataverse</span>
-          </button>
+          {isGeneralAdmin && (
+            <button
+              onClick={() => setShowDataverseModal(true)}
+              className="bg-[#00236f] text-white px-3.5 py-2 rounded-lg text-xs font-semibold hover:bg-[#1e3a8a] transition-all flex items-center gap-1.5 shadow-sm shadow-[#00236f]/20 shrink-0 active:scale-95"
+              title="Ver códigos establecidos y conectar a tablas de Microsoft Dataverse"
+            >
+              <Database className="w-4 h-4 text-emerald-400" />
+              <span>Conexión Dataverse</span>
+            </button>
+          )}
 
           <button
             onClick={handleExportCSV}

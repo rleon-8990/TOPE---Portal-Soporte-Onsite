@@ -332,13 +332,15 @@ export function getRoleConfig(role: string): RoleConfig {
 export function canUserManagePrivileges(user?: AppUser | null): boolean {
   if (!user) return false;
   
-  // La cuenta 'admin' root o con username 'admin' tiene autoridad master
+  // La cuenta 'admin' root, username 'admin', o rol Administrador / Administrador General tiene autoridad master
   if (
     user.username === 'admin' ||
     user.email.toLowerCase() === 'admin@tottus.com.pe' ||
     user.email.toLowerCase().startsWith('admin@') ||
     user.id === 'usr-admin-master' ||
-    user.id === 'usr-root-admin'
+    user.id === 'usr-root-admin' ||
+    user.role === 'Administrador General' ||
+    user.role === 'Administrador'
   ) {
     return true;
   }

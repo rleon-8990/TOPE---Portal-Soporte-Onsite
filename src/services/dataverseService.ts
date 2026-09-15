@@ -1,10 +1,10 @@
 /**
  * DATAVERSE INTEGRATION SERVICE - TOTTUS ON-SITE CMMS
  * 
- * Contiene las líneas con códigos establecidos, esquemas de tablas OData v9.2,
+ * Contiene las líneas con códigos establecidos, esquemas OData v9.2,
  * configuración de autenticación Azure AD / Microsoft Entra ID y funciones
- * directas para lectura y actualización de coordenadas (Latitud y Longitud)
- * hacia Microsoft Dataverse (Dynamics 365 / Power Apps Dataverse).
+ * directas para lectura y actualización de tablas existentes en Microsoft Dataverse
+ * (Dynamics 365 / Power Apps Dataverse).
  */
 
 import { Store } from '../types';
@@ -30,19 +30,22 @@ export const DEFAULT_DATAVERSE_CONFIG: DataverseConfig = {
 };
 
 /**
- * Esquema OData y mapeo de campos establecidos en Dataverse
+ * Definición de columnas de esquema Dataverse
  */
 export interface DataverseFieldDefinition {
   dataverseColumn: string;
   displayName: string;
-  appField: keyof Store | string;
-  dataType: 'Edm.Int32' | 'Edm.String' | 'Edm.Decimal' | 'Edm.Int32 (Choice)' | 'Edm.Guid';
+  appField: string;
+  dataType: 'Edm.Int32' | 'Edm.String' | 'Edm.Decimal' | 'Edm.Int32 (Choice)' | 'Edm.Guid' | 'Edm.DateTimeOffset' | 'Edm.Boolean';
   precision?: number;
   scale?: number;
   description: string;
   isCoordinate?: boolean;
 }
 
+/**
+ * 1. ESQUEMA TABLA TIENDAS (cr_cmms_tiendas)
+ */
 export const DATAVERSE_STORE_SCHEMA: DataverseFieldDefinition[] = [
   {
     dataverseColumn: 'cr_cmms_tiendaid',
@@ -172,6 +175,80 @@ export const DATAVERSE_STORE_SCHEMA: DataverseFieldDefinition[] = [
 ];
 
 /**
+ * 2. ESQUEMA TABLA EQUIPOS / INVENTARIO (cr_cmms_equipos)
+ */
+export const DATAVERSE_EQUIPMENT_SCHEMA: DataverseFieldDefinition[] = [
+  { dataverseColumn: 'cr_cmms_equipoid', displayName: 'ID Primario (GUID)', appField: 'id', dataType: 'Edm.Guid', description: 'GUID único del activo' },
+  { dataverseColumn: 'cr_cmms_codigo', displayName: 'Código Activo', appField: 'code', dataType: 'Edm.String', description: 'Código único de equipo (ej. POS-001-CPU)' },
+  { dataverseColumn: 'cr_cmms_nombre', displayName: 'Nombre / Descripción', appField: 'name', dataType: 'Edm.String', description: 'Nombre descriptivo del equipo' },
+  { dataverseColumn: 'cr_cmms_categoria', displayName: 'Categoría', appField: 'categoryName', dataType: 'Edm.String', description: 'POS CPU, Scanner Balanza, Zebra Handheld, etc.' },
+  { dataverseColumn: 'cr_cmms_marca', displayName: 'Marca', appField: 'brand', dataType: 'Edm.String', description: 'NCR, Zebra, Datalogic, Honeywell, etc.' },
+  { dataverseColumn: 'cr_cmms_modelo', displayName: 'Modelo', appField: 'model', dataType: 'Edm.String', description: 'Modelo técnico del fabricante' },
+  { dataverseColumn: 'cr_cmms_serie', displayName: 'Número de Serie', appField: 'serialNumber', dataType: 'Edm.String', description: 'Número de serie de fábrica' },
+  { dataverseColumn: 'cr_cmms_codtienda', displayName: 'Código Tienda', appField: 'storeId', dataType: 'Edm.Int32', description: 'Tienda donde se encuentra asignado' },
+  { dataverseColumn: 'cr_cmms_estado', displayName: 'Estado Operativo', appField: 'status', dataType: 'Edm.String', description: 'operativo, falla_menor, falla_critica, baja' },
+  { dataverseColumn: 'cr_cmms_criticidad', displayName: 'Nivel de Criticidad', appField: 'criticality', dataType: 'Edm.String', description: 'alta, media, baja' }
+];
+
+/**
+ * 3. ESQUEMA TABLA TICKETS / HELPDESK (cr_cmms_tickets)
+ */
+export const DATAVERSE_TICKET_SCHEMA: DataverseFieldDefinition[] = [
+  { dataverseColumn: 'cr_cmms_ticketid', displayName: 'ID Primario (GUID)', appField: 'id', dataType: 'Edm.Guid', description: 'GUID único del ticket' },
+  { dataverseColumn: 'cr_cmms_numerojr', displayName: 'Ticket JR / Incidencia', appField: 'ticketJR', dataType: 'Edm.String', description: 'Código de ticket corporativo JR (ej. OCR-020126)' },
+  { dataverseColumn: 'cr_cmms_titulo', displayName: 'Título / Asunto', appField: 'title', dataType: 'Edm.String', description: 'Breve resumen de la avería o requerimiento' },
+  { dataverseColumn: 'cr_cmms_descripcion', displayName: 'Detalle Técnico', appField: 'description', dataType: 'Edm.String', description: 'Descripción completa de la falla' },
+  { dataverseColumn: 'cr_cmms_codtienda', displayName: 'Código Tienda', appField: 'storeId', dataType: 'Edm.Int32', description: 'Tienda afectada' },
+  { dataverseColumn: 'cr_cmms_prioridad', displayName: 'Prioridad', appField: 'priority', dataType: 'Edm.String', description: 'critica, alta, media, baja' },
+  { dataverseColumn: 'cr_cmms_estado', displayName: 'Estado', appField: 'status', dataType: 'Edm.String', description: 'abierto, en_proceso, pendiente_repuesto, resuelto' },
+  { dataverseColumn: 'cr_cmms_asignadoa', displayName: 'Especialista TI Asignado', appField: 'assignedTo', dataType: 'Edm.String', description: 'Nombre del técnico Onsite asignado' },
+  { dataverseColumn: 'cr_cmms_fechacreacion', displayName: 'Fecha Apertura', appField: 'createdAt', dataType: 'Edm.DateTimeOffset', description: 'Fecha y hora de registro' }
+];
+
+/**
+ * 4. ESQUEMA TABLA REPUESTOS COTIZADOS (cr_cmms_repuestos_cotizados)
+ */
+export const DATAVERSE_SPARE_PARTS_SCHEMA: DataverseFieldDefinition[] = [
+  { dataverseColumn: 'cr_cmms_repuestoid', displayName: 'ID Primario (GUID)', appField: 'id', dataType: 'Edm.Guid', description: 'GUID único del repuesto cotizado' },
+  { dataverseColumn: 'cr_cmms_ticketjr', displayName: 'Ticket JR', appField: 'ticketJR', dataType: 'Edm.String', description: 'Ticket JR asociado a la cotización' },
+  { dataverseColumn: 'cr_cmms_proveedor', displayName: 'Proveedor', appField: 'proveedor', dataType: 'Edm.String', description: 'DMS PERU S.A.C, NCR, ZEBRA, PRECISION' },
+  { dataverseColumn: 'cr_cmms_numerocotizacion', displayName: 'N° Cotización', appField: 'numeroCotizacion', dataType: 'Edm.String', description: 'Código de cotización del proveedor' },
+  { dataverseColumn: 'cr_cmms_partnumber', displayName: 'Part Number (P/N)', appField: 'partNumber', dataType: 'Edm.String', description: 'Número de parte oficial del fabricante' },
+  { dataverseColumn: 'cr_cmms_descripcion', displayName: 'Descripción Repuesto', appField: 'descripcionRepuesto', dataType: 'Edm.String', description: 'Detalle de la pieza o componente' },
+  { dataverseColumn: 'cr_cmms_cantidad', displayName: 'Cantidad', appField: 'cantidad', dataType: 'Edm.Int32', description: 'Unidades cotizadas' },
+  { dataverseColumn: 'cr_cmms_preciototal', displayName: 'Monto Total', appField: 'precioTotal', dataType: 'Edm.Decimal', precision: 12, scale: 2, description: 'Costo total en USD / PEN' },
+  { dataverseColumn: 'cr_cmms_solpedsap', displayName: 'SOLPED SAP', appField: 'solpedSap', dataType: 'Edm.String', description: 'Solicitud de pedido SAP' },
+  { dataverseColumn: 'cr_cmms_ordencomprasap', displayName: 'Orden Compra SAP (OC)', appField: 'ordenCompraSap', dataType: 'Edm.String', description: 'Orden de compra oficial en SAP' },
+  { dataverseColumn: 'cr_cmms_hessap', displayName: 'HES SAP', appField: 'hesSap', dataType: 'Edm.String', description: 'Hoja de Entrada de Servicio SAP' },
+  { dataverseColumn: 'cr_cmms_estadovalidacion', displayName: 'Estado Validación', appField: 'estadoValidacion', dataType: 'Edm.String', description: 'validado_conforme, pendiente_validacion, observado_diferencia' }
+];
+
+/**
+ * 5. ESQUEMA TABLA EQUIPOS BACKUP (cr_cmms_equipos_bkp)
+ */
+export const DATAVERSE_BKP_SCHEMA: DataverseFieldDefinition[] = [
+  { dataverseColumn: 'cr_cmms_bkpid', displayName: 'ID Primario (GUID)', appField: 'id', dataType: 'Edm.Guid', description: 'GUID único del equipo backup' },
+  { dataverseColumn: 'cr_cmms_codigobkp', displayName: 'Código BKP', appField: 'codigoBkp', dataType: 'Edm.String', description: 'Código del pool (ej. BKP-ZBR-001)' },
+  { dataverseColumn: 'cr_cmms_tipoequipo', displayName: 'Tipo Equipo', appField: 'tipoEquipo', dataType: 'Edm.String', description: 'Handheld, POS, Balanza, etc.' },
+  { dataverseColumn: 'cr_cmms_marca', displayName: 'Marca', appField: 'marca', dataType: 'Edm.String', description: 'ZEBRA, NCR, etc.' },
+  { dataverseColumn: 'cr_cmms_modelo', displayName: 'Modelo', appField: 'modelo', dataType: 'Edm.String', description: 'Modelo técnico' },
+  { dataverseColumn: 'cr_cmms_serie', displayName: 'Número Serie', appField: 'numeroSerie', dataType: 'Edm.String', description: 'Serie de fábrica del BKP' },
+  { dataverseColumn: 'cr_cmms_almacenubicacion', displayName: 'Ubicación Almacén', appField: 'almacenUbicacion', dataType: 'Edm.String', description: 'Almacén Central Santa Anita, Taller San Isidro, etc.' },
+  { dataverseColumn: 'cr_cmms_estado', displayName: 'Estado Disponibilidad', appField: 'estado', dataType: 'Edm.String', description: 'disponible, prestado, en_reparacion, baja' }
+];
+
+/**
+ * METADATOS DE TABLAS DATAVERSE DISPONIBLES
+ */
+export const DATAVERSE_TABLES = [
+  { id: 'cr_cmms_tiendas', name: 'Tiendas y Sucursales', schema: DATAVERSE_STORE_SCHEMA, icon: 'store', description: 'Sucursales Tottus y Precio Uno con coordenadas Latitud y Longitud' },
+  { id: 'cr_cmms_equipos', name: 'Inventario de Equipos', schema: DATAVERSE_EQUIPMENT_SCHEMA, icon: 'cpu', description: 'Parque de POS, Handhelds, Balanzas y Servidores' },
+  { id: 'cr_cmms_tickets', name: 'Helpdesk & Tickets JR', schema: DATAVERSE_TICKET_SCHEMA, icon: 'ticket', description: 'Incidencias JR, asignaciones Onsite y estado de resolución' },
+  { id: 'cr_cmms_repuestos_cotizados', name: 'Repuestos Cotizados', schema: DATAVERSE_SPARE_PARTS_SCHEMA, icon: 'tool', description: 'Piezas DMS/NCR/Zebra con cruce SAP (SOLPED, OC, HES)' },
+  { id: 'cr_cmms_equipos_bkp', name: 'Pool de Equipos BKP', schema: DATAVERSE_BKP_SCHEMA, icon: 'shield', description: 'Stock de contingencia de TI para relevo en tiendas' }
+];
+
+/**
  * CÓDIGOS ESTABLECIDOS: Muestra y exporta las líneas de código exactas
  * para implementar la conexión en Node.js, TypeScript, Power Automate y cURL.
  */
@@ -214,7 +291,7 @@ async function getDataverseToken(): Promise<string> {
 }
 
 /**
- * Obtener tiendas desde la tabla cr_cmms_tiendas
+ * 1. OBTENER TIENDAS DESDE cr_cmms_tiendas
  */
 export async function getStoresFromDataverse() {
   const token = await getDataverseToken();
@@ -241,8 +318,7 @@ export async function getStoresFromDataverse() {
       'Authorization': \`Bearer \${token}\`,
       'Accept': 'application/json',
       'OData-MaxVersion': '4.0',
-      'OData-Version': '4.0',
-      'Prefer': 'odata.include-annotations="*"'
+      'OData-Version': '4.0'
     }
   });
 
@@ -250,7 +326,7 @@ export async function getStoresFromDataverse() {
 }
 
 /**
- * Actualizar las coordenadas GPS (Latitud y Longitud) de una tienda en Dataverse
+ * 2. ACTUALIZAR COORDENADAS GPS (LATITUD Y LONGITUD) DE UNA TIENDA
  */
 export async function updateStoreCoordinatesInDataverse(storeGuid: string, latitud: number, longitud: number) {
   const token = await getDataverseToken();
@@ -268,12 +344,61 @@ export async function updateStoreCoordinatesInDataverse(storeGuid: string, latit
         'Content-Type': 'application/json',
         'OData-MaxVersion': '4.0',
         'OData-Version': '4.0',
-        'If-Match': '*' // Evitar conflictos de concurrencia
+        'If-Match': '*'
       }
     }
   );
 
   return { success: true, storeGuid, latitud, longitud };
+}
+
+/**
+ * 3. CONSULTAR EQUIPOS DE INVENTARIO (cr_cmms_equipos)
+ */
+export async function getEquipmentsFromDataverse(codTienda?: number) {
+  const token = await getDataverseToken();
+  let url = \`\${DATAVERSE_ORG_URL}/api/data/\${API_VERSION}/cr_cmms_equipos?$top=500\`;
+  if (codTienda) {
+    url += \`&$filter=cr_cmms_codtienda eq \${codTienda}\`;
+  }
+  const response = await axios.get(url, {
+    headers: { 'Authorization': \`Bearer \${token}\`, 'Accept': 'application/json' }
+  });
+  return response.data.value;
+}
+
+/**
+ * 4. INSERTAR NUEVO TICKET JR (cr_cmms_tickets)
+ */
+export async function createTicketInDataverse(ticketData: {
+  numeroJR: string;
+  titulo: string;
+  descripcion: string;
+  codTienda: number;
+  prioridad: string;
+}) {
+  const token = await getDataverseToken();
+  const url = \`\${DATAVERSE_ORG_URL}/api/data/\${API_VERSION}/cr_cmms_tickets\`;
+
+  const response = await axios.post(
+    url,
+    {
+      cr_cmms_numerojr: ticketData.numeroJR,
+      cr_cmms_titulo: ticketData.titulo,
+      cr_cmms_descripcion: ticketData.descripcion,
+      cr_cmms_codtienda: ticketData.codTienda,
+      cr_cmms_prioridad: ticketData.prioridad,
+      cr_cmms_estado: 'abierto'
+    },
+    {
+      headers: {
+        'Authorization': \`Bearer \${token}\`,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+
+  return response.data;
 }`,
 
   // 2. cURL para pruebas en Postman o Terminal
@@ -300,7 +425,12 @@ curl -X PATCH "https://tottus-corp.crm.dynamics.com/api/data/v9.2/cr_cmms_tienda
   -d '{
     "cr_cmms_latitud": -11.993605,
     "cr_cmms_longitud": -77.062062
-  }'`,
+  }'
+
+### 4. Consultar Tickets Abiertos (cr_cmms_tickets)
+curl -X GET "https://tottus-corp.crm.dynamics.com/api/data/v9.2/cr_cmms_tickets?\\$filter=cr_cmms_estado eq 'abierto'" \\
+  -H "Authorization: Bearer TU_ACCESS_TOKEN" \\
+  -H "Accept: application/json"`,
 
   // 3. Flujo Power Automate HTTP Webhook (Opción No-Code para intranet corporativa Tottus)
   powerAutomateWebhook: `{

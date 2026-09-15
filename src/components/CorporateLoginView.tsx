@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { AppUser, LoginAuditRecord, AccessRequest } from '../types';
 import { isCorporateEmail } from '../utils/rbac';
+import { ChangePasswordModal } from './ChangePasswordModal';
 
 interface CorporateLoginViewProps {
   onLoginSuccess: (user: AppUser) => void;
@@ -30,6 +31,7 @@ interface CorporateLoginViewProps {
   loginAuditLogs?: LoginAuditRecord[];
   accessRequests?: AccessRequest[];
   onRequestAccess?: (req: Omit<AccessRequest, 'id' | 'timestamp' | 'status'>) => void;
+  onUpdateUser?: (user: AppUser) => void;
 }
 
 type AuthMode = 'corporate' | 'local' | 'google';
@@ -39,14 +41,15 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
   availableUsers,
   onRecordAuditLog,
   loginAuditLogs = [],
-  onRequestAccess
+  onRequestAccess,
+  onUpdateUser
 }) => {
   // Authentication Mode: Microsoft 365, Cuenta Local, o Google Workspace
   const [authMode, setAuthMode] = useState<AuthMode>('corporate');
 
-  // Form Fields
-  const [email, setEmail] = useState<string>('rleon@tottus.com.pe');
-  const [password, setPassword] = useState<string>('Tottus2026*');
+  // Form Fields - Producción: vacíos por defecto sin contraseñas ni datos expuestos
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [rememberMe, setRememberMe] = useState<boolean>(true);
 
@@ -56,10 +59,11 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
   const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState<boolean>(false);
   const [showAuditModal, setShowAuditModal] = useState<boolean>(false);
+  const [pendingPasswordChangeUser, setPendingPasswordChangeUser] = useState<AppUser | null>(null);
 
   // Microsoft Modal States
   const [showMsalModal, setShowMsalModal] = useState<boolean>(false);
-  const [msalPassword, setMsalPassword] = useState<string>('Tottus2026*');
+  const [msalPassword, setMsalPassword] = useState<string>('');
   const [showMsalPassword, setShowMsalPassword] = useState<boolean>(false);
   const [msalError, setMsalError] = useState<string | null>(null);
   const [msalStep, setMsalStep] = useState<'prompt' | 'authorizing' | 'success'>('prompt');
@@ -67,8 +71,8 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
 
   // Google Modal States
   const [showGoogleModal, setShowGoogleModal] = useState<boolean>(false);
-  const [googleEmail, setGoogleEmail] = useState<string>('rleon@tottus.com.pe');
-  const [googlePassword, setGooglePassword] = useState<string>('Tottus2026*');
+  const [googleEmail, setGoogleEmail] = useState<string>('');
+  const [googlePassword, setGooglePassword] = useState<string>('');
   const [showGooglePassword, setShowGooglePassword] = useState<boolean>(false);
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [googleStep, setGoogleStep] = useState<'prompt' | 'authorizing' | 'success'>('prompt');
@@ -231,12 +235,12 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
     }
 
     // =========================================================================
-    // CASO ESPECIAL ROOT: CUENTA ADMINISTRADOR MASTER (Usuario: admin, Clave: admin)
+    // CASO ESPECIAL ROOT: CUENTA ADMINISTRADOR MASTER (Usuario: admin)
     // =========================================================================
     const isAdminTarget = trimmedEmail === 'admin' || trimmedEmail === 'admin@tottus.com.pe';
     if (isAdminTarget) {
       if (enteredPassword !== 'admin') {
-        setError('Contraseña incorrecta para la cuenta Administrador Master. La contraseña es: admin');
+        setError('Contraseña incorrecta para la cuenta Administrador Master.');
         return;
       }
 
@@ -293,11 +297,11 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
         ipAddress: '10.24.180.1 [Seguridad Central]',
         deviceInfo: 'Consola Central OnSite / Root',
         locationOrStore: 'Sede Central OnSite',
-        notes: 'Inicio de sesión con cuenta única de Administrador Master (admin).'
+        notes: 'Inicio de sesión con cuenta de Administrador Master (admin).'
       };
       if (onRecordAuditLog) onRecordAuditLog(successRecord);
 
-      setSuccessFeedback('Autenticación maestra concedida. Acceso con autoridad total de privilegios.');
+      setSuccessFeedback('Autenticación concedida. Acceso con autoridad total de privilegios.');
       setTimeout(() => {
         setIsAuthenticating(false);
         onLoginSuccess(masterAdminUser);
@@ -305,8 +309,8 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
       return;
     }
 
-    if (!trimmedEmail.includes('@')) {
-      setError('Formato de correo electrónico inválido. Ingrese una dirección válida (ej. usuario@tottus.com.pe) o use "admin".');
+    if (authMode !== 'local' && !trimmedEmail.includes('@')) {
+      setError('Formato de correo electrónico inválido. Ingrese una dirección válida (ej. usuario@tottus.com.pe) o use su usuario en la pestaña Cuenta Local.');
       return;
     }
 
@@ -324,7 +328,7 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
       );
 
       setSelectedUserForMsal(existingUser || null);
-      setMsalPassword(password || 'Tottus2026*');
+      setMsalPassword(password || '');
       setMsalError(null);
       setShowMsalModal(true);
       setMsalStep('prompt');
@@ -336,7 +340,7 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
     // =========================================================================
     if (authMode === 'google') {
       setGoogleEmail(trimmedEmail);
-      setGooglePassword(password || 'Tottus2026*');
+      setGooglePassword(password || '');
       setGoogleError(null);
       setShowGoogleModal(true);
       setGoogleStep('prompt');
@@ -344,7 +348,7 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
     }
 
     // =========================================================================
-    // CASO 3: CUENTA LOCAL (USUARIOS SIN CUENTA MICROSOFT / PERSONAL DE TIENDA)
+    // CASO 3: CUENTA LOCAL (USUARIOS SIN CUENTA MICROSOFT / PROVEEDORES / TIENDA)
     // =========================================================================
     if (!enteredPassword) {
       setError('Por favor, ingrese la contraseña asignada a su usuario en el Directorio.');
@@ -353,9 +357,10 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
 
     setIsAuthenticating(true);
 
-    // 1. REGLA ESTRICTA: El correo DEBE estar registrado en el Directorio de Sistemas (availableUsers)
+    // 1. REGLA ESTRICTA: El usuario o correo DEBE estar registrado en el Directorio de Sistemas (availableUsers)
     const existingUser = availableUsers.find(
-      u => u.email.trim().toLowerCase() === trimmedEmail
+      u => u.email.trim().toLowerCase() === trimmedEmail ||
+           (u.username && u.username.trim().toLowerCase() === trimmedEmail)
     );
 
     if (!existingUser) {
@@ -372,11 +377,11 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
         ipAddress: '190.237.14.88 [Red Externa]',
         deviceInfo: navigator.userAgent.includes('Mobile') ? 'Dispositivo Móvil' : 'Navegador Web / Windows',
         locationOrStore: 'Acceso Denegado',
-        notes: `Intento de inicio de sesión Local RECHAZADO: El correo ${trimmedEmail} no existe en el Directorio de Personal.`
+        notes: `Intento de inicio de sesión Local RECHAZADO: ${trimmedEmail} no existe en el Directorio de Personal.`
       };
       if (onRecordAuditLog) onRecordAuditLog(blockedRecord);
 
-      setError(`⛔ Acceso Denegado: El correo "${trimmedEmail}" no se encuentra registrado en el Directorio de Personal. Si requiere acceso, puede solicitar permisos al Administrador del Sistema.`);
+      setError(`⛔ Acceso Denegado: "${trimmedEmail}" no se encuentra registrado en el Directorio. Si requiere acceso, puede solicitar permisos al Administrador.`);
       return;
     }
 
@@ -398,13 +403,13 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
       };
       if (onRecordAuditLog) onRecordAuditLog(blockedRecord);
 
-      setError(`🔒 Acceso Web Deshabilitado: La cuenta de "${existingUser.name}" (${existingUser.email}) se encuentra suspendida o deshabilitada en el Directorio.`);
+      setError(`🔒 Acceso Web Deshabilitado: La cuenta de "${existingUser.name}" se encuentra suspendida o deshabilitada en el Directorio.`);
       return;
     }
 
     // 3. REGLA CRÍTICA ESTRICTA: VALIDACIÓN DE CONTRASEÑA
     // Comprobar estrictamente la contraseña contra existingUser.password
-    const expectedPassword = existingUser.password || 'Tottus2026*';
+    const expectedPassword = existingUser.password || 'admin';
     if (enteredPassword !== expectedPassword) {
       setIsAuthenticating(false);
       const blockedRecord: LoginAuditRecord = {
@@ -451,10 +456,17 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
 
     if (onRecordAuditLog) onRecordAuditLog(successRecord);
 
+    // Verificar si debe cambiar contraseña en primer login
+    if (updatedUser.mustChangePassword) {
+      setIsAuthenticating(false);
+      setPendingPasswordChangeUser(updatedUser);
+      return;
+    }
+
     setTimeout(() => {
       setIsAuthenticating(false);
       onLoginSuccess(updatedUser);
-    }, 400);
+    }, 450);
   };
 
   /**
@@ -740,10 +752,6 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
                 setAuthMode('corporate');
                 setError(null);
                 setSuccessFeedback(null);
-                if (!email.includes('@tottus.com.pe')) {
-                  setEmail('rleon@tottus.com.pe');
-                  setPassword('Tottus2026*');
-                }
               }}
               className={`py-2.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 authMode === 'corporate'
@@ -767,10 +775,6 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
                 setAuthMode('local');
                 setError(null);
                 setSuccessFeedback(null);
-                if (email === 'rleon@tottus.com.pe') {
-                  setEmail('c.ramos@reliant-cmms.pe');
-                  setPassword('Tottus2026*');
-                }
               }}
               className={`py-2.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 authMode === 'local'
@@ -867,33 +871,6 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
               </div>
             </div>
 
-            {/* Master Admin Direct Access Banner */}
-            <div className="mb-4 p-3 bg-linear-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl flex items-center justify-between gap-2 shadow-2xs">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <ShieldCheck className="w-4.5 h-4.5" />
-                </div>
-                <div className="min-w-0 text-left">
-                  <div className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                    <span>Cuenta Administrador Master</span>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-200 text-amber-900 font-black">ROOT</span>
-                  </div>
-                  <div className="text-[11px] text-amber-800 font-mono">
-                    Usuario: <strong className="bg-amber-100 px-1 rounded text-amber-900 font-bold">admin</strong> &bull; Clave: <strong className="bg-amber-100 px-1 rounded text-amber-900 font-bold">admin</strong>
-                  </div>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleQuickAdminLogin}
-                className="px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded-lg text-xs font-bold shrink-0 transition-all shadow-xs cursor-pointer active:scale-95 flex items-center gap-1"
-                title="Iniciar sesión de inmediato con la cuenta Master admin"
-              >
-                <span>Entrar como Admin</span>
-                <span className="text-[10px]">⚡</span>
-              </button>
-            </div>
-
             {/* Login Form */}
             <form onSubmit={handleAuthenticate} className="space-y-4">
               
@@ -916,10 +893,10 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
                     }}
                     placeholder={
                       authMode === 'corporate'
-                        ? 'admin o nombre.apellido@tottus.com.pe'
+                        ? 'nombre.apellido@tottus.com.pe'
                         : authMode === 'google'
-                        ? 'usuario@falabella.com o gmail'
-                        : 'admin o correo.registrado@reliant-cmms.pe'
+                        ? 'usuario@falabella.com o gmail.com'
+                        : 'Nombre de usuario o correo asignado'
                     }
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00236f]/30 focus:border-[#00236f] transition-all font-mono"
                   />
@@ -964,21 +941,8 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-                    <span>* Se valida contra el Directorio de Seguridad OnSite.</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (email.trim().toLowerCase() === 'admin') {
-                          setPassword('admin');
-                        } else {
-                          setPassword('Tottus2026*');
-                        }
-                      }}
-                      className="text-[#00236f] hover:underline font-semibold cursor-pointer"
-                    >
-                      {email.trim().toLowerCase() === 'admin' ? 'Rellenar "admin"' : 'Rellenar clave demo'}
-                    </button>
+                  <div className="mt-1 text-[11px] text-slate-500">
+                    <span>* Acceso validado y auditado contra el Directorio de Seguridad OnSite.</span>
                   </div>
                 </div>
               )}
@@ -1101,8 +1065,8 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
                   onClick={() => {
                     setAuthMode('google');
                     setShowGoogleModal(true);
-                    setGoogleEmail(email.includes('@') ? email : 'rleon@tottus.com.pe');
-                    setGooglePassword('Tottus2026*');
+                    setGoogleEmail(email.includes('@') ? email : '');
+                    setGooglePassword('');
                     setError(null);
                   }}
                   className="p-2 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
@@ -1122,8 +1086,6 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
                   type="button"
                   onClick={() => {
                     setAuthMode('local');
-                    setEmail('c.ramos@reliant-cmms.pe');
-                    setPassword('Tottus2026*');
                     setError(null);
                   }}
                   className="p-2 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
@@ -1140,50 +1102,6 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
               >
                 <UserPlus className="w-3.5 h-3.5 text-amber-700" />
                 <span>Solicitar Permisos</span>
-              </button>
-            </div>
-
-            {/* Quick Demo Credentials Panel */}
-            <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
-              <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
-                <span>Cuentas de Prueba Registradas en Directorio:</span>
-                <span className="text-slate-400 font-normal">Clave: Tottus2026*</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                {availableUsers.slice(0, 4).map(u => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onClick={() => handleSelectQuickUser(u, u.email.endsWith('@tottus.com.pe') ? 'corporate' : 'local')}
-                    className="text-left px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-[#00236f] bg-white hover:bg-[#00236f]/5 transition-colors cursor-pointer flex items-center justify-between group"
-                  >
-                    <div className="truncate pr-1">
-                      <div className="text-xs font-bold text-slate-800 group-hover:text-[#00236f] truncate">
-                        {u.name}
-                      </div>
-                      <div className="text-[10px] text-slate-500 font-mono truncate">
-                        {u.email}
-                      </div>
-                    </div>
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 shrink-0">
-                      {u.role.split(' ')[0]}
-                    </span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Probar usuario no registrado */}
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail('usuario.nuevo@falabella.com');
-                  setPassword('Tottus2026*');
-                  setAuthMode('corporate');
-                  setError(null);
-                }}
-                className="w-full text-center text-[10px] text-slate-400 hover:text-slate-600 py-1 cursor-pointer transition-colors"
-              >
-                Probar validación con correo no registrado (usuario.nuevo@falabella.com)
               </button>
             </div>
 
@@ -1289,15 +1207,8 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
                         {showMsalPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
-                    <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                    <div className="text-[11px] text-slate-500 pt-1">
                       <span>* Contraseña asignada en Directorio</span>
-                      <button
-                        type="button"
-                        onClick={() => setMsalPassword('Tottus2026*')}
-                        className="text-[#0067b8] hover:underline font-semibold"
-                      >
-                        Usar Tottus2026*
-                      </button>
                     </div>
                   </div>
 
@@ -1456,15 +1367,8 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
                         {showGooglePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
-                    <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                    <div className="text-[11px] text-slate-500 pt-1">
                       <span>* Clave registrada en Directorio</span>
-                      <button
-                        type="button"
-                        onClick={() => setGooglePassword('Tottus2026*')}
-                        className="text-[#1a73e8] hover:underline font-semibold"
-                      >
-                        Rellenar Tottus2026*
-                      </button>
                     </div>
                   </div>
 
@@ -1776,33 +1680,43 @@ export const CorporateLoginView: React.FC<CorporateLoginViewProps> = ({
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              Por políticas de seguridad corporativa Falabella/Tottus, las contraseñas locales son administradas por la Dirección de Mantenimiento & TI.
+              Por políticas de seguridad corporativa Falabella / Tottus, las contraseñas y accesos son administrados por el Administrador General del Sistema y la Dirección de Mantenimiento & TI.
             </p>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-700 space-y-1">
-              <div><strong>Contraseña Estándar de Demostración:</strong></div>
-              <div className="font-mono text-sm font-bold text-[#00236f] bg-white p-2 rounded border border-slate-200 inline-block">
-                Tottus2026*
-              </div>
-              <p className="text-[11px] text-slate-500 pt-1">
-                Aplica para todas las cuentas registradas en el Directorio local inicial.
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-700 space-y-2">
+              <div className="font-bold text-slate-900">¿Olvidó su contraseña o requiere restablecerla?</div>
+              <p className="text-slate-600 leading-relaxed">
+                Contacte directamente al Administrador General o envíe una solicitud formal de soporte a <strong className="font-mono text-[#00236f]">soporte.mantenimiento@tottus.com.pe</strong> indicando su usuario o correo y motivo de reactivación.
               </p>
             </div>
 
             <div className="flex justify-end pt-2">
               <button
                 type="button"
-                onClick={() => {
-                  setPassword('Tottus2026*');
-                  setShowForgotPasswordModal(false);
-                }}
+                onClick={() => setShowForgotPasswordModal(false)}
                 className="px-4 py-2 bg-[#00236f] text-white font-bold rounded-lg text-xs hover:bg-[#1a3882] cursor-pointer"
               >
-                Aplicar Tottus2026* y Cerrar
+                Entendido
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal Obligatorio de Cambio de Contraseña Inicial */}
+      {pendingPasswordChangeUser && (
+        <ChangePasswordModal
+          user={pendingPasswordChangeUser}
+          isMandatory={true}
+          onClose={() => setPendingPasswordChangeUser(null)}
+          onPasswordChanged={(updatedUser) => {
+            if (onUpdateUser) {
+              onUpdateUser(updatedUser);
+            }
+            setPendingPasswordChangeUser(null);
+            onLoginSuccess(updatedUser);
+          }}
+        />
       )}
 
     </div>
