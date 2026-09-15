@@ -10,6 +10,7 @@ import {
   INITIAL_REGIONAL_ALERTS,
   INITIAL_ACCESS_REQUESTS
 } from './data/mockData';
+import { TOTTUS_OFFICIAL_STORES } from './data/tottusStoresOfficial';
 import {
   Equipment,
   Store,
@@ -88,13 +89,24 @@ export default function App() {
   // Navigation State
   const [currentView, setCurrentView] = useState<string>('dashboard');
 
-  // Core Data State with localStorage persistence for synced stores
+  // Core Data State with localStorage persistence for synced stores (excluyendo datos ficticios)
   const [stores, setStores] = useState<Store[]>(() => {
     try {
       const saved = localStorage.getItem('reliant_cmms_stores_data');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return enrichStoresWithVisits(parsed, INITIAL_PREVENTIVE_VISITS);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Filtrar tiendas ficticias que puedan haber quedado en el localStorage (ej. ids store-3xx o códigos >= 301)
+          const officialCodSet = new Set(TOTTUS_OFFICIAL_STORES.map(o => o.cod));
+          const cleanStores = parsed.filter((s: any) => {
+            const codNum = Number(s.codTienda || String(s.code || '').replace(/\D/g, ''));
+            // Mantener solo tiendas oficiales o creadas deliberadamente válidas
+            return officialCodSet.has(codNum) || (s.id && !s.id.startsWith('store-3') && codNum < 300);
+          });
+          if (cleanStores.length > 0) {
+            return enrichStoresWithVisits(cleanStores, INITIAL_PREVENTIVE_VISITS);
+          }
+        }
       }
     } catch (e) {
       console.warn('Error reading saved stores', e);
@@ -1970,6 +1982,7 @@ export default function App() {
                   tickets={tickets}
                   workOrders={workOrders}
                   stores={stores}
+                  users={users}
                   onNavigate={setCurrentView}
                   onOpenNewTicket={() => setCurrentView('helpdesk')}
                   onOpenQRScanner={() => setShowQRScanner(true)}
@@ -2000,6 +2013,7 @@ export default function App() {
                 <StoresView
                   stores={stores}
                   equipments={equipments}
+                  users={users}
                   onSelectStore={(st) => {
                     setCurrentView('inventario');
                   }}

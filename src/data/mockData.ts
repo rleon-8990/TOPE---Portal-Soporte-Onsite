@@ -86,96 +86,6 @@ export const ALL_STORES: Store[] = (() => {
     });
   });
 
-  // 2. Complementar las tiendas provinciales y zonales restantes hasta 90 sucursales
-  const remainingCount = 90 - stores.length;
-  let runningIndex = 301;
-
-  const extraRegions: { region: Store['region']; city: string; cluster: string; format: string; prov: string; ceco: string; lat: number; lng: number }[] = [
-    { region: 'Zona Sur', city: 'Arequipa Parra', cluster: 'GLP', format: 'Hiper', prov: 'Arequipa', ceco: 'P009103501', lat: -16.4090, lng: -71.5375 },
-    { region: 'Zona Sur', city: 'AQP Porongoche', cluster: 'GLP', format: 'Hiper', prov: 'Arequipa', ceco: 'P009103601', lat: -16.4223, lng: -71.5165 },
-    { region: 'Zona Sur', city: 'AQP Cayma', cluster: 'MLA', format: 'Hiper Compacto', prov: 'Arequipa', ceco: 'P009105701', lat: -16.3855, lng: -71.5450 },
-    { region: 'Zona Sur', city: 'AQP Ejército', cluster: 'MLX', format: 'Hiper Compacto', prov: 'Arequipa', ceco: 'P009103701', lat: -16.3910, lng: -71.5410 },
-    { region: 'Zona Sur', city: 'Cusco San Jerónimo', cluster: 'GLA', format: 'Hiper', prov: 'Cusco', ceco: 'P009105801', lat: -13.5412, lng: -71.8845 },
-    { region: 'Zona Sur', city: 'Tacna Coronel Mendoza', cluster: 'MLP', format: 'Hiper Compacto', prov: 'Tacna', ceco: 'P009105901', lat: -18.0125, lng: -70.2450 },
-    { region: 'Zona Sur', city: 'Ica Mall Plaza', cluster: 'GLP', format: 'Hiper', prov: 'Ica', ceco: 'P009104001', lat: -14.0720, lng: -75.7330 },
-    { region: 'Zona Sur', city: 'Chincha', cluster: 'MLX', format: 'Hiper Compacto', prov: 'Chincha', ceco: 'P009104201', lat: -13.4215, lng: -76.1360 },
-    { region: 'Zona Sur', city: 'Puno Bellavista', cluster: 'MLA', format: 'Super', prov: 'Puno', ceco: 'P009106001', lat: -15.8360, lng: -70.0240 },
-    { region: 'Zona Sur', city: 'Juliaca Túpac Amaru', cluster: 'MLP', format: 'Hiper', prov: 'San Román', ceco: 'P009106101', lat: -15.4950, lng: -70.1290 },
-    { region: 'Zona Sur', city: 'Moquegua Balta', cluster: 'VECINO', format: 'Vecino', prov: 'Mariscal Nieto', ceco: 'P009106201', lat: -17.1950, lng: -70.9320 },
-    { region: 'Zona Sur', city: 'SB Arequipa Miraflores', cluster: 'SB', format: 'SuperBodega', prov: 'Arequipa', ceco: 'P010103101', lat: -16.4020, lng: -71.5210 },
-    { region: 'Zona Norte', city: 'Trujillo Mall Plaza', cluster: 'GLP', format: 'Hiper', prov: 'Trujillo', ceco: 'P009103101', lat: -8.1020, lng: -79.0480 },
-    { region: 'Zona Norte', city: 'Trujillo Los Jardines', cluster: 'MLA', format: 'Hiper Compacto', prov: 'Trujillo', ceco: 'P009103201', lat: -8.1180, lng: -79.0250 },
-    { region: 'Zona Norte', city: 'Chiclayo San José', cluster: 'GLA', format: 'Hiper', prov: 'Chiclayo', ceco: 'P009103401', lat: -6.7720, lng: -79.8430 },
-    { region: 'Zona Norte', city: 'Chiclayo Balta', cluster: 'MLX', format: 'Super Extendido', prov: 'Chiclayo', ceco: 'P009104301', lat: -6.7650, lng: -79.8390 },
-    { region: 'Zona Norte', city: 'Piura Sánchez Cerro', cluster: 'GLP', format: 'Hiper', prov: 'Piura', ceco: 'P009104501', lat: -5.1880, lng: -80.6380 },
-    { region: 'Zona Norte', city: 'Piura Open Plaza', cluster: 'GLA', format: 'Hiper', prov: 'Piura', ceco: 'P009104701', lat: -5.1960, lng: -80.6220 },
-    { region: 'Zona Norte', city: 'Sullana', cluster: 'MLP', format: 'Hiper Compacto', prov: 'Sullana', ceco: 'P009104801', lat: -4.9030, lng: -80.6850 },
-    { region: 'Zona Norte', city: 'Chimbote Los Héroes', cluster: 'MLX', format: 'Hiper Compacto', prov: 'Santa', ceco: 'P009104901', lat: -9.0780, lng: -78.5880 },
-    { region: 'Zona Norte', city: 'Cajamarca Real Plaza', cluster: 'GLA', format: 'Hiper', prov: 'Cajamarca', ceco: 'P009105101', lat: -7.1650, lng: -78.5080 },
-    { region: 'Zona Norte', city: 'Tumbes Panamericana', cluster: 'VECINO', format: 'Vecino', prov: 'Tumbes', ceco: 'P009105201', lat: -3.5680, lng: -80.4480 },
-    { region: 'Zona Norte', city: 'Huaraz Centenario', cluster: 'MLA', format: 'Super', prov: 'Huaraz', ceco: 'P009105301', lat: -9.5250, lng: -77.5310 },
-    { region: 'Zona Norte', city: 'SB Trujillo La Hermelinda', cluster: 'SB', format: 'SuperBodega', prov: 'Trujillo', ceco: 'P010103201', lat: -8.0950, lng: -79.0350 },
-    { region: 'Zona Norte', city: 'HB Chiclayo Oeste', cluster: 'HB', format: 'HiperBodega', prov: 'Chiclayo', ceco: 'P010103301', lat: -6.7780, lng: -79.8520 },
-    { region: 'Zona Centro', city: 'Huancayo Ferrocarril', cluster: 'GLP', format: 'Super Extendido', prov: 'Huancayo', ceco: 'P009105601', lat: -12.0680, lng: -75.2080 },
-    { region: 'Zona Centro', city: 'Huánuco Real Plaza', cluster: 'GLA', format: 'Hiper Compacto', prov: 'Huánuco', ceco: 'P009106301', lat: -9.9320, lng: -76.2410 },
-    { region: 'Zona Centro', city: 'Cerro de Pasco Chaupimarca', cluster: 'VECINO', format: 'Vecino', prov: 'Pasco', ceco: 'P009106401', lat: -10.6850, lng: -76.2540 },
-    { region: 'Zona Centro', city: 'Tarma', cluster: 'VECINO', format: 'Vecino', prov: 'Tarma', ceco: 'P009106501', lat: -11.4210, lng: -75.6880 },
-    { region: 'Zona Centro', city: 'Ayacucho Mariscal Cáceres', cluster: 'MLP', format: 'Hiper Compacto', prov: 'Huamanga', ceco: 'P009106701', lat: -13.1610, lng: -74.2210 },
-    { region: 'Zona Centro', city: 'Huancavelica', cluster: 'VECINO', format: 'Vecino', prov: 'Huancavelica', ceco: 'P009106801', lat: -12.7880, lng: -74.9740 },
-    { region: 'Zona Centro', city: 'SB Huancayo El Tambo', cluster: 'SB', format: 'SuperBodega', prov: 'Huancayo', ceco: 'P010104101', lat: -12.0520, lng: -75.2150 },
-    { region: 'Zona Oriente', city: 'HB Moyobamba', cluster: 'HB', format: 'HiperBodega', prov: 'Moyobamba', ceco: 'P010109801', lat: -6.0350, lng: -76.9730 },
-    { region: 'Zona Oriente', city: 'HB Tarapoto', cluster: 'HB', format: 'HiperBodega', prov: 'San Martín', ceco: 'P010109901', lat: -6.4880, lng: -76.3650 },
-    { region: 'Zona Oriente', city: 'Pucallpa Centenario', cluster: 'GLA', format: 'Hiper', prov: 'Coronel Portillo', ceco: 'P009106901', lat: -8.3810, lng: -74.5510 },
-    { region: 'Zona Oriente', city: 'Iquitos Próspero', cluster: 'GLP', format: 'Hiper', prov: 'Maynas', ceco: 'P009107001', lat: -3.7460, lng: -73.2490 },
-    { region: 'Zona Oriente', city: 'Puerto Maldonado Madre de Dios', cluster: 'MLA', format: 'Super', prov: 'Tambopata', ceco: 'P009107101', lat: -12.5950, lng: -69.1860 },
-    { region: 'Lima y Callao', city: 'CD Huachipa Secos', cluster: 'CD', format: 'Super Extendido', prov: 'Lima', ceco: 'P009801001', lat: -12.0089, lng: -76.9381 },
-    { region: 'Lima y Callao', city: 'CD Huachipa Frescos', cluster: 'CD', format: 'Super Extendido', prov: 'Lima', ceco: 'P009821001', lat: -12.0110, lng: -76.9360 },
-    { region: 'Lima y Callao', city: 'PPA Huachipa', cluster: 'PPA', format: 'Hiper Compacto', prov: 'Lima', ceco: 'P009802001', lat: -12.0075, lng: -76.9400 },
-  ];
-
-  for (let i = 0; i < remainingCount; i++) {
-    const template = extraRegions[i % extraRegions.length];
-    const codNum = runningIndex + i;
-    const isCritical = (i % 8 === 0);
-    const isWarning = (i % 5 === 0 && !isCritical);
-    const operationalRate = isCritical ? +(85 + (i % 5)).toFixed(1) : isWarning ? +(92 + (i % 4)).toFixed(1) : +(97 + (i % 3) * 0.9).toFixed(1);
-    const repeatFactor = Math.floor(i / extraRegions.length);
-    const jitterLat = (repeatFactor * 0.012) * (i % 2 === 0 ? 1 : -1);
-    const jitterLng = (repeatFactor * 0.012) * (i % 2 === 0 ? -1 : 1);
-
-    stores.push({
-      id: `store-${codNum}`,
-      code: `T-${codNum}`,
-      codTienda: codNum,
-      name: i < extraRegions.length ? template.city : `${template.city} #${repeatFactor + 1}`,
-      cluster: template.cluster,
-      centroCostoSap: template.ceco || `P00910${(70 + (i % 25)).toString().padStart(3, '0')}01`,
-      cecoSap: template.ceco || `P00910${(70 + (i % 25)).toString().padStart(3, '0')}01`,
-      gZonal: ['G Luna', 'S Nazzal', 'M Torres', 'C Farfan', 'G Larrab', 'J Hidalgo'][i % 6],
-      gerenteTienda: ['Ronald Lopez P', 'Eduardo Salas', 'Karina Villalobos', 'Gonzalo Morales', 'Lucia Valverde', 'Hector Peña'][i % 6],
-      direccion: `Av. Los Libertadores #${100 + i * 15} - ${template.prov}`,
-      formato: normalizeStoreFormat(template.format),
-      itOperator: ['Adrian Lipa', 'Jose Bravo', 'Roger Leon', 'Fernando Quispe'][i % 4],
-      ubigeo: 0,
-      region: template.region,
-      provincia: template.prov,
-      distrito: template.prov,
-      situacion: i % 2 === 0 ? 'Propia' : 'Alquilada',
-      latitud: +(template.lat + jitterLat).toFixed(6),
-      longitud: +(template.lng + jitterLng).toFixed(6),
-      city: template.prov,
-      address: `Av. Los Libertadores #${100 + i * 15} - ${template.prov}`,
-      phone: `+51 1 ${400 + (codNum % 100)}-${5000 + codNum}`,
-      manager: ['Ronald Lopez P', 'Eduardo Salas', 'Karina Villalobos', 'Gonzalo Morales', 'Lucia Valverde', 'Hector Peña'][i % 6],
-      managerEmail: `administrador.t${codNum}@tottus.com.pe`,
-      totalEquipments: 12 + (i % 7) * 3,
-      operationalRate: operationalRate,
-      activeAlerts: isCritical ? 2 : isWarning ? 1 : 0,
-      criticalIssues: isCritical ? 1 : 0,
-      status: isCritical ? 'alerta_regional' : isWarning ? 'mantenimiento_general' : 'activa',
-    });
-  }
-
   return stores;
 })();
 
@@ -1266,7 +1176,7 @@ export const INITIAL_EQUIPMENT_LIST: Equipment[] = [
   }
 ];
 
-export const INITIAL_TICKETS: Ticket[] = [
+const RAW_TICKETS: Ticket[] = [
   {
     id: 'tk-101',
     code: 'TK-1024',
@@ -2079,7 +1989,17 @@ export const INITIAL_TICKETS: Ticket[] = [
   }
 ];
 
-export const INITIAL_WORK_ORDERS: WorkOrder[] = [
+export const INITIAL_TICKETS: Ticket[] = RAW_TICKETS.map((tk, idx) => {
+  const matchingStore = ALL_STORES.find(s => s.id === tk.storeId) || ALL_STORES[idx % ALL_STORES.length];
+  return {
+    ...tk,
+    storeId: matchingStore.id,
+    storeName: matchingStore.name,
+    region: matchingStore.region,
+  };
+});
+
+const RAW_WORK_ORDERS: WorkOrder[] = [
   {
     id: 'wo-1',
     code: 'WO-8921',
@@ -2163,6 +2083,16 @@ export const INITIAL_WORK_ORDERS: WorkOrder[] = [
     ]
   }
 ];
+
+export const INITIAL_WORK_ORDERS: WorkOrder[] = RAW_WORK_ORDERS.map((wo, idx) => {
+  const matchingStore = ALL_STORES.find(s => s.id === wo.storeId) || ALL_STORES[idx % ALL_STORES.length];
+  return {
+    ...wo,
+    storeId: matchingStore.id,
+    storeName: matchingStore.name,
+    region: matchingStore.region,
+  };
+});
 
 export const INITIAL_USERS: AppUser[] = [
   // Cuenta Administrador Master Única para Control y Delegación de Privilegios
@@ -2782,7 +2712,9 @@ const getManufacturerLifeYears = (categoryId: string): number => {
 };
 
 export const INITIAL_EQUIPMENTS: Equipment[] = INITIAL_EQUIPMENT_LIST.map((eq, index) => {
-  const storeNum = eq.storeCodeNumber || eq.storeCode?.replace(/\D/g, '') || String(100 + (index % 80));
+  // Garantizar que cada activo pertenezca a una tienda oficial existente
+  const matchingStore = ALL_STORES.find(s => s.id === eq.storeId || s.codTienda === Number(eq.storeCodeNumber)) || ALL_STORES[index % ALL_STORES.length];
+  const storeNum = String(matchingStore.codTienda || matchingStore.code.replace(/\D/g, '')).padStart(3, '0');
   const cleanCode = eq.code.replace(/[^A-Z0-9]/gi, '');
   const assetCode = eq.codigoActivo || `AF-TOT-${storeNum}-${cleanCode || String(1000 + index)}`;
   
@@ -2821,6 +2753,11 @@ export const INITIAL_EQUIPMENTS: Equipment[] = INITIAL_EQUIPMENT_LIST.map((eq, i
 
   return {
     ...eq,
+    storeId: matchingStore.id,
+    storeName: matchingStore.name,
+    storeCode: matchingStore.code,
+    storeCodeNumber: String(matchingStore.codTienda || ''),
+    centroCostos: matchingStore.centroCostoSap || eq.centroCostos,
     codigoActivo: assetCode,
     fechaCompra: purchaseDate,
     anoCompra,

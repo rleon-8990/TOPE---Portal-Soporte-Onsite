@@ -29,10 +29,17 @@ import {
   Edit2,
   Trash2,
   Save,
-  ClipboardCheck
+  ClipboardCheck,
+  Database,
+  Pencil,
+  Compass,
+  ExternalLink
 } from 'lucide-react';
 import { Store, Equipment, Region, AppUser } from '../types';
 import { PeruStoresMap } from './PeruStoresMap';
+import { StoreCoordinateModal } from './StoreCoordinateModal';
+import { DataverseModal } from './DataverseModal';
+import { validateCoordinatesPeru } from '../services/dataverseService';
 import {
   TOTTUS_FORMATS,
   PRECIO_UNO_FORMATS,
@@ -77,6 +84,8 @@ export const StoresView: React.FC<StoresViewProps> = ({
   const [selectedStoreDetail, setSelectedStoreDetail] = useState<Store | null>(null);
   const [editingStore, setEditingStore] = useState<Store | null>(null);
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
+  const [editingCoordinatesStore, setEditingCoordinatesStore] = useState<Store | null>(null);
+  const [showDataverseModal, setShowDataverseModal] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [copiedText, setCopiedText] = useState<string | null>(null);
   const [sortField, setSortField] = useState<keyof Store | 'sapCeco'>('codTienda');
@@ -208,6 +217,14 @@ export const StoresView: React.FC<StoresViewProps> = ({
         const numA = Number(a.operationalRate) || 0;
         const numB = Number(b.operationalRate) || 0;
         return sortAsc ? numA - numB : numB - numA;
+      } else if (sortField === 'latitud') {
+        const numA = typeof a.latitud === 'number' ? a.latitud : -999;
+        const numB = typeof b.latitud === 'number' ? b.latitud : -999;
+        return sortAsc ? numA - numB : numB - numA;
+      } else if (sortField === 'longitud') {
+        const numA = typeof a.longitud === 'number' ? a.longitud : -999;
+        const numB = typeof b.longitud === 'number' ? b.longitud : -999;
+        return sortAsc ? numA - numB : numB - numA;
       } else {
         valA = (a[sortField as keyof Store] ?? '').toString().toLowerCase();
         valB = (b[sortField as keyof Store] ?? '').toString().toLowerCase();
@@ -282,6 +299,16 @@ export const StoresView: React.FC<StoresViewProps> = ({
     alert(`Sucursal ${editingStore.name} actualizada correctamente.`);
   };
 
+  const handleSaveCoordinates = (updatedStore: Store) => {
+    if (onUpdateStore) {
+      onUpdateStore(updatedStore);
+    }
+    if (selectedStoreDetail?.id === updatedStore.id) {
+      setSelectedStoreDetail(updatedStore);
+    }
+    setEditingCoordinatesStore(null);
+  };
+
   return (
     <div className="space-y-4 pb-12 animate-fadeIn">
       {/* Header */}
@@ -341,6 +368,15 @@ export const StoresView: React.FC<StoresViewProps> = ({
               <span>SharePoint Sync</span>
             </button>
           )}
+
+          <button
+            onClick={() => setShowDataverseModal(true)}
+            className="bg-[#00236f] text-white px-3.5 py-2 rounded-lg text-xs font-semibold hover:bg-[#1e3a8a] transition-all flex items-center gap-1.5 shadow-sm shadow-[#00236f]/20 shrink-0 active:scale-95"
+            title="Ver códigos establecidos y conectar a tablas de Microsoft Dataverse"
+          >
+            <Database className="w-4 h-4 text-emerald-400" />
+            <span>Conexión Dataverse</span>
+          </button>
 
           <button
             onClick={handleExportCSV}
@@ -434,10 +470,22 @@ export const StoresView: React.FC<StoresViewProps> = ({
               className="h-9 px-3 bg-[#f8f9ff] rounded-lg text-xs text-[#0b1c30] border border-[#dce9ff] focus:outline-none focus:ring-1 focus:ring-[#00236f] focus:bg-white font-medium"
               title="Filtrar por Encargado de TI / IT Operator"
             >
-              <option value="todos">Todos los Encargados de TI ({itOperators.length})</option>
-              {itOperators.map(op => (
-                <option key={op} value={op}>TI: {op}</option>
-              ))}
+              <option value="todos">Todos los Encargados de TI</option>
+              {itOperatorsData.porDefinirCount > 0 && (
+                <option value="por_definir" className="text-amber-700 font-semibold">
+                  ⚠️ Por definir / Sin asignar ({itOperatorsData.porDefinirCount})
+                </option>
+              )}
+              <optgroup label="Especialistas Asignados (Directorio)">
+                {itOperatorsData.assignedSpecialists.map(op => {
+                  const count = stores.filter(s => resolveStoreItOperator(s.itOperator, users).name === op).length;
+                  return (
+                    <option key={op} value={op}>
+                      TI: {op} ({count} {count === 1 ? 'tienda' : 'tiendas'})
+                    </option>
+                  );
+                })}
+              </optgroup>
             </select>
 
             {/* Cluster filter */}
@@ -492,6 +540,7 @@ export const StoresView: React.FC<StoresViewProps> = ({
         <div className="bg-white rounded-2xl border border-[#dce9ff] shadow-sm p-3 sm:p-4 overflow-hidden">
           <PeruStoresMap
             stores={filteredStores}
+            users={users}
             onSelectStore={onSelectStore}
             onOpenReportModal={onGenerateReportForStore}
             selectedStoreId={highlightStoreId}
@@ -658,8 +707,20 @@ export const StoresView: React.FC<StoresViewProps> = ({
                     </span>
                   </div>
                 </th>
-                <th className="py-3 px-3 text-center min-w-[130px]">
-                  COORDENADAS
+                <th
+                  onClick={() => handleSort('latitud')}
+                  className={`py-3 px-3 text-center min-w-[190px] cursor-pointer hover:bg-[#e2edff] transition-colors group ${
+                    sortField === 'latitud' || sortField === 'longitud' ? 'bg-[#e2edff]' : ''
+                  }`}
+                  title="Ordenar por Coordenadas Latitud / Longitud (GPS) para validar ubicación"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-[#00873d]" />
+                    <span>LATITUD / LONGITUD (GPS)</span>
+                    <span className="text-xs font-bold shrink-0">
+                      {sortField === 'latitud' || sortField === 'longitud' ? (sortAsc ? '▲' : '▼') : <ArrowUpDown className="w-3 h-3 text-[#757682]/40 group-hover:text-[#00236f]" />}
+                    </span>
+                  </div>
                 </th>
                 <th
                   onClick={() => handleSort('totalEquipments')}
@@ -796,10 +857,29 @@ export const StoresView: React.FC<StoresViewProps> = ({
 
                       {/* 8. IT Operator */}
                       <td className="py-3 px-3.5 whitespace-nowrap">
-                        <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#00236f] bg-[#eff4ff] px-2 py-0.5 rounded">
-                          <User className="w-3 h-3" />
-                          <span>{st.itOperator || 'Adrian Lipa'}</span>
-                        </div>
+                        {(() => {
+                          const op = resolveStoreItOperator(st.itOperator, users);
+                          if (op.isRegistered) {
+                            return (
+                              <div
+                                className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#00236f] bg-[#eff4ff] px-2 py-0.5 rounded border border-[#dce9ff]"
+                                title={`${op.name} (${op.roleOrCargo || 'Especialista OnSite'}) - Registrado en Directorio`}
+                              >
+                                <UserCheck className="w-3.5 h-3.5 text-[#00873d]" />
+                                <span>{op.name}</span>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div
+                              className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200"
+                              title="Especialista no registrado en Directorio o sin asignar"
+                            >
+                              <AlertCircle className="w-3 h-3 text-amber-600" />
+                              <span>Por definir</span>
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* 9. Dirección */}
@@ -832,22 +912,69 @@ export const StoresView: React.FC<StoresViewProps> = ({
                         </span>
                       </td>
 
-                      {/* 12. Coordenadas */}
-                      <td className="py-3 px-3 text-center font-mono text-[10px] text-[#64748b] whitespace-nowrap" onClick={e => e.stopPropagation()}>
-                        {st.latitud && st.longitud ? (
-                          <button
-                            onClick={() => {
-                              setHighlightStoreId(st.id);
-                              setViewMode('map');
-                            }}
-                            className="inline-flex items-center gap-1 text-[#00873d] bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200 transition-colors font-semibold"
-                            title="Localizar esta tienda en el Mapa del Perú (GPS)"
-                          >
-                            <MapPin className="w-3 h-3 text-[#00873d]" />
-                            <span>{st.latitud.toFixed(3)}, {st.longitud.toFixed(3)}</span>
-                          </button>
+                      {/* 12. Coordenadas: Visualizar y Modificar */}
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                        {st.latitud !== undefined && st.latitud !== null && st.longitud !== undefined && st.longitud !== null ? (
+                          (() => {
+                            const val = validateCoordinatesPeru(st.latitud, st.longitud);
+                            return (
+                              <div className="flex flex-col items-center gap-1">
+                                <div className="flex items-center gap-1 font-mono text-[10px] font-semibold text-[#00236f] bg-[#f0f4ff] px-2 py-0.5 rounded border border-[#dce9ff]">
+                                  <span title="Latitud">{Number(st.latitud).toFixed(5)}</span>
+                                  <span className="text-slate-400">,</span>
+                                  <span title="Longitud">{Number(st.longitud).toFixed(5)}</span>
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                  <span
+                                    className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
+                                      val.isValid
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                        : val.isReversed
+                                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                        : 'bg-rose-50 text-rose-700 border-rose-200'
+                                    }`}
+                                    title={val.message}
+                                  >
+                                    {val.isValid ? '✓ GPS OK' : val.isReversed ? '⚠️ Invertido' : '⚠️ Validar'}
+                                  </span>
+
+                                  <button
+                                    onClick={() => setEditingCoordinatesStore(st)}
+                                    className="p-1 text-slate-500 hover:text-[#00236f] hover:bg-slate-100 rounded transition-colors"
+                                    title="Modificar y validar coordenadas de esta tienda"
+                                  >
+                                    <Pencil className="w-3 h-3" />
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      setHighlightStoreId(st.id);
+                                      setViewMode('map');
+                                    }}
+                                    className="p-1 text-[#00873d] hover:bg-emerald-50 rounded transition-colors"
+                                    title="Localizar esta tienda en el Mapa del Perú (GPS)"
+                                  >
+                                    <MapPin className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })()
                         ) : (
-                          <span>-</span>
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-semibold">
+                              Sin GPS
+                            </span>
+                            <button
+                              onClick={() => setEditingCoordinatesStore(st)}
+                              className="text-[10.5px] text-[#00236f] hover:underline font-bold flex items-center gap-0.5"
+                              title="Asignar coordenadas a esta tienda"
+                            >
+                              <Pencil className="w-2.5 h-2.5" />
+                              <span>Asignar</span>
+                            </button>
+                          </div>
                         )}
                       </td>
 
@@ -1016,7 +1143,29 @@ export const StoresView: React.FC<StoresViewProps> = ({
               </div>
               <div className="p-2.5 bg-[#f8f9ff] rounded-xl border border-[#e5eeff]">
                 <span className="text-[#757682] text-[10px] uppercase font-bold block">IT Operator</span>
-                <strong className="text-[#00236f] text-xs">{selectedStoreDetail.itOperator || 'Adrian Lipa'}</strong>
+                {(() => {
+                  const op = resolveStoreItOperator(selectedStoreDetail.itOperator, users);
+                  if (op.isRegistered) {
+                    return (
+                      <div>
+                        <strong className="text-[#00236f] text-xs flex items-center gap-1">
+                          <UserCheck className="w-3.5 h-3.5 text-[#00873d]" />
+                          {op.name}
+                        </strong>
+                        <span className="text-[10px] text-emerald-700 block mt-0.5 font-medium">✓ Especialista Directorio</span>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div>
+                      <strong className="text-amber-800 text-xs flex items-center gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                        Por definir
+                      </strong>
+                      <span className="text-[10px] text-amber-700 block mt-0.5 font-medium">Sin especialista asignado</span>
+                    </div>
+                  );
+                })()}
               </div>
               <div className="p-2.5 bg-[#f8f9ff] rounded-xl border border-[#e5eeff]">
                 <span className="text-[#757682] text-[10px] uppercase font-bold block">Situación Legal</span>
@@ -1300,14 +1449,29 @@ export const StoresView: React.FC<StoresViewProps> = ({
 
                 <div>
                   <label className="text-xs font-bold text-[#757682] uppercase mb-1 block">
-                    Operador / Técnico IT Responsable
+                    Operador / Técnico IT Responsable (Directorio TI)
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={editingStore.itOperator || ''}
                     onChange={e => setEditingStore({ ...editingStore, itOperator: e.target.value })}
-                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg"
-                  />
+                    className="w-full p-2.5 text-xs bg-white border border-[#c5c5d3] rounded-lg font-medium"
+                  >
+                    <option value="">⚠️ Por definir / Sin asignar</option>
+                    <optgroup label="Especialistas Registrados en Directorio">
+                      {itOperatorsData.directorySpecialists.map(sp => (
+                        <option key={sp.name} value={sp.name}>
+                          {sp.name} ({sp.roleOrCargo || 'Soporte TI'})
+                        </option>
+                      ))}
+                    </optgroup>
+                    {editingStore.itOperator && !itOperatorsData.directorySpecialists.some(s => s.name.toLowerCase() === editingStore.itOperator?.toLowerCase()) && (
+                      <optgroup label="Actual">
+                        <option value={editingStore.itOperator}>
+                          {editingStore.itOperator} (Personalizado)
+                        </option>
+                      </optgroup>
+                    )}
+                  </select>
                 </div>
               </div>
 
@@ -1338,6 +1502,71 @@ export const StoresView: React.FC<StoresViewProps> = ({
                 </div>
               </div>
 
+              {/* Coordenadas Geográficas GPS (Perú) */}
+              <div className="p-3.5 bg-[#f8faff] rounded-xl border border-[#dce9ff] space-y-2.5">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold text-[#00236f] uppercase flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-[#00873d]" />
+                    <span>Coordenadas Geográficas GPS (Perú)</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {editingStore.latitud !== undefined && editingStore.latitud !== null && editingStore.longitud !== undefined && editingStore.longitud !== null && (
+                      <a
+                        href={`https://www.google.com/maps?q=${editingStore.latitud},${editingStore.longitud}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-[#00236f] hover:underline font-semibold flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-[#dce9ff]"
+                      >
+                        <span>Google Maps</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingCoordinatesStore(editingStore);
+                      }}
+                      className="text-[11px] text-[#00236f] hover:bg-[#eff4ff] font-bold flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-[#00236f]/30"
+                    >
+                      <Compass className="w-3 h-3 text-[#00873d]" />
+                      <span>Editor Visual / Mapa</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-[#757682] uppercase mb-1 flex justify-between">
+                      <span>Latitud Decimal</span>
+                      <span className="text-[10px] font-mono text-[#757682]">-18.35 a -0.03</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={editingStore.latitud !== undefined && editingStore.latitud !== null ? editingStore.latitud : ''}
+                      onChange={e => setEditingStore({ ...editingStore, latitud: e.target.value ? parseFloat(e.target.value) : undefined })}
+                      placeholder="-12.046374"
+                      className="w-full p-2 text-xs bg-white border border-[#c5c5d3] rounded-lg font-mono font-bold text-[#00236f] focus:ring-1 focus:ring-[#00236f]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-[#757682] uppercase mb-1 flex justify-between">
+                      <span>Longitud Decimal</span>
+                      <span className="text-[10px] font-mono text-[#757682]">-81.33 a -68.65</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={editingStore.longitud !== undefined && editingStore.longitud !== null ? editingStore.longitud : ''}
+                      onChange={e => setEditingStore({ ...editingStore, longitud: e.target.value ? parseFloat(e.target.value) : undefined })}
+                      placeholder="-77.042793"
+                      className="w-full p-2 text-xs bg-white border border-[#c5c5d3] rounded-lg font-mono font-bold text-[#00236f] focus:ring-1 focus:ring-[#00236f]"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="flex gap-2 pt-2 border-t border-[#e5eeff]">
                 <button
                   type="button"
@@ -1358,6 +1587,23 @@ export const StoresView: React.FC<StoresViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal de Modificación y Validación de Coordenadas GPS */}
+      {editingCoordinatesStore && (
+        <StoreCoordinateModal
+          store={editingCoordinatesStore}
+          isOpen={!!editingCoordinatesStore}
+          onClose={() => setEditingCoordinatesStore(null)}
+          onSave={handleSaveCoordinates}
+        />
+      )}
+
+      {/* Modal de Conexión y Códigos Establecidos de Dataverse */}
+      <DataverseModal
+        isOpen={showDataverseModal}
+        onClose={() => setShowDataverseModal(false)}
+        currentStoresCount={stores.length}
+      />
     </div>
   );
 };

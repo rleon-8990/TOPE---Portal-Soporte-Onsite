@@ -31,12 +31,14 @@ import {
   PRECIO_UNO_FORMATS,
   normalizeStoreFormat,
 } from '../utils/storeFormats';
+import { resolveStoreItOperator } from '../utils/storeItOperators';
 
 interface DashboardViewProps {
   currentUser: AppUser;
   tickets: Ticket[];
   workOrders: WorkOrder[];
   stores: StoreType[];
+  users?: AppUser[];
   onNavigate: (view: string) => void;
   onOpenNewTicket: () => void;
   onOpenQRScanner: () => void;
@@ -49,6 +51,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   tickets,
   workOrders,
   stores,
+  users = [],
   onNavigate,
   onOpenNewTicket,
   onOpenQRScanner,
@@ -61,16 +64,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [selectedDashboardFormat, setSelectedDashboardFormat] = useState<string>('todos');
   const [selectedDashboardOperator, setSelectedDashboardOperator] = useState<string>('todos');
 
-  // IT Operators únicos presentes en las tiendas
-  const itOperators = React.useMemo(() => {
-    const set = new Set<string>();
+  // Especialistas IT y tiendas por definir según Directorio
+  const itOperatorsData = React.useMemo(() => {
+    const assignedSpecialists = new Set<string>();
+    let porDefinirCount = 0;
     stores.forEach(s => {
-      if (s.itOperator && s.itOperator.trim()) {
-        set.add(s.itOperator.trim());
+      const resolved = resolveStoreItOperator(s.itOperator, users);
+      if (resolved.isRegistered) {
+        assignedSpecialists.add(resolved.name);
+      } else {
+        porDefinirCount++;
       }
     });
-    return Array.from(set).sort();
-  }, [stores]);
+    return {
+      assignedSpecialists: Array.from(assignedSpecialists).sort(),
+      porDefinirCount
+    };
+  }, [stores, users]);
 
   // Tiendas filtradas para el mapa en Dashboard
   const dashboardFilteredStores = React.useMemo(() => {
@@ -80,12 +90,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         selectedDashboardFormat === 'todos' ||
         normFmt === selectedDashboardFormat ||
         store.formato === selectedDashboardFormat;
-      const matchesOperator =
-        selectedDashboardOperator === 'todos' ||
-        (store.itOperator && store.itOperator.toLowerCase() === selectedDashboardOperator.toLowerCase());
+      
+      let matchesOperator = true;
+      if (selectedDashboardOperator !== 'todos') {
+        const resolved = resolveStoreItOperator(store.itOperator, users);
+        if (selectedDashboardOperator === 'por_definir') {
+          matchesOperator = !resolved.isRegistered;
+        } else {
+          matchesOperator = resolved.name.toLowerCase() === selectedDashboardOperator.toLowerCase();
+        }
+      }
       return matchesFormat && matchesOperator;
     });
-  }, [stores, selectedDashboardFormat, selectedDashboardOperator]);
+  }, [stores, users, selectedDashboardFormat, selectedDashboardOperator]);
 
   // Chart data points according to selected period
   const chartData = {
@@ -525,10 +542,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               className="h-9 px-3 bg-[#f8f9ff] rounded-lg text-xs text-[#0b1c30] border border-[#dce9ff] focus:outline-none focus:ring-1 focus:ring-[#00236f] font-medium"
               title="Filtrar por Encargado de TI"
             >
-              <option value="todos">Todos los Encargados de TI ({itOperators.length})</option>
-              {itOperators.map(op => (
-                <option key={op} value={op}>TI: {op}</option>
-              ))}
+              <option value="todos">Todos los Encargados de TI</option>
+              {itOperatorsData.porDefinirCount > 0 && (
+                <option value="por_definir" className="text-amber-700 font-semibold">
+                  ⚠️ Por definir / Sin asignar ({itOperatorsData.porDefinirCount})
+                </option>
+              )}
+              <optgroup label="Especialistas Asignados (Directorio)">
+                {itOperatorsData.assignedSpecialists.map(op => {
+                  const count = stores.filter(s => resolveStoreItOperator(s.itOperator, users).name === op).length;
+                  return (
+                    <option key={op} value={op}>
+                      TI: {op} ({count})
+                    </option>
+                  );
+                })}
+              </optgroup>
             </select>
 
             {(selectedDashboardFormat !== 'todos' || selectedDashboardOperator !== 'todos') && (
@@ -558,6 +587,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="rounded-xl overflow-hidden border border-[#e5eeff]">
           <PeruStoresMap
             stores={dashboardFilteredStores}
+            users={users}
             onSelectStore={() => onNavigate('tiendas')}
             onOpenReportModal={() => onNavigate('tiendas')}
           />
