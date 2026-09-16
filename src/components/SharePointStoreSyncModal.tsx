@@ -916,7 +916,7 @@ export const SharePointStoreSyncModal: React.FC<SharePointStoreSyncModalProps> =
                   <button
                     type="button"
                     onClick={() => {
-                      if (window.confirm('¿Deseas restablecer la lista de tiendas a la planilla oficial predeterminada de 90 tiendas Tottus?')) {
+                      if (window.confirm('¿Deseas restablecer la lista de tiendas a la planilla oficial predeterminada de tiendas Tottus?')) {
                         onResetToDefaultStores();
                         alert('Tiendas restablecidas a la planilla corporativa predeterminada.');
                       }

@@ -12,6 +12,7 @@ export interface RawStoreRecord {
   itOperator: string;
   ubigeo: string | number;
   region: string;
+  departamento?: string;
   provincia: string;
   distrito: string;
   situacion: 'Alquilada' | 'Propia';
@@ -633,13 +634,598 @@ export const TOTTUS_OFFICIAL_STORES: RawStoreRecord[] = [
     situacion: 'Propia',
     latitud: -11.84017464,
     longitud: -77.1557895
+  },
+  // --- TIENDAS PROVINCIAS (Arequipa, Chiclayo, Trujillo, Ica, Piura, Huancayo, Cusco, Chimbote, Pucallpa, etc.) ---
+  {
+    cod: 201,
+    tienda: 'Tottus Arequipa Porongoche',
+    cluster: 'GLP',
+    centroCostoSap: 'P009102001',
+    gZonal: 'M Torres',
+    gerenteTienda: 'Renato Salas',
+    direccion: 'Av. Porongoche 500 - Mall Aventura, Paucarpata',
+    formato: 'Hiper',
+    itOperator: 'Renato Salas',
+    ubigeo: 40101,
+    region: 'Zona Sur',
+    departamento: 'Arequipa',
+    provincia: 'Arequipa',
+    distrito: 'Paucarpata',
+    situacion: 'Alquilada',
+    latitud: -16.422312,
+    longitud: -71.517845
+  },
+  {
+    cod: 202,
+    tienda: 'Tottus Arequipa Cayma',
+    cluster: 'GLA',
+    centroCostoSap: 'P009102101',
+    gZonal: 'M Torres',
+    gerenteTienda: 'Claudia Morales',
+    direccion: 'Av. Ejército 795 - Mall Plaza Cayma',
+    formato: 'Hiper',
+    itOperator: 'Renato Salas',
+    ubigeo: 40102,
+    region: 'Zona Sur',
+    departamento: 'Arequipa',
+    provincia: 'Arequipa',
+    distrito: 'Cayma',
+    situacion: 'Alquilada',
+    latitud: -16.388741,
+    longitud: -71.543210
+  },
+  {
+    cod: 203,
+    tienda: 'HB Arequipa Cerro Colorado',
+    cluster: 'HB',
+    centroCostoSap: 'P009102201',
+    gZonal: 'J Hidalgo',
+    gerenteTienda: 'Eduardo Valdivia',
+    direccion: 'Av. Aviación km 6.5, Cerro Colorado',
+    formato: 'HiperBodega',
+    itOperator: 'Renato Salas',
+    ubigeo: 40103,
+    region: 'Zona Sur',
+    departamento: 'Arequipa',
+    provincia: 'Arequipa',
+    distrito: 'Cerro Colorado',
+    situacion: 'Propia',
+    latitud: -16.368540,
+    longitud: -71.565410
+  },
+  {
+    cod: 210,
+    tienda: 'Tottus Chiclayo Open Plaza',
+    cluster: 'GLP',
+    centroCostoSap: 'P009102501',
+    gZonal: 'C Farfan',
+    gerenteTienda: 'Luis García',
+    direccion: 'Av. Víctor Raúl Haya de la Torre 150 - Open Plaza',
+    formato: 'Hiper',
+    itOperator: 'Luis García',
+    ubigeo: 140101,
+    region: 'Zona Norte',
+    departamento: 'Lambayeque',
+    provincia: 'Chiclayo',
+    distrito: 'Chiclayo',
+    situacion: 'Alquilada',
+    latitud: -6.771370,
+    longitud: -79.840880
+  },
+  {
+    cod: 211,
+    tienda: 'Tottus Chiclayo Real Plaza',
+    cluster: 'GLA',
+    centroCostoSap: 'P009102601',
+    gZonal: 'C Farfan',
+    gerenteTienda: 'Guillermo Mendoza',
+    direccion: 'Av. Miguel Grau 650, Chiclayo',
+    formato: 'Hiper',
+    itOperator: 'Luis García',
+    ubigeo: 140101,
+    region: 'Zona Norte',
+    departamento: 'Lambayeque',
+    provincia: 'Chiclayo',
+    distrito: 'Chiclayo',
+    situacion: 'Alquilada',
+    latitud: -6.784510,
+    longitud: -79.839420
+  },
+  {
+    cod: 212,
+    tienda: 'HB Chiclayo Moshoqueque',
+    cluster: 'HB',
+    centroCostoSap: 'P009102701',
+    gZonal: 'J Hidalgo',
+    gerenteTienda: 'Carlos Arbulú',
+    direccion: 'Av. Kennedy 890, José Leonardo Ortiz',
+    formato: 'HiperBodega',
+    itOperator: 'Luis García',
+    ubigeo: 140102,
+    region: 'Zona Norte',
+    departamento: 'Lambayeque',
+    provincia: 'Chiclayo',
+    distrito: 'José Leonardo Ortiz',
+    situacion: 'Propia',
+    latitud: -6.758410,
+    longitud: -79.831200
+  },
+  {
+    cod: 220,
+    tienda: 'Tottus Trujillo Mall Plaza',
+    cluster: 'GLP',
+    centroCostoSap: 'P009103001',
+    gZonal: 'C Farfan',
+    gerenteTienda: 'Patricia Alva',
+    direccion: 'Av. América Oeste 750 - Mall Plaza Trujillo',
+    formato: 'Hiper',
+    itOperator: 'Victor Campos',
+    ubigeo: 130101,
+    region: 'Zona Norte',
+    departamento: 'La Libertad',
+    provincia: 'Trujillo',
+    distrito: 'Trujillo',
+    situacion: 'Alquilada',
+    latitud: -8.111678,
+    longitud: -79.043512
+  },
+  {
+    cod: 221,
+    tienda: 'Tottus Trujillo Los Jardines',
+    cluster: 'MLP',
+    centroCostoSap: 'P009103101',
+    gZonal: 'C Farfan',
+    gerenteTienda: 'Marco Polo',
+    direccion: 'Av. América Norte 2400 - Urb. Los Jardines',
+    formato: 'Hiper Compacto',
+    itOperator: 'Victor Campos',
+    ubigeo: 130101,
+    region: 'Zona Norte',
+    departamento: 'La Libertad',
+    provincia: 'Trujillo',
+    distrito: 'Trujillo',
+    situacion: 'Alquilada',
+    latitud: -8.098412,
+    longitud: -79.019541
+  },
+  {
+    cod: 222,
+    tienda: 'HB Trujillo El Porvenir',
+    cluster: 'HB',
+    centroCostoSap: 'P009103201',
+    gZonal: 'J Hidalgo',
+    gerenteTienda: 'Walter Benites',
+    direccion: 'Av. Sánchez Carrión 1120, El Porvenir',
+    formato: 'HiperBodega',
+    itOperator: 'Victor Campos',
+    ubigeo: 130102,
+    region: 'Zona Norte',
+    departamento: 'La Libertad',
+    provincia: 'Trujillo',
+    distrito: 'El Porvenir',
+    situacion: 'Propia',
+    latitud: -8.087450,
+    longitud: -78.998410
+  },
+  {
+    cod: 230,
+    tienda: 'Tottus Ica El Quinde',
+    cluster: 'GLP',
+    centroCostoSap: 'P009103501',
+    gZonal: 'M Torres',
+    gerenteTienda: 'Javier Ramos',
+    direccion: 'Av. De los Maestros s/n - CC El Quinde',
+    formato: 'Hiper',
+    itOperator: 'Felipe Carrión',
+    ubigeo: 110101,
+    region: 'Zona Sur',
+    departamento: 'Ica',
+    provincia: 'Ica',
+    distrito: 'Ica',
+    situacion: 'Alquilada',
+    latitud: -14.067770,
+    longitud: -75.728610
+  },
+  {
+    cod: 231,
+    tienda: 'Tottus Chincha',
+    cluster: 'MLP',
+    centroCostoSap: 'P009103601',
+    gZonal: 'M Torres',
+    gerenteTienda: 'Milagros Vega',
+    direccion: 'Av. Óscar R. Benavides 450, Chincha Alta',
+    formato: 'Hiper Compacto',
+    itOperator: 'Felipe Carrión',
+    ubigeo: 110201,
+    region: 'Zona Sur',
+    departamento: 'Ica',
+    provincia: 'Chincha',
+    distrito: 'Chincha Alta',
+    situacion: 'Alquilada',
+    latitud: -13.418410,
+    longitud: -76.134510
+  },
+  {
+    cod: 232,
+    tienda: 'HB Pisco San Clemente',
+    cluster: 'HB',
+    centroCostoSap: 'P009103701',
+    gZonal: 'J Hidalgo',
+    gerenteTienda: 'Roberto Cárdenas',
+    direccion: 'Av. Las Américas 620, San Clemente, Pisco',
+    formato: 'HiperBodega',
+    itOperator: 'Felipe Carrión',
+    ubigeo: 110501,
+    region: 'Zona Sur',
+    departamento: 'Ica',
+    provincia: 'Pisco',
+    distrito: 'Pisco',
+    situacion: 'Propia',
+    latitud: -13.712540,
+    longitud: -76.204510
+  },
+  {
+    cod: 240,
+    tienda: 'Tottus Piura Open Plaza',
+    cluster: 'GLP',
+    centroCostoSap: 'P009104001',
+    gZonal: 'C Farfan',
+    gerenteTienda: 'Raúl Montenegro',
+    direccion: 'Av. Andrés Avelino Cáceres s/n - Open Plaza Piura',
+    formato: 'Hiper',
+    itOperator: 'David Seminario',
+    ubigeo: 200101,
+    region: 'Zona Norte',
+    departamento: 'Piura',
+    provincia: 'Piura',
+    distrito: 'Castilla',
+    situacion: 'Alquilada',
+    latitud: -5.194490,
+    longitud: -80.621510
+  },
+  {
+    cod: 241,
+    tienda: 'Tottus Sullana',
+    cluster: 'MLP',
+    centroCostoSap: 'P009104101',
+    gZonal: 'C Farfan',
+    gerenteTienda: 'Gonzalo Silva',
+    direccion: 'Av. Panamericana Norte 450 - Real Plaza Sullana',
+    formato: 'Hiper Compacto',
+    itOperator: 'David Seminario',
+    ubigeo: 200601,
+    region: 'Zona Norte',
+    departamento: 'Piura',
+    provincia: 'Sullana',
+    distrito: 'Sullana',
+    situacion: 'Alquilada',
+    latitud: -4.898410,
+    longitud: -80.687410
+  },
+  {
+    cod: 242,
+    tienda: 'Tottus Talara',
+    cluster: 'MLP',
+    centroCostoSap: 'P009104201',
+    gZonal: 'C Farfan',
+    gerenteTienda: 'Esteban Farro',
+    direccion: 'Av. E s/n - Talara Alta',
+    formato: 'Hiper Compacto',
+    itOperator: 'David Seminario',
+    ubigeo: 200701,
+    region: 'Zona Norte',
+    departamento: 'Piura',
+    provincia: 'Talara',
+    distrito: 'Pariñas',
+    situacion: 'Alquilada',
+    latitud: -4.582140,
+    longitud: -81.264510
+  },
+  {
+    cod: 250,
+    tienda: 'Tottus Huancayo Open Plaza',
+    cluster: 'GLP',
+    centroCostoSap: 'P009104501',
+    gZonal: 'G Larrab',
+    gerenteTienda: 'Nancy Hinojosa',
+    direccion: 'Av. Ferrocarril 1035 - Open Plaza Huancayo',
+    formato: 'Hiper',
+    itOperator: 'Jorge Chumpitaz',
+    ubigeo: 120101,
+    region: 'Zona Centro',
+    departamento: 'Junín',
+    provincia: 'Huancayo',
+    distrito: 'Huancayo',
+    situacion: 'Alquilada',
+    latitud: -12.065130,
+    longitud: -75.204860
+  },
+  {
+    cod: 251,
+    tienda: 'HB Huancayo El Tambo',
+    cluster: 'HB',
+    centroCostoSap: 'P009104601',
+    gZonal: 'J Hidalgo',
+    gerenteTienda: 'Jaime Orihuela',
+    direccion: 'Av. Mariscal Castilla 2240, El Tambo',
+    formato: 'HiperBodega',
+    itOperator: 'Jorge Chumpitaz',
+    ubigeo: 120102,
+    region: 'Zona Centro',
+    departamento: 'Junín',
+    provincia: 'Huancayo',
+    distrito: 'El Tambo',
+    situacion: 'Propia',
+    latitud: -12.048510,
+    longitud: -75.221410
+  },
+  {
+    cod: 260,
+    tienda: 'Tottus Cusco Real Plaza',
+    cluster: 'GLP',
+    centroCostoSap: 'P009105501',
+    gZonal: 'M Torres',
+    gerenteTienda: 'Carlos Cahuana',
+    direccion: 'Av. Collasuyo 2964 - Real Plaza Cusco',
+    formato: 'Hiper',
+    itOperator: 'Rodrigo Huamán',
+    ubigeo: 80101,
+    region: 'Zona Sur',
+    departamento: 'Cusco',
+    provincia: 'Cusco',
+    distrito: 'Cusco',
+    situacion: 'Alquilada',
+    latitud: -13.523410,
+    longitud: -71.942150
+  },
+  {
+    cod: 261,
+    tienda: 'HB Cusco San Jerónimo',
+    cluster: 'HB',
+    centroCostoSap: 'P009105601',
+    gZonal: 'J Hidalgo',
+    gerenteTienda: 'Yolanda Paucar',
+    direccion: 'Prolongación Av. De la Cultura km 9, San Jerónimo',
+    formato: 'HiperBodega',
+    itOperator: 'Rodrigo Huamán',
+    ubigeo: 80102,
+    region: 'Zona Sur',
+    departamento: 'Cusco',
+    provincia: 'Cusco',
+    distrito: 'San Jerónimo',
+    situacion: 'Propia',
+    latitud: -13.541200,
+    longitud: -71.884510
+  },
+  {
+    cod: 270,
+    tienda: 'Tottus Chimbote MegaPlaza',
+    cluster: 'GLP',
+    centroCostoSap: 'P009106001',
+    gZonal: 'C Farfan',
+    gerenteTienda: 'Manuel Quiroz',
+    direccion: 'Av. Víctor Raúl Haya de la Torre - MegaPlaza Chimbote',
+    formato: 'Hiper',
+    itOperator: 'Victor Campos',
+    ubigeo: 20101,
+    region: 'Zona Norte',
+    departamento: 'Áncash',
+    provincia: 'Santa',
+    distrito: 'Chimbote',
+    situacion: 'Alquilada',
+    latitud: -9.074400,
+    longitud: -78.593600
+  },
+  {
+    cod: 271,
+    tienda: 'HB Nuevo Chimbote',
+    cluster: 'HB',
+    centroCostoSap: 'P009106101',
+    gZonal: 'J Hidalgo',
+    gerenteTienda: 'Diana Noriega',
+    direccion: 'Av. Pacífico mz C lote 12, Nuevo Chimbote',
+    formato: 'HiperBodega',
+    itOperator: 'Victor Campos',
+    ubigeo: 20102,
+    region: 'Zona Norte',
+    departamento: 'Áncash',
+    provincia: 'Santa',
+    distrito: 'Nuevo Chimbote',
+    situacion: 'Propia',
+    latitud: -9.124510,
+    longitud: -78.531200
+  },
+  {
+    cod: 280,
+    tienda: 'Tottus Pucallpa Open Plaza',
+    cluster: 'GLP',
+    centroCostoSap: 'P009106501',
+    gZonal: 'G Larrab',
+    gerenteTienda: 'Wilfredo Saldaña',
+    direccion: 'Av. Centenario km 4.5 - Open Plaza Pucallpa',
+    formato: 'Hiper',
+    itOperator: 'Roger Leon',
+    ubigeo: 250101,
+    region: 'Zona Oriente',
+    departamento: 'Ucayali',
+    provincia: 'Coronel Portillo',
+    distrito: 'Callería',
+    situacion: 'Alquilada',
+    latitud: -8.379150,
+    longitud: -74.553870
+  },
+  {
+    cod: 285,
+    tienda: 'Tottus Cajamarca El Quinde',
+    cluster: 'GLP',
+    centroCostoSap: 'P009107001',
+    gZonal: 'C Farfan',
+    gerenteTienda: 'Hernán Terrones',
+    direccion: 'Av. Hoyos Rubio s/n - CC El Quinde Cajamarca',
+    formato: 'Hiper',
+    itOperator: 'Luis García',
+    ubigeo: 60101,
+    region: 'Zona Norte',
+    departamento: 'Cajamarca',
+    provincia: 'Cajamarca',
+    distrito: 'Cajamarca',
+    situacion: 'Alquilada',
+    latitud: -7.163780,
+    longitud: -78.500270
+  },
+  {
+    cod: 290,
+    tienda: 'Tottus Tacna',
+    cluster: 'GLP',
+    centroCostoSap: 'P009107501',
+    gZonal: 'M Torres',
+    gerenteTienda: 'Oscar Maquera',
+    direccion: 'Av. Prolongación Patricio Meléndez 1450',
+    formato: 'Hiper',
+    itOperator: 'Renato Salas',
+    ubigeo: 230101,
+    region: 'Zona Sur',
+    departamento: 'Tacna',
+    provincia: 'Tacna',
+    distrito: 'Tacna',
+    situacion: 'Alquilada',
+    latitud: -18.006567,
+    longitud: -70.246274
+  },
+  {
+    cod: 295,
+    tienda: 'Tottus Huánuco Real Plaza',
+    cluster: 'MLP',
+    centroCostoSap: 'P009108001',
+    gZonal: 'G Larrab',
+    gerenteTienda: 'Rocío Alvarado',
+    direccion: 'Jr. Dos de Mayo 1230 - Real Plaza Huánuco',
+    formato: 'Hiper Compacto',
+    itOperator: 'Jorge Chumpitaz',
+    ubigeo: 100101,
+    region: 'Zona Centro',
+    departamento: 'Huánuco',
+    provincia: 'Huánuco',
+    distrito: 'Huánuco',
+    situacion: 'Alquilada',
+    latitud: -9.930620,
+    longitud: -76.242230
+  },
+  {
+    cod: 180,
+    tienda: 'Tottus Cañete San Vicente',
+    cluster: 'MLP',
+    centroCostoSap: 'P009108501',
+    gZonal: 'M Torres',
+    gerenteTienda: 'Gabriel Chumpitaz',
+    direccion: 'Av. 28 de Julio 340, San Vicente de Cañete',
+    formato: 'Hiper Compacto',
+    itOperator: 'Adrian Lipa',
+    ubigeo: 150501,
+    region: 'Lima y Callao',
+    departamento: 'Lima',
+    provincia: 'Cañete',
+    distrito: 'San Vicente de Cañete',
+    situacion: 'Alquilada',
+    latitud: -13.076510,
+    longitud: -76.387410
+  },
+  {
+    cod: 181,
+    tienda: 'HB Huacho',
+    cluster: 'HB',
+    centroCostoSap: 'P009108601',
+    gZonal: 'J Hidalgo',
+    gerenteTienda: 'Mariano Bazán',
+    direccion: 'Av. 28 de Julio 820, Huacho',
+    formato: 'HiperBodega',
+    itOperator: 'Jose Bravo',
+    ubigeo: 150801,
+    region: 'Lima y Callao',
+    departamento: 'Lima',
+    provincia: 'Huaura',
+    distrito: 'Huacho',
+    situacion: 'Propia',
+    latitud: -11.108410,
+    longitud: -77.604510
+  },
+  {
+    cod: 182,
+    tienda: 'HB Barranca',
+    cluster: 'HB',
+    centroCostoSap: 'P009108701',
+    gZonal: 'J Hidalgo',
+    gerenteTienda: 'Félix Zavaleta',
+    direccion: 'Jr. José Gálvez 540, Barranca',
+    formato: 'HiperBodega',
+    itOperator: 'Jose Bravo',
+    ubigeo: 150201,
+    region: 'Lima y Callao',
+    departamento: 'Lima',
+    provincia: 'Barranca',
+    distrito: 'Barranca',
+    situacion: 'Propia',
+    latitud: -10.751240,
+    longitud: -77.761240
   }
 ];
 
 // Mapeo regional para Tottus Perú
 export function mapToRegion(regName: string, prov: string): Region {
-  if (regName.toLowerCase().includes('callao') || prov.toLowerCase().includes('callao') || regName.toLowerCase().includes('lima')) {
+  const combined = `${regName} ${prov}`.toLowerCase();
+  if (combined.includes('callao') || combined.includes('lima')) {
     return 'Lima y Callao';
+  }
+  if (
+    combined.includes('trujillo') ||
+    combined.includes('libertad') ||
+    combined.includes('chiclayo') ||
+    combined.includes('lambayeque') ||
+    combined.includes('piura') ||
+    combined.includes('sullana') ||
+    combined.includes('talara') ||
+    combined.includes('chimbote') ||
+    combined.includes('ancash') ||
+    combined.includes('áncash') ||
+    combined.includes('cajamarca') ||
+    combined.includes('tumbes')
+  ) {
+    return 'Zona Norte';
+  }
+  if (
+    combined.includes('arequipa') ||
+    combined.includes('cusco') ||
+    combined.includes('cuzco') ||
+    combined.includes('ica') ||
+    combined.includes('chincha') ||
+    combined.includes('pisco') ||
+    combined.includes('nazca') ||
+    combined.includes('tacna') ||
+    combined.includes('puno') ||
+    combined.includes('moquegua')
+  ) {
+    return 'Zona Sur';
+  }
+  if (
+    combined.includes('huancayo') ||
+    combined.includes('junin') ||
+    combined.includes('junín') ||
+    combined.includes('huanuco') ||
+    combined.includes('huánuco') ||
+    combined.includes('pasco') ||
+    combined.includes('ayacucho')
+  ) {
+    return 'Zona Centro';
+  }
+  if (
+    combined.includes('pucallpa') ||
+    combined.includes('ucayali') ||
+    combined.includes('iquitos') ||
+    combined.includes('loreto') ||
+    combined.includes('tarapoto') ||
+    combined.includes('san martin')
+  ) {
+    return 'Zona Oriente';
   }
   return 'Lima y Callao';
 }

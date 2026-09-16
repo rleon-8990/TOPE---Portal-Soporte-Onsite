@@ -46,8 +46,8 @@ export const APP_MODULES: Record<string, ModulePermission> = {
   },
   tiendas: {
     id: 'tiendas',
-    name: 'Sucursales (90 Tiendas)',
-    description: 'Directorio nacional de hipermercados y supermercados Tottus por 5 regiones geográficas.',
+    name: 'Tiendas',
+    description: 'Directorio nacional de hipermercados y supermercados Tottus y Precio Uno por departamentos y regiones.',
     requiredRoles: ['Administrador', 'Administrador General', 'Supervisor Regional', 'Jefe de Mantenimiento'],
     category: 'gestion'
   },

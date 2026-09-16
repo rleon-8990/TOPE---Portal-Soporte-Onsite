@@ -447,7 +447,7 @@ export const TechnicalReportsView: React.FC<TechnicalReportsViewProps> = ({
           <Building2 className="w-4 h-4" />
           <span>Informes por Tiendas (Bloque de Equipos Ejecutados)</span>
           <span className="ml-1 text-[11px] bg-[#00236f] text-white px-2 py-0.2 rounded-full font-mono font-bold">
-            {currentBatchStore ? currentBatchStore.code : '90 Tiendas'}
+            {currentBatchStore ? currentBatchStore.code : 'Tiendas'}
           </span>
         </button>
 

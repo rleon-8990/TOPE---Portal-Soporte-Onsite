@@ -548,7 +548,7 @@ export const MaintenanceSchedulerModal: React.FC<MaintenanceSchedulerModalProps>
                 }`}
               >
                 <Layers className="w-3.5 h-3.5 text-[#fd761a]" />
-                <span>Masiva (90 Tiendas)</span>
+                <span>Masiva (Tiendas)</span>
               </button>
             </div>
 
@@ -1099,7 +1099,7 @@ export const MaintenanceSchedulerModal: React.FC<MaintenanceSchedulerModalProps>
                       <span>2. Alcance de Tiendas Seleccionadas ({selectedBulkStores.length} de {stores.length})</span>
                     </label>
                     <p className="text-[11px] text-[#525e75]">
-                      Puedes aplicar la plantilla a las 90 tiendas a nivel nacional o por zona geográfica:
+                      Puedes aplicar la plantilla a las tiendas a nivel nacional o por zona geográfica:
                     </p>
                   </div>
 
@@ -1129,7 +1129,7 @@ export const MaintenanceSchedulerModal: React.FC<MaintenanceSchedulerModalProps>
                         : 'bg-white text-[#00236f] border border-[#c4dcff] hover:bg-blue-50'
                     }`}
                   >
-                    🏪 Todas las Tiendas (90)
+                    🏪 Todas las Tiendas
                   </button>
 
                   <button

@@ -191,7 +191,7 @@ export const GeofencingAutomationPanel: React.FC<GeofencingAutomationPanelProps>
                 <Navigation className="w-3 h-3 text-blue-400 animate-pulse" />
                 Geocercas GPS & Detección en Celular
               </span>
-              <span className="text-xs text-blue-200/80">90 Tiendas Georreferenciadas</span>
+              <span className="text-xs text-blue-200/80">Tiendas Georreferenciadas</span>
             </div>
             <h2 className="text-2xl font-bold tracking-tight text-white">
               Detección Automática de Presencia Onsite
@@ -263,7 +263,7 @@ export const GeofencingAutomationPanel: React.FC<GeofencingAutomationPanelProps>
                 Detección de Tienda Más Cercana
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Cálculo geodésico Haversine comparado contra las 90 tiendas de la cadena
+                Cálculo geodésico Haversine comparado contra las tiendas de la cadena
               </p>
             </div>
             {nearestResult?.isInsideGeofence ? (

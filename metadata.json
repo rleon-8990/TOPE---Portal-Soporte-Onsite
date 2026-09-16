@@ -1,6 +1,6 @@
 {
   "name": "Portal OnSite",
-  "description": "Portal OnSite de Hipermercados Tottus S.A. - Sistemas de la Información. Sistema para inventario de POS y activos en 90 tiendas, visitas preventivas, custodia de PDAs e impresoras CCTV con fotocheck, mantenimiento preventivo/correctivo y helpdesk.",
+  "description": "Portal OnSite de Hipermercados Tottus S.A. - Sistemas de la Información. Sistema para inventario de POS y activos en tiendas Tottus y Precio Uno, visitas preventivas, custodia de PDAs e impresoras CCTV con fotocheck, mantenimiento preventivo/correctivo y helpdesk.",
   "requestFramePermissions": ["camera", "geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

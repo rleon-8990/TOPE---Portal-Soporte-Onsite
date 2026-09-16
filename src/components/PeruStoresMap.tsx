@@ -36,6 +36,12 @@ import {
   getStoreEmpresa
 } from '../utils/storeFormats';
 import { resolveStoreItOperator, getRegisteredItSpecialists } from '../utils/storeItOperators';
+import {
+  PERU_DEPARTMENTS,
+  getStoreDepartmentKey,
+  getStoreDepartmentName,
+  DepartmentInfo
+} from '../utils/storeRegions';
 
 interface PeruStoresMapProps {
   stores: Store[];
@@ -45,6 +51,11 @@ interface PeruStoresMapProps {
   selectedStoreId?: string;
   className?: string;
 }
+
+// Delimitación geográfica estricta exclusiva para el territorio de la República del Perú
+const PERU_SOUTH_WEST = L.latLng(-18.6, -81.5);
+const PERU_NORTH_EAST = L.latLng(0.2, -68.4);
+const PERU_MAX_BOUNDS = L.latLngBounds(PERU_SOUTH_WEST, PERU_NORTH_EAST);
 
 // Coordenadas fijas para macro-regiones peruanas
 const REGION_BOUNDS: Record<string, { lat: number; lng: number; zoom: number }> = {
@@ -73,6 +84,7 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
   const [selectedFormat, setSelectedFormat] = useState<string>('all');
   const [selectedOperator, setSelectedOperator] = useState<string>('all');
   const [selectedRegion, setSelectedRegion] = useState<string>('all');
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Estado de inspección de tienda
@@ -126,6 +138,12 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
       // Filtro por Región
       if (selectedRegion !== 'all' && store.region !== selectedRegion) return false;
 
+      // Filtro por Departamento específico (Lima, Arequipa, Chiclayo, Trujillo, Ica, etc.)
+      if (selectedDepartment !== 'all') {
+        const storeDeptKey = getStoreDepartmentKey(store);
+        if (storeDeptKey !== selectedDepartment) return false;
+      }
+
       // Búsqueda de texto
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -148,7 +166,7 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
 
       return true;
     });
-  }, [stores, users, selectedEmpresa, selectedFormat, selectedOperator, selectedRegion, searchQuery]);
+  }, [stores, users, selectedEmpresa, selectedFormat, selectedOperator, selectedRegion, selectedDepartment, searchQuery]);
 
   // Conteo de tiendas según filtros actuales
   const stats = useMemo(() => {
@@ -174,21 +192,29 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
     };
   }, [filteredStores]);
 
-  // Inicialización de Leaflet con observador de redimensionamiento
+  // Inicialización de Leaflet estrictamente confinado al territorio peruano
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
-    // Crear mapa Leaflet
+    // Crear mapa Leaflet delimitado con rebote rígido al territorio de Perú
     const map = L.map(mapContainerRef.current, {
       center: [-9.189967, -75.015152],
       zoom: 6,
+      minZoom: 5.2,
+      maxZoom: 18,
+      maxBounds: PERU_MAX_BOUNDS,
+      maxBoundsViscosity: 1.0,
       zoomControl: false,
-      attributionControl: false
+      attributionControl: false,
+      worldCopyJump: false
     });
 
-    // Añadir OpenStreetMap tiles
+    // Añadir OpenStreetMap tiles acotados a la República del Perú
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
+      minZoom: 5.2,
+      bounds: PERU_MAX_BOUNDS,
+      noWrap: true,
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
@@ -378,6 +404,28 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
     }
   }, [selectedStoreId, stores]);
 
+  // Selección y centrado geográfico por Departamento / Región del Perú
+  const handleSelectDepartment = (deptId: string) => {
+    setSelectedDepartment(deptId);
+    setActiveStore(null);
+    if (deptId === 'all') {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.setView([-9.189967, -75.015152], 6, {
+          animate: true,
+          duration: 1.0
+        });
+      }
+    } else {
+      const dept = PERU_DEPARTMENTS.find(d => d.id === deptId);
+      if (dept && mapInstanceRef.current) {
+        mapInstanceRef.current.setView([dept.lat, dept.lng], dept.zoom, {
+          animate: true,
+          duration: 1.2
+        });
+      }
+    }
+  };
+
   // Acciones de Zoom rápido a Macro Región
   const handleFlyToRegion = (regKey: string) => {
     setSelectedRegion(regKey);
@@ -414,6 +462,7 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
     setSelectedFormat('all');
     setSelectedOperator('all');
     setSelectedRegion('all');
+    setSelectedDepartment('all');
     setSearchQuery('');
     if (mapInstanceRef.current) {
       mapInstanceRef.current.setView([-9.189967, -75.015152], 6, { animate: true });
@@ -421,110 +470,107 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
   };
 
   return (
-    <div id="peru-stores-map-root" className={`flex flex-col bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm ${className}`}>
+    <div id="peru-stores-map-root" className={`flex flex-col bg-white rounded-xl border border-[#d8e8be] overflow-hidden shadow-sm ${className}`}>
       {/* 1. Header y Barra Superior de Filtros */}
-      <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-slate-50 via-white to-emerald-50/20">
+      <div className="p-4 border-b border-[#d8e8be] bg-[#f7faf2]">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-[#00873d] text-white flex items-center justify-center shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-[#539e18] text-white flex items-center justify-center shadow-sm">
               <MapPin className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-gray-900 text-base leading-tight">
+                <h3 className="font-bold text-[#172a16] text-base leading-tight">
                   Mapa Nacional de Tiendas y Sedes
                 </h3>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#e2ecd5] text-[#2d660e] border border-[#c4dcaf]">
                   {filteredStores.length} de {stores.length} Tiendas
                 </span>
               </div>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Cobertura geográfica de Hipermercados Tottus S.A. e HiperBodegas Precio Uno en todo el Perú
+              <p className="text-xs text-[#42493b] mt-0.5">
+                Supervisión geográfica restringida exclusivamente al territorio de la República del Perú
               </p>
             </div>
           </div>
 
-          {/* Botones de macro-zoom rápido */}
-          <div className="flex items-center gap-1 bg-gray-100/80 p-1 rounded-lg border border-gray-200 text-xs">
+          {/* Botón de vista masiva de Perú */}
+          <button
+            id="btn-zoom-all-peru"
+            onClick={() => handleSelectDepartment('all')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              selectedDepartment === 'all' && !activeStore
+                ? 'bg-[#539e18] text-white shadow-sm'
+                : 'bg-white text-[#172a16] border border-[#d8e8be] hover:bg-[#eef5e4]'
+            }`}
+            title="Alinear vista a todo el territorio del Perú"
+          >
+            <Globe className="w-3.5 h-3.5" />
+            <span>Vista Completa (Perú)</span>
+          </button>
+        </div>
+
+        {/* 2. Barra Desplazable de Regiones / Departamentos (Lima, Arequipa, Chiclayo, Trujillo, Ica, etc.) */}
+        <div className="mt-1 pt-2 border-t border-[#e2ecd5]">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <span className="text-xs font-bold text-[#172a16] flex items-center gap-1">
+              <Compass className="w-3.5 h-3.5 text-[#539e18]" />
+              Visualizar por Departamentos / Regiones:
+            </span>
+            <span className="text-[11px] text-[#42493b]">
+              Haz clic para volar a la región
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 no-scrollbar">
             <button
-              id="btn-zoom-all-peru"
-              onClick={() => {
-                setActiveStore(null);
-                handleFlyToRegion('all');
-                if (mapInstanceRef.current && filteredStores.length > 0) {
-                  const validPoints = filteredStores
-                    .filter(s => typeof s.latitud === 'number' && typeof s.longitud === 'number' && !isNaN(s.latitud) && !isNaN(s.longitud))
-                    .map(s => [s.latitud, s.longitud] as [number, number]);
-                  if (validPoints.length > 0) {
-                    const bounds = L.latLngBounds(validPoints);
-                    if (bounds.isValid()) {
-                      mapInstanceRef.current.fitBounds(bounds, { padding: [35, 35], maxZoom: 12 });
-                    }
-                  }
-                }
-              }}
-              className={`px-2.5 py-1 rounded font-medium transition-colors flex items-center gap-1 ${
-                selectedRegion === 'all' && !activeStore ? 'bg-white text-gray-900 shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900'
-              }`}
-              title="Alinear vista masiva de todas las tiendas de todo el Perú"
-            >
-              <Globe className="w-3.5 h-3.5 text-[#00873d]" />
-              Vista Masiva (Perú)
-            </button>
-            <button
-              id="btn-zoom-lima"
-              onClick={() => handleFlyToRegion('Lima y Callao')}
-              className={`px-2.5 py-1 rounded font-medium transition-colors ${
-                selectedRegion === 'Lima y Callao' ? 'bg-white text-emerald-800 shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Lima & Callao
-            </button>
-            <button
-              id="btn-zoom-norte"
-              onClick={() => handleFlyToRegion('Zona Norte')}
-              className={`px-2.5 py-1 rounded font-medium transition-colors ${
-                selectedRegion === 'Zona Norte' ? 'bg-white text-emerald-800 shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900'
+              id="btn-dept-all"
+              onClick={() => handleSelectDepartment('all')}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                selectedDepartment === 'all'
+                  ? 'bg-[#539e18] text-white shadow-xs font-bold'
+                  : 'bg-white text-[#172a16] border border-[#d8e8be] hover:bg-[#eef5e4]'
               }`}
             >
-              Norte
+              <span>🇵🇪 Todo el Perú</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                selectedDepartment === 'all' ? 'bg-white/25 text-white' : 'bg-[#e2ecd5] text-[#2d660e]'
+              }`}>
+                {stores.length}
+              </span>
             </button>
-            <button
-              id="btn-zoom-sur"
-              onClick={() => handleFlyToRegion('Zona Sur')}
-              className={`px-2.5 py-1 rounded font-medium transition-colors ${
-                selectedRegion === 'Zona Sur' ? 'bg-white text-emerald-800 shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Sur
-            </button>
-            <button
-              id="btn-zoom-centro"
-              onClick={() => handleFlyToRegion('Zona Centro')}
-              className={`px-2.5 py-1 rounded font-medium transition-colors ${
-                selectedRegion === 'Zona Centro' ? 'bg-white text-emerald-800 shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Centro
-            </button>
-            <button
-              id="btn-zoom-oriente"
-              onClick={() => handleFlyToRegion('Zona Oriente')}
-              className={`px-2.5 py-1 rounded font-medium transition-colors ${
-                selectedRegion === 'Zona Oriente' ? 'bg-white text-emerald-800 shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Oriente
-            </button>
+
+            {PERU_DEPARTMENTS.map(dept => {
+              const count = stores.filter(s => getStoreDepartmentKey(s) === dept.id).length;
+              const isSelected = selectedDepartment === dept.id;
+              return (
+                <button
+                  key={dept.id}
+                  id={`btn-dept-${dept.id}`}
+                  onClick={() => handleSelectDepartment(dept.id)}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                    isSelected
+                      ? 'bg-[#539e18] text-white shadow-xs font-bold'
+                      : 'bg-white text-[#172a16] border border-[#d8e8be] hover:bg-[#eef5e4]'
+                  }`}
+                >
+                  <span>📍 {dept.name}</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                    isSelected ? 'bg-white/25 text-white' : 'bg-[#e2ecd5] text-[#2d660e]'
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* 2. Controles de Filtro: Formato de Tienda y Encargado de TI */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 pt-2 border-t border-gray-100 items-center">
+        {/* 3. Controles de Filtro: Formato, Departamento desplegable, Encargado de TI y Buscador */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 pt-3 mt-2 border-t border-[#e2ecd5] items-center">
           {/* Selector de Empresa / Formato */}
-          <div className="md:col-span-4 flex items-center gap-2">
-            <span className="text-xs font-semibold text-gray-700 whitespace-nowrap flex items-center gap-1">
-              <StoreIcon className="w-3.5 h-3.5 text-[#00873d]" />
+          <div className="md:col-span-3 flex items-center gap-2">
+            <span className="text-xs font-semibold text-[#172a16] whitespace-nowrap flex items-center gap-1">
+              <StoreIcon className="w-3.5 h-3.5 text-[#539e18]" />
               Formato:
             </span>
             <select
@@ -540,9 +586,9 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
                   setSelectedEmpresa('precio_uno');
                 }
               }}
-              className="w-full text-xs font-medium border border-gray-300 rounded-lg px-2.5 py-1.5 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+              className="w-full text-xs font-medium border border-[#d8e8be] rounded-lg px-2.5 py-1.5 bg-white text-[#172a16] focus:outline-none focus:ring-2 focus:ring-[#539e18] shadow-2xs"
             >
-              <option value="all">🏢 Todos los Formatos de Tienda</option>
+              <option value="all">🏢 Todos los Formatos</option>
               
               <optgroup label="── Hipermercados Tottus S.A. ──">
                 {TOTTUS_FORMATS.map(fmt => (
@@ -562,17 +608,41 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
             </select>
           </div>
 
+          {/* Selector de Departamento (Desplegable directo) */}
+          <div className="md:col-span-3 flex items-center gap-2">
+            <span className="text-xs font-semibold text-[#172a16] whitespace-nowrap flex items-center gap-1">
+              <Compass className="w-3.5 h-3.5 text-[#539e18]" />
+              Región/Depto:
+            </span>
+            <select
+              id="select-store-department"
+              value={selectedDepartment}
+              onChange={(e) => handleSelectDepartment(e.target.value)}
+              className="w-full text-xs font-medium border border-[#d8e8be] rounded-lg px-2.5 py-1.5 bg-white text-[#172a16] focus:outline-none focus:ring-2 focus:ring-[#539e18] shadow-2xs"
+            >
+              <option value="all">🇵🇪 Todos los Departamentos ({stores.length})</option>
+              {PERU_DEPARTMENTS.map(dept => {
+                const count = stores.filter(s => getStoreDepartmentKey(s) === dept.id).length;
+                return (
+                  <option key={dept.id} value={dept.id}>
+                    📍 {dept.name} ({count} {count === 1 ? 'tienda' : 'tiendas'})
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
           {/* Selector de Encargado de TI (Integrado con Directorio) */}
           <div className="md:col-span-3 flex items-center gap-2">
-            <span className="text-xs font-semibold text-gray-700 whitespace-nowrap flex items-center gap-1">
-              <UserCheck className="w-3.5 h-3.5 text-blue-600" />
+            <span className="text-xs font-semibold text-[#172a16] whitespace-nowrap flex items-center gap-1">
+              <UserCheck className="w-3.5 h-3.5 text-[#539e18]" />
               Encargado TI:
             </span>
             <select
               id="select-it-operator"
               value={selectedOperator}
               onChange={(e) => setSelectedOperator(e.target.value)}
-              className="w-full text-xs font-medium border border-gray-300 rounded-lg px-2.5 py-1.5 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+              className="w-full text-xs font-medium border border-[#d8e8be] rounded-lg px-2.5 py-1.5 bg-white text-[#172a16] focus:outline-none focus:ring-2 focus:ring-[#539e18] shadow-2xs"
             >
               <option value="all">👤 Todos los Encargados de TI</option>
               {itOperatorsData.porDefinirCount > 0 && (
@@ -594,15 +664,15 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
           </div>
 
           {/* Buscador de tienda */}
-          <div className="md:col-span-4 relative">
-            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <div className="md:col-span-2 relative">
+            <Search className="w-3.5 h-3.5 text-[#42493b] absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               id="input-search-store-map"
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar tienda, código, CECO, distrito..."
-              className="w-full text-xs pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+              placeholder="Buscar tienda, código, CECO..."
+              className="w-full text-xs pl-8 pr-3 py-1.5 border border-[#d8e8be] rounded-lg bg-white text-[#172a16] placeholder:text-[#73796b] focus:outline-none focus:ring-2 focus:ring-[#539e18] shadow-2xs"
             />
           </div>
 
@@ -611,24 +681,24 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
             <button
               id="btn-reset-map-filters"
               onClick={handleResetFilters}
-              title="Restablecer filtros"
-              className="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors"
+              title="Restablecer todos los filtros"
+              className="p-1.5 text-[#42493b] hover:text-[#172a16] hover:bg-[#eef5e4] rounded-lg border border-[#d8e8be] transition-colors"
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
-        {/* 3. Píldoras rápidas de formato con conteos */}
-        <div className="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2 border-t border-gray-100 text-[11px]">
-          <span className="text-gray-400 font-semibold mr-1">Filtrado rápido:</span>
+        {/* 4. Píldoras rápidas de formato con conteos */}
+        <div className="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2 border-t border-[#e2ecd5] text-[11px]">
+          <span className="text-[#42493b] font-semibold mr-1">Filtrado rápido:</span>
           
           <button
             onClick={() => { setSelectedEmpresa('all'); setSelectedFormat('all'); }}
-            className={`px-2 py-0.5 rounded-full border transition-all ${
+            className={`px-2.5 py-0.5 rounded-full border transition-all ${
               selectedEmpresa === 'all' && selectedFormat === 'all'
-                ? 'bg-slate-800 text-white border-slate-800 font-bold'
-                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                ? 'bg-[#172a16] text-white border-[#172a16] font-bold'
+                : 'bg-white text-[#42493b] border-[#d8e8be] hover:bg-[#eef5e4]'
             }`}
           >
             Todas ({stores.length})
@@ -645,15 +715,15 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
                   setSelectedFormat(fmt);
                   setSelectedEmpresa('tottus');
                 }}
-                className={`px-2 py-0.5 rounded-full border transition-all flex items-center gap-1 ${
+                className={`px-2.5 py-0.5 rounded-full border transition-all flex items-center gap-1 ${
                   isAct
-                    ? 'bg-emerald-600 text-white border-emerald-600 font-bold shadow-2xs'
-                    : 'bg-emerald-50/60 text-emerald-800 border-emerald-200 hover:bg-emerald-100/60'
+                    ? 'bg-[#539e18] text-white border-[#539e18] font-bold shadow-2xs'
+                    : 'bg-[#f4f8ec] text-[#2d660e] border-[#d8e8be] hover:bg-[#eef5e4]'
                 }`}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#539e18]"></span>
                 <span>{fmt}</span>
-                <span className="opacity-70 text-[10px]">({count})</span>
+                <span className="opacity-80 text-[10px]">({count})</span>
               </button>
             );
           })}
@@ -669,15 +739,15 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
                   setSelectedFormat(fmt);
                   setSelectedEmpresa('precio_uno');
                 }}
-                className={`px-2 py-0.5 rounded-full border transition-all flex items-center gap-1 ${
+                className={`px-2.5 py-0.5 rounded-full border transition-all flex items-center gap-1 ${
                   isAct
                     ? 'bg-orange-600 text-white border-orange-600 font-bold shadow-2xs'
-                    : 'bg-orange-50/70 text-orange-900 border-orange-200 hover:bg-orange-100/70'
+                    : 'bg-orange-50 text-orange-900 border-orange-200 hover:bg-orange-100'
                 }`}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
                 <span>{fmt}</span>
-                <span className="opacity-70 text-[10px]">({count})</span>
+                <span className="opacity-80 text-[10px]">({count})</span>
               </button>
             );
           })}
@@ -771,20 +841,20 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
                     </p>
                   </div>
 
-                  {/* Badges de Formato y Macro-Región */}
+                  {/* Badges de Formato y Departamento / Región */}
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="p-2.5 rounded-lg bg-gray-50 border border-gray-200">
-                      <span className="text-[10px] text-gray-400 block font-medium">Formato Oficial</span>
-                      <span className="text-xs font-bold text-gray-900 flex items-center gap-1 mt-0.5">
-                        <StoreIcon className="w-3.5 h-3.5 text-[#00873d]" />
+                    <div className="p-2.5 rounded-lg bg-[#f7faf2] border border-[#d8e8be]">
+                      <span className="text-[10px] text-[#42493b] block font-medium">Formato Oficial</span>
+                      <span className="text-xs font-bold text-[#172a16] flex items-center gap-1 mt-0.5">
+                        <StoreIcon className="w-3.5 h-3.5 text-[#539e18]" />
                         {normalizeStoreFormat(activeStore.formato)}
                       </span>
                     </div>
-                    <div className="p-2.5 rounded-lg bg-gray-50 border border-gray-200">
-                      <span className="text-[10px] text-gray-400 block font-medium">Macro-Región</span>
-                      <span className="text-xs font-bold text-gray-900 flex items-center gap-1 mt-0.5">
-                        <Compass className="w-3.5 h-3.5 text-blue-600" />
-                        {activeStore.region}
+                    <div className="p-2.5 rounded-lg bg-[#f7faf2] border border-[#d8e8be]">
+                      <span className="text-[10px] text-[#42493b] block font-medium">Departamento</span>
+                      <span className="text-xs font-bold text-[#172a16] flex items-center gap-1 mt-0.5">
+                        <Compass className="w-3.5 h-3.5 text-[#539e18]" />
+                        {getStoreDepartmentName(activeStore)}
                       </span>
                     </div>
                   </div>
@@ -895,7 +965,7 @@ export const PeruStoresMap: React.FC<PeruStoresMapProps> = ({
                     {onSelectStore && (
                       <button
                         onClick={() => onSelectStore(activeStore)}
-                        className="w-full py-2 px-3 rounded-lg text-xs font-bold text-white bg-[#00873d] hover:bg-[#007033] shadow-sm flex items-center justify-center gap-2 transition-colors"
+                        className="w-full py-2 px-3 rounded-lg text-xs font-bold text-white bg-[#539e18] hover:bg-[#448313] shadow-sm flex items-center justify-center gap-2 transition-colors"
                       >
                         <HardDrive className="w-3.5 h-3.5" />
                         <span>Ver Parque de Equipos de la Tienda</span>

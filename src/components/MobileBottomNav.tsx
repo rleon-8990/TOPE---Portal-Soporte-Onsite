@@ -54,7 +54,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   return (
     <>
       {/* Bottom Floating Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-[#e5eeff] z-40 md:hidden flex items-center justify-around px-2 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] pb-[env(safe-area-inset-bottom)]">
+      <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-[#e2ecd5] z-40 md:hidden flex items-center justify-around px-2 shadow-[0_-4px_16px_rgba(95,175,22,0.06)] pb-[env(safe-area-inset-bottom)]">
         {mainNav.map(item => {
           const Icon = item.icon;
           const isActive = currentView === item.id;
@@ -66,7 +66,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 onSelectView(item.id);
               }}
               className={`flex-1 flex flex-col items-center justify-center py-1 transition-colors ${
-                isActive ? 'text-[#00236f]' : 'text-[#757682] hover:text-[#0b1c30]'
+                isActive ? 'text-[#539e18]' : 'text-[#526650] hover:text-[#172a16]'
               }`}
             >
               <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`} />
@@ -74,7 +74,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 {item.label}
               </span>
               {isActive && (
-                <span className="w-4 h-1 bg-[#00236f] rounded-full mt-0.5"></span>
+                <span className="w-4 h-1 bg-[#539e18] rounded-full mt-0.5"></span>
               )}
             </button>
           );
@@ -85,8 +85,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           onClick={() => setShowMoreMenu(!showMoreMenu)}
           className={`flex-1 flex flex-col items-center justify-center py-1 transition-colors ${
             ['tiendas', 'helpdesk', 'usuarios', 'monitoreo', 'informes'].includes(currentView) || showMoreMenu
-              ? 'text-[#00236f]'
-              : 'text-[#757682]'
+              ? 'text-[#539e18]'
+              : 'text-[#526650]'
           }`}
         >
           <MoreHorizontal className="w-5 h-5 stroke-2" />
@@ -102,16 +102,16 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             onClick={() => setShowMoreMenu(false)}
           />
           <div className="relative bg-white rounded-t-2xl p-5 shadow-2xl space-y-3 z-10 animate-slideUp max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-2 border-b border-[#e5eeff]">
+            <div className="flex items-center justify-between pb-2 border-b border-[#e2ecd5]">
               <div>
-                <h3 className="font-bold text-sm text-[#00236f]">Módulos & Seguridad</h3>
-                <span className="text-[11px] text-[#007a33] font-medium">
+                <h3 className="font-bold text-sm text-[#172a16]">Módulos & Seguridad</h3>
+                <span className="text-[11px] text-[#2d660e] font-medium">
                   {currentUser.name} ({currentUser.role})
                 </span>
               </div>
               <button
                 onClick={() => setShowMoreMenu(false)}
-                className="p-1 text-[#757682] hover:text-black"
+                className="p-1 text-[#526650] hover:text-black"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -125,12 +125,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     setShowMoreMenu(false);
                   }}
                   className={`p-3.5 rounded-xl text-left border flex flex-col gap-1 transition-colors ${
-                    currentView === 'visitas' ? 'bg-[#eff4ff] border-[#00236f] text-[#00236f]' : 'bg-[#f8f9ff] border-[#e5eeff] text-[#444651]'
+                    currentView === 'visitas' ? 'bg-[#f4f8ec] border-[#539e18] text-[#2d660e]' : 'bg-[#f7faf2] border-[#e2ecd5] text-[#324531]'
                   }`}
                 >
-                  <ClipboardCheck className="w-5 h-5 text-[#007a33]" />
+                  <ClipboardCheck className="w-5 h-5 text-[#539e18]" />
                   <span className="font-semibold text-xs">Visitas Preventivas</span>
-                  <span className="text-[10px] text-[#757682]">Caminata semestral</span>
+                  <span className="text-[10px] text-[#526650]">Caminata semestral</span>
                 </button>
               )}
 
@@ -141,12 +141,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     setShowMoreMenu(false);
                   }}
                   className={`p-3.5 rounded-xl text-left border flex flex-col gap-1 transition-colors ${
-                    currentView === 'custodia' ? 'bg-[#eff4ff] border-[#00236f] text-[#00236f]' : 'bg-[#f8f9ff] border-[#e5eeff] text-[#444651]'
+                    currentView === 'custodia' ? 'bg-[#f4f8ec] border-[#539e18] text-[#2d660e]' : 'bg-[#f7faf2] border-[#e2ecd5] text-[#324531]'
                   }`}
                 >
-                  <Smartphone className="w-5 h-5 text-[#00236f]" />
+                  <Smartphone className="w-5 h-5 text-[#539e18]" />
                   <span className="font-semibold text-xs">Custodia PDAs & CCTV</span>
-                  <span className="text-[10px] text-[#757682]">Monitoreo & Fotocheck</span>
+                  <span className="text-[10px] text-[#526650]">Monitoreo & Fotocheck</span>
                 </button>
               )}
 
@@ -157,12 +157,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     setShowMoreMenu(false);
                   }}
                   className={`p-3.5 rounded-xl text-left border flex flex-col gap-1 transition-colors ${
-                    currentView === 'monitoreo' ? 'bg-[#eff4ff] border-[#00236f] text-[#00236f]' : 'bg-[#f8f9ff] border-[#e5eeff] text-[#444651]'
+                    currentView === 'monitoreo' ? 'bg-[#f4f8ec] border-[#539e18] text-[#2d660e]' : 'bg-[#f7faf2] border-[#e2ecd5] text-[#324531]'
                   }`}
                 >
-                  <UserCheck className="w-5 h-5 text-emerald-600" />
+                  <UserCheck className="w-5 h-5 text-[#539e18]" />
                   <span className="font-semibold text-xs">Asistencia & Personal</span>
-                  <span className="text-[10px] text-[#757682]">Monitoreo en tiendas & log</span>
+                  <span className="text-[10px] text-[#526650]">Monitoreo en tiendas & log</span>
                 </button>
               )}
 
@@ -173,12 +173,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     setShowMoreMenu(false);
                   }}
                   className={`p-3.5 rounded-xl text-left border flex flex-col gap-1 transition-colors ${
-                    currentView === 'tiendas' ? 'bg-[#eff4ff] border-[#00236f] text-[#00236f]' : 'bg-[#f8f9ff] border-[#e5eeff] text-[#444651]'
+                    currentView === 'tiendas' ? 'bg-[#f4f8ec] border-[#539e18] text-[#2d660e]' : 'bg-[#f7faf2] border-[#e2ecd5] text-[#324531]'
                   }`}
                 >
-                  <Store className="w-5 h-5 text-[#00236f]" />
-                  <span className="font-semibold text-xs">90 Tiendas</span>
-                  <span className="text-[10px] text-[#757682]">Gestión por 5 regiones</span>
+                  <Store className="w-5 h-5 text-[#539e18]" />
+                  <span className="font-semibold text-xs">Tiendas</span>
+                  <span className="text-[10px] text-[#526650]">Gestión por departamentos</span>
                 </button>
               )}
 

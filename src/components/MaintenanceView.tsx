@@ -430,10 +430,10 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({
               setShowSchedulerModal(true);
             }}
             className="bg-[#fd761a] text-white px-3.5 py-2 rounded-lg text-xs font-semibold shadow-md shadow-[#fd761a]/20 hover:bg-[#e0630d] transition-all flex items-center gap-1.5 shrink-0 active:scale-95"
-            title="Programación masiva para todas las tiendas (90) con plantilla institucional"
+            title="Programación masiva para todas las tiendas con plantilla institucional"
           >
             <Layers className="w-4 h-4" />
-            <span>Programación Masiva (90 Tiendas)</span>
+            <span>Programación Masiva (Tiendas)</span>
           </button>
 
           {/* Botón Programación Individual */}

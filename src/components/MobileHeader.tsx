@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Bell, QrCode, SlidersHorizontal, AlertTriangle, TableProperties, Zap, ShieldCheck, LogOut } from 'lucide-react';
 import { AppUser } from '../types';
+import { TottusLogo } from './TottusLogo';
 
 interface MobileHeaderProps {
   currentView: string;
@@ -44,7 +45,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
       case 'mantenimiento': return 'Mantenimiento';
       case 'monitoreo': return 'Asistencia Onsite';
       case 'informes': return 'Informes Técnicos';
-      case 'tiendas': return 'Tiendas (90)';
+      case 'tiendas': return 'Tiendas';
       case 'helpdesk': return 'Helpdesk';
       case 'usuarios': return 'Directorio';
       default: return 'Portal Soporte Onsite';
@@ -52,14 +53,12 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-md border-b border-[#e5eeff] z-40 px-4 flex md:hidden items-center justify-between shadow-sm">
+    <header className="fixed top-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-md border-b border-[#e2ecd5] z-40 px-4 flex md:hidden items-center justify-between shadow-xs">
       <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-lg bg-[#007a33] flex items-center justify-center text-white font-bold text-sm shadow-sm">
-          T
-        </div>
+        <TottusLogo size="sm" showText={false} />
         <div>
-          <h1 className="font-bold text-[#00236f] text-base leading-tight">{getTitle()}</h1>
-          <span className="text-[10px] text-[#757682] font-medium block">Tottus · Sistemas de la Información</span>
+          <h1 className="font-bold text-[#172a16] text-base leading-tight">{getTitle()}</h1>
+          <span className="text-[10px] text-[#526650] font-medium block">Tottus · Soporte Onsite</span>
         </div>
       </div>
 
@@ -67,12 +66,12 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
         {onOpenStoreSync && (
           <button
             onClick={onOpenStoreSync}
-            className="relative p-2 rounded-full text-[#00236f] bg-[#eff4ff] hover:bg-[#dce9ff] transition-transform active:scale-95"
+            className="relative p-2 rounded-full text-[#2d660e] bg-[#f4f8ec] hover:bg-[#eaf2dc] transition-transform active:scale-95"
             title="Auto-Sincronización Permanente"
           >
-            <Zap className="w-4 h-4 text-emerald-600" />
+            <Zap className="w-4 h-4 text-[#539e18]" />
             {isAutoSyncActive && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white animate-pulse" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-[#539e18] rounded-full ring-2 ring-white animate-pulse" />
             )}
           </button>
         )}
@@ -80,7 +79,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
         {isGeneralAdmin && (
           <button
             onClick={onOpenM365Sync}
-            className="p-2 rounded-full text-[#00236f] bg-[#eff4ff] hover:bg-[#dce9ff] transition-transform active:scale-95"
+            className="p-2 rounded-full text-[#2d660e] bg-[#f4f8ec] hover:bg-[#eaf2dc] transition-transform active:scale-95"
             title="SharePoint & Dataverse"
           >
             <TableProperties className="w-4 h-4" />
@@ -89,7 +88,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
 
         <button
           onClick={onOpenQRScanner}
-          className="p-2 rounded-full text-[#00236f] bg-[#eff4ff] hover:bg-[#dce9ff] transition-transform active:scale-95"
+          className="p-2 rounded-full text-[#2d660e] bg-[#f4f8ec] hover:bg-[#eaf2dc] transition-transform active:scale-95"
           title="Escanear QR Equipo"
         >
           <QrCode className="w-4 h-4" />
@@ -105,7 +104,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
 
         <button
           onClick={onOpenNotifications}
-          className="relative p-2 rounded-full text-[#444651] bg-[#f8f9ff] hover:bg-[#eff4ff] transition-transform active:scale-95"
+          className="relative p-2 rounded-full text-[#526650] bg-[#f7faf2] hover:bg-[#f0f6e6] transition-transform active:scale-95"
           title="Notificaciones"
         >
           <Bell className="w-4 h-4" />
@@ -117,7 +116,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
         <div className="relative ml-1">
           <button
             onClick={() => setShowProfileMenu(!showProfileMenu)}
-            className="relative rounded-full focus:outline-none ring-2 ring-[#00236f]/30"
+            className="relative rounded-full focus:outline-none ring-2 ring-[#539e18]/40"
             title={`${currentUser.name} (${currentUser.role})`}
           >
             <img
@@ -125,17 +124,17 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
               alt={currentUser.name}
               className="w-8 h-8 rounded-full object-cover"
             />
-            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#10b981] rounded-full border-2 border-white" />
+            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#539e18] rounded-full border-2 border-white" />
           </button>
 
           {showProfileMenu && (
-            <div className="absolute right-0 top-10 w-64 bg-white rounded-2xl shadow-2xl border border-[#dce9ff] p-3.5 z-50 animate-fadeIn space-y-2.5 text-left">
-              <div className="border-b border-[#e5eeff] pb-2">
-                <div className="font-bold text-xs text-[#00236f] truncate">{currentUser.name}</div>
-                <div className="text-[11px] text-[#007a33] font-semibold">{currentUser.role}</div>
-                <div className="text-[10px] text-[#757682] truncate font-mono">{currentUser.email}</div>
-                <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded-md">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <div className="absolute right-0 top-10 w-64 bg-white rounded-2xl shadow-xl border border-[#d8e8be] p-3.5 z-50 animate-fadeIn space-y-2.5 text-left">
+              <div className="border-b border-[#e2ecd5] pb-2">
+                <div className="font-bold text-xs text-[#172a16] truncate">{currentUser.name}</div>
+                <div className="text-[11px] text-[#2d660e] font-semibold">{currentUser.role}</div>
+                <div className="text-[10px] text-[#526650] truncate font-mono">{currentUser.email}</div>
+                <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-[#2d660e] font-medium bg-[#f4f8ec] px-2 py-0.5 rounded-md">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#539e18] animate-pulse" />
                   Outlook Corporativo
                 </div>
               </div>
@@ -146,9 +145,9 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
                     setShowProfileMenu(false);
                     onOpenPrivilegesMatrix();
                   }}
-                  className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 hover:bg-[#eff4ff] hover:text-[#00236f] flex items-center gap-2 transition-colors"
+                  className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold text-[#172a16] hover:bg-[#f4f8ec] hover:text-[#2d660e] flex items-center gap-2 transition-colors"
                 >
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <ShieldCheck className="w-4 h-4 text-[#539e18]" />
                   <span>Matriz de Privilegios</span>
                 </button>
               )}

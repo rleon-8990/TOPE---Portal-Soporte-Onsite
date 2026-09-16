@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { AppUser } from '../types';
 import { hasPageAccess, getRoleConfig, getAllowedModulesForRole, canUserManagePrivileges } from '../utils/rbac';
+import { TottusLogo } from './TottusLogo';
 
 interface SidebarProps {
   currentView: string;
@@ -59,7 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'custodia', label: 'Custodia PDAs & CCTV', icon: Smartphone },
     { id: 'monitoreo', label: 'Asistencia & Personal', icon: UserCheck },
     { id: 'informes', label: 'Informes', icon: FileText },
-    { id: 'tiendas', label: 'Tiendas (90)', icon: StoreIcon },
+    { id: 'tiendas', label: 'Tiendas', icon: StoreIcon },
     { id: 'helpdesk', label: 'Helpdesk & Repuestos', icon: Headphones },
     { id: 'trazabilidad', label: 'Repuestos & Pool BKP', icon: Repeat },
     { id: 'despachador', label: 'Despacho Correos', icon: Send },
@@ -82,36 +83,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside
-      className={`fixed left-0 top-0 bottom-0 bg-white border-r border-[#e5eeff] shadow-[4px_0_16px_rgba(30,58,138,0.04)] z-40 hidden md:flex flex-col transition-all duration-300 ${
+      className={`fixed left-0 top-0 bottom-0 bg-white border-r border-[#e2ecd5] shadow-[4px_0_16px_rgba(95,175,22,0.06)] z-40 hidden md:flex flex-col transition-all duration-300 ${
         isCollapsed ? 'w-[76px]' : 'w-[260px]'
       }`}
     >
       {/* Brand Logo Header */}
-      <div className={`p-4 border-b border-[#e5eeff] flex items-center ${isCollapsed ? 'justify-center flex-col gap-3' : 'justify-between'}`}>
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div
-            className="w-9 h-9 rounded-xl bg-[#007a33] flex items-center justify-center text-white shadow-sm font-bold text-base shrink-0 cursor-pointer"
-            onClick={onToggleCollapse}
-            title="Portal Soporte Onsite - Hipermercados Tottus S.A."
-          >
-            T
-          </div>
-          {!isCollapsed && (
-            <div className="min-w-0">
-              <span className="font-bold text-[#00236f] text-sm tracking-tight leading-snug block truncate" title="Portal Soporte Onsite">
-                Portal Soporte Onsite
-              </span>
-              <span className="text-[9px] text-[#757682] uppercase tracking-wider font-semibold block truncate" title="Hipermercados Tottus S.A. - Sistemas de la Información">
-                Tottus · Sistemas
-              </span>
-            </div>
-          )}
+      <div className={`p-3.5 border-b border-[#e2ecd5] flex items-center ${isCollapsed ? 'justify-center flex-col gap-3' : 'justify-between'}`}>
+        <div
+          className="flex items-center gap-2 cursor-pointer min-w-0"
+          onClick={onToggleCollapse}
+          title="Hipermercados Tottus S.A. - Soporte Onsite"
+        >
+          <TottusLogo size={isCollapsed ? "sm" : "md"} showText={!isCollapsed} />
         </div>
 
         <div className={`flex items-center ${isCollapsed ? 'flex-col gap-2' : 'gap-1'}`}>
           <button
             onClick={onOpenNotifications}
-            className="relative p-2 rounded-lg text-[#444651] hover:bg-[#eff4ff] hover:text-[#00236f] transition-colors"
+            className="relative p-2 rounded-lg text-[#526650] hover:bg-[#f0f6e6] hover:text-[#539e18] transition-colors"
             title="Notificaciones push"
           >
             <Bell className="w-4 h-4" />
@@ -123,7 +112,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {onToggleCollapse && (
             <button
               onClick={onToggleCollapse}
-              className="p-1.5 rounded-lg text-[#757682] hover:bg-[#eff4ff] hover:text-[#00236f] transition-colors"
+              className="p-1.5 rounded-lg text-[#526650] hover:bg-[#f0f6e6] hover:text-[#539e18] transition-colors"
               title={isCollapsed ? "Expandir menú lateral" : "Colapsar menú lateral"}
             >
               {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
@@ -133,7 +122,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* User Profile Card */}
-      <div className={`my-3 rounded-xl bg-[#eff4ff] border border-[#dce9ff] flex flex-col transition-all ${
+      <div className={`my-3 rounded-xl bg-[#f4f8ec] border border-[#d8e8be] flex flex-col transition-all ${
         isCollapsed ? 'mx-2 p-2 items-center' : 'mx-3 p-3 gap-2.5'
       }`}>
         <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
@@ -141,36 +130,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <img
               src={currentUser.avatarUrl}
               alt={currentUser.name}
-              className="w-10 h-10 rounded-full object-cover ring-2 ring-[#00236f]/20"
+              className="w-10 h-10 rounded-full object-cover ring-2 ring-[#539e18]/30"
             />
-            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#10b981] rounded-full border-2 border-white" />
+            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#539e18] rounded-full border-2 border-white" />
           </div>
           {!isCollapsed && (
             <div className="min-w-0 flex-1">
-              <div className="font-semibold text-xs text-[#0b1c30] truncate">{currentUser.name}</div>
-              <div className="text-[11px] text-[#007a33] font-bold truncate flex items-center gap-1">
+              <div className="font-semibold text-xs text-[#172a16] truncate">{currentUser.name}</div>
+              <div className="text-[11px] text-[#2d660e] font-bold truncate flex items-center gap-1">
                 <span>{currentUser.role}</span>
               </div>
-              <div className="text-[10px] text-[#525e75] truncate font-mono">{currentUser.email}</div>
+              <div className="text-[10px] text-[#526650] truncate font-mono">{currentUser.email}</div>
             </div>
           )}
         </div>
 
         {/* Outlook Corporate Status & Privileges Badge */}
         {!isCollapsed && (
-          <div className="pt-2 border-t border-[#dce9ff]/60 flex items-center justify-between text-[10px]">
-            <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="pt-2 border-t border-[#d8e8be]/80 flex items-center justify-between text-[10px]">
+            <span className="inline-flex items-center gap-1 text-[#2d660e] font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#539e18] animate-pulse" />
               Outlook Conectado
             </span>
             {onOpenPrivilegesMatrix && (
               <button
                 onClick={onOpenPrivilegesMatrix}
-                className="text-[#00236f] hover:underline font-bold inline-flex items-center gap-0.5 cursor-pointer"
+                className="text-[#2d660e] hover:underline font-bold inline-flex items-center gap-0.5 cursor-pointer"
                 title="Ver matriz de permisos por rol"
               >
                 <span>{totalAllowed}/8 módulos</span>
-                <ShieldCheck className="w-3 h-3 text-[#00236f]" />
+                <ShieldCheck className="w-3 h-3 text-[#539e18]" />
               </button>
             )}
           </div>
@@ -180,9 +169,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Navigation List */}
       <nav className="flex-1 px-2.5 py-2 space-y-1 overflow-y-auto overflow-x-hidden">
         {!isCollapsed && (
-          <div className="px-3 pb-1 text-[10px] font-bold text-[#757682] uppercase tracking-wider flex items-center justify-between">
-            <span>Módulos Permitidos</span>
-            <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-normal">
+          <div className="px-3 pb-1 text-[10px] font-bold text-[#526650] uppercase tracking-wider flex items-center justify-between">
+            <span>Módulos del Sistema</span>
+            <span className="text-[9px] bg-[#eaf2dc] text-[#2d660e] px-1.5 py-0.2 rounded font-semibold">
               {allowedNavItems.length}
             </span>
           </div>
@@ -201,11 +190,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   : 'gap-3 px-3.5 py-2.5'
               } ${
                 isActive
-                  ? 'bg-[#1e3a8a] text-white shadow-sm font-semibold'
-                  : 'text-[#444651] hover:bg-[#eff4ff] hover:text-[#00236f]'
+                  ? 'bg-[#539e18] text-white shadow-sm font-semibold'
+                  : 'text-[#324531] hover:bg-[#f0f6e6] hover:text-[#2d660e]'
               }`}
             >
-              <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-[#757682]'}`} />
+              <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-[#647c61]'}`} />
               {!isCollapsed && <span>{item.label}</span>}
               {item.id === 'helpdesk' && (
                 <span className={`text-[10px] rounded-full font-bold ${
@@ -225,7 +214,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {isGeneralAdmin && (
           <>
             {!isCollapsed && (
-              <div className="pt-4 px-3 pb-1 text-[10px] font-bold text-[#757682] uppercase tracking-wider">
+              <div className="pt-4 px-3 pb-1 text-[10px] font-bold text-[#526650] uppercase tracking-wider">
                 Integración & Seguridad
               </div>
             )}
@@ -234,15 +223,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={onOpenM365Sync}
               title={isCollapsed ? "SharePoint / Dataverse (Tablas M365)" : undefined}
-              className={`w-full flex items-center rounded-lg text-xs font-semibold transition-colors text-[#00236f] bg-[#eff4ff] hover:bg-[#dce9ff] border border-[#dce9ff] ${
+              className={`w-full flex items-center rounded-lg text-xs font-semibold transition-colors text-[#2d660e] bg-[#f4f8ec] hover:bg-[#eaf2dc] border border-[#d8e8be] ${
                 isCollapsed ? 'justify-center p-3' : 'gap-3 px-3.5 py-2.5'
               }`}
             >
-              <TableProperties className="w-4 h-4 shrink-0 text-[#00236f]" />
+              <TableProperties className="w-4 h-4 shrink-0 text-[#539e18]" />
               {!isCollapsed && (
                 <div className="text-left flex-1 min-w-0">
-                  <div className="truncate font-bold">SharePoint / Dataverse</div>
-                  <div className="text-[10px] font-normal text-[#757682]">
+                  <div className="truncate font-bold text-[#204a0a]">SharePoint / Dataverse</div>
+                  <div className="text-[10px] font-normal text-[#526650]">
                     Tablas Microsoft 365
                   </div>
                 </div>
@@ -254,15 +243,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 onClick={onOpenPrivilegesMatrix}
                 title={isCollapsed ? "Matriz de Privilegios RBAC" : undefined}
-                className={`w-full flex items-center rounded-lg text-xs font-semibold transition-colors text-slate-700 hover:text-[#00236f] hover:bg-[#eff4ff] border border-transparent hover:border-[#dce9ff] ${
+                className={`w-full flex items-center rounded-lg text-xs font-semibold transition-colors text-[#324531] hover:text-[#2d660e] hover:bg-[#f0f6e6] border border-transparent hover:border-[#d8e8be] ${
                   isCollapsed ? 'justify-center p-3' : 'gap-3 px-3.5 py-2'
                 }`}
               >
-                <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-600" />
+                <ShieldCheck className="w-4 h-4 shrink-0 text-[#539e18]" />
                 {!isCollapsed && (
                   <div className="text-left flex-1 min-w-0">
                     <div className="truncate font-semibold">Matriz de Privilegios</div>
-                    <div className="text-[10px] font-normal text-[#757682]">
+                    <div className="text-[10px] font-normal text-[#526650]">
                       Roles & Permisos
                     </div>
                   </div>
@@ -292,20 +281,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       {/* Regional Status Mini Indicator */}
-      <div className={`mb-3 bg-[#f8f9ff] border border-[#e5eeff] rounded-lg ${
+      <div className={`mb-3 bg-[#f7faf2] border border-[#e2ecd5] rounded-lg ${
         isCollapsed ? 'mx-2 p-2 text-center' : 'p-3 mx-3'
       }`}>
         <div className={`flex items-center mb-1.5 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
-          {!isCollapsed && <span className="text-[10px] font-bold uppercase text-[#757682]">Disponibilidad 90 T</span>}
-          <span className="text-[11px] font-bold text-[#10b981]">98.4%</span>
+          {!isCollapsed && <span className="text-[10px] font-bold uppercase text-[#526650]">Disponibilidad Tiendas</span>}
+          <span className="text-[11px] font-bold text-[#539e18]">98.4%</span>
         </div>
-        <div className="w-full h-1.5 bg-[#e5eeff] rounded-full overflow-hidden">
-          <div className="h-full bg-[#10b981] rounded-full" style={{ width: '98.4%' }}></div>
+        <div className="w-full h-1.5 bg-[#e2ecd5] rounded-full overflow-hidden">
+          <div className="h-full bg-[#539e18] rounded-full" style={{ width: '98.4%' }}></div>
         </div>
       </div>
 
       {/* Footer / Logout */}
-      <div className="p-2.5 border-t border-[#e5eeff]">
+      <div className="p-2.5 border-t border-[#e2ecd5]">
         <button
           onClick={() => {
             if (onLogout) {

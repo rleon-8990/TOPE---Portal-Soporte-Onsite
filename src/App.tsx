@@ -1982,6 +1982,14 @@ export default function App() {
                   tickets={tickets}
                   workOrders={workOrders}
                   stores={stores}
+                  equipments={equipments}
+                  preventiveVisits={preventiveVisits}
+                  deviceCustodyItems={deviceCustodyItems}
+                  activePresences={activePresences}
+                  attendanceLogs={attendanceLogs}
+                  reports={reports}
+                  backupEquipments={backupEquipments}
+                  providerQuoteParts={providerQuoteParts}
                   users={users}
                   onNavigate={setCurrentView}
                   onOpenNewTicket={() => setCurrentView('helpdesk')}

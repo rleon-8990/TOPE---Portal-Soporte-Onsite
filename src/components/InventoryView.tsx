@@ -320,7 +320,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           </h2>
           <p className="text-xs sm:text-sm text-[#757682] max-w-3xl mt-0.5">
             {activeTab === 'general'
-              ? `Registro integral de activos tecnológicos, puntos de venta y electromecánicos en 90 tiendas. ${filteredEquipments.length} equipos filtrados.`
+              ? `Registro integral de activos tecnológicos, puntos de venta y electromecánicos en tiendas. ${filteredEquipments.length} equipos filtrados.`
               : `Mapeo físico de conexiones a switches de red, puertos asignados, VLAN, IP y direccionamiento en tiendas TOPE. ${filteredEquipments.length} activos visualizados.`}
           </p>
         </div>
@@ -554,7 +554,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               }}
               className="w-full h-9 px-2.5 bg-[#f8f9ff] rounded-lg text-xs text-[#0b1c30] border border-[#dce9ff] focus:outline-none focus:ring-1 focus:ring-[#00236f]"
             >
-              <option value="">Todas las Tiendas (90)</option>
+              <option value="">Todas las Tiendas</option>
               {stores.map(st => (
                 <option key={st.id} value={st.id}>
                   {st.code} - {st.name}

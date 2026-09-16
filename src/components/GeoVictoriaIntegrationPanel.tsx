@@ -466,7 +466,7 @@ export const GeoVictoriaIntegrationPanel: React.FC<GeoVictoriaIntegrationPanelPr
           <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-2">
             <h4 className="font-semibold text-emerald-300">Método 1: Webhook Push en Tiempo Real (Recomendado)</h4>
             <p className="text-slate-400 leading-relaxed">
-              GeoVictoria despacha un HTTP POST cada vez que un técnico marca su huella o rostro en cualquiera de los relojes de las 90 tiendas o en la app móvil. Portal OnSite lo procesa inmediatamente en menos de 200ms sin intervención humana.
+              GeoVictoria despacha un HTTP POST cada vez que un técnico marca su huella o rostro en cualquiera de los relojes de las tiendas o en la app móvil. Portal OnSite lo procesa inmediatamente en menos de 200ms sin intervención humana.
             </p>
             <div className="bg-slate-900 p-2.5 rounded font-mono text-[11px] text-emerald-200 overflow-x-auto">
               {`POST /api/webhooks/geovictoria/punch HTTP/1.1

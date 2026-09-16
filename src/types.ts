@@ -44,7 +44,8 @@ export interface Store {
   itOperator?: string; // IT Operator (Jose Bravo, Adrian Lipa, etc.)
   ubigeo?: string | number; // Ubigeo (0, 70,101, 70,102)
   region: Region; // Region (Lima y Callao, Zona Norte, etc.)
-  provincia?: string; // Provincia (Lima, Callao, etc.)
+  departamento?: string; // Departamento / Región Política (Lima, Arequipa, Lambayeque, La Libertad, Ica, Piura, etc.)
+  provincia?: string; // Provincia (Lima, Callao, Chiclayo, Trujillo, etc.)
   distrito?: string; // Distrito (Independencia, San Isidro, etc.)
   situacion?: 'Alquilada' | 'Propia' | string; // SITUACIÓN
   fechaApertura?: string; // Fecha de Apertura

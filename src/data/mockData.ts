@@ -68,6 +68,7 @@ export const ALL_STORES: Store[] = (() => {
       itOperator: off.itOperator,
       ubigeo: off.ubigeo,
       region: mapToRegion(off.region, off.provincia),
+      departamento: off.departamento || off.region || off.provincia,
       provincia: off.provincia,
       distrito: off.distrito,
       situacion: off.situacion,
