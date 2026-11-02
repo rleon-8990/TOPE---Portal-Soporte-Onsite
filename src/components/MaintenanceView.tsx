@@ -137,6 +137,7 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({
   const [newCustomItemText, setNewCustomItemText] = useState('');
   const [newEvidenceBefore, setNewEvidenceBefore] = useState<string>('');
   const [newEvidenceAfter, setNewEvidenceAfter] = useState<string>('');
+  const [detailNewPointText, setDetailNewPointText] = useState('');
 
   // Image Upload Ref Helpers
   const fileBeforeRef = useRef<HTMLInputElement | null>(null);
@@ -344,7 +345,6 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({
   };
 
   // Add new checklist point inside Detail Drawer
-  const [detailNewPointText, setDetailNewPointText] = useState('');
   const handleAddDetailChecklistPoint = () => {
     if (!detailNewPointText.trim() || !selectedWoDetail) return;
     const updatedChecklist = [

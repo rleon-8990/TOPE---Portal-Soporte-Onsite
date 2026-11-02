@@ -32,41 +32,39 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
   onClose,
   onSave
 }) => {
-  if (!isOpen || !ticket) return null;
-
-  const [formTicketJR, setFormTicketJR] = useState(ticket.ticketJR || ticket.code || ticket.ticketNumber || '');
-  const [formStoreId, setFormStoreId] = useState(ticket.storeId || '');
-  const [formProveedor, setFormProveedor] = useState(ticket.proveedorServicio || 'DMS PERU S.A.C');
-  const [formTicketProveedor, setFormTicketProveedor] = useState(ticket.ticketProveedor || '');
-  const [formFechaInicio, setFormFechaInicio] = useState(ticket.fechaInicio || ticket.createdAt || '');
-  const [formFechaCierre, setFormFechaCierre] = useState(ticket.fechaCierre || '');
+  const [formTicketJR, setFormTicketJR] = useState(ticket?.ticketJR || ticket?.code || ticket?.ticketNumber || '');
+  const [formStoreId, setFormStoreId] = useState(ticket?.storeId || '');
+  const [formProveedor, setFormProveedor] = useState(ticket?.proveedorServicio || 'DMS PERU S.A.C');
+  const [formTicketProveedor, setFormTicketProveedor] = useState(ticket?.ticketProveedor || '');
+  const [formFechaInicio, setFormFechaInicio] = useState(ticket?.fechaInicio || ticket?.createdAt || '');
+  const [formFechaCierre, setFormFechaCierre] = useState(ticket?.fechaCierre || '');
 
   // Equipo
-  const [formTipoEquipo, setFormTipoEquipo] = useState(ticket.tipoEquipo || ticket.equipmentName || 'Terminal Móvil');
-  const [formMarca, setFormMarca] = useState(ticket.marca || 'ZEBRA');
-  const [formModelo, setFormModelo] = useState(ticket.modelo || '');
-  const [formSerie, setFormSerie] = useState(ticket.numeroSerie || '');
-  const [formCecoSap, setFormCecoSap] = useState(ticket.cecoSap || 'P009100101');
-  const [formIpAddress, setFormIpAddress] = useState(ticket.ipAddress || '');
-  const [formDireccionFiscal, setFormDireccionFiscal] = useState(ticket.direccionFiscal || '');
+  const [formTipoEquipo, setFormTipoEquipo] = useState(ticket?.tipoEquipo || ticket?.equipmentName || 'Terminal Móvil');
+  const [formMarca, setFormMarca] = useState(ticket?.marca || 'ZEBRA');
+  const [formModelo, setFormModelo] = useState(ticket?.modelo || '');
+  const [formSerie, setFormSerie] = useState(ticket?.numeroSerie || '');
+  const [formCecoSap, setFormCecoSap] = useState(ticket?.cecoSap || 'P009100101');
+  const [formIpAddress, setFormIpAddress] = useState(ticket?.ipAddress || '');
+  const [formDireccionFiscal, setFormDireccionFiscal] = useState(ticket?.direccionFiscal || '');
 
   // Detalle & Contacto
-  const [formDetalle, setFormDetalle] = useState(ticket.detalleTicket || ticket.title || '');
-  const [formContacto, setFormContacto] = useState(ticket.contacto || ticket.reportedBy || '');
-  const [formCelular, setFormCelular] = useState(ticket.celular || '');
-  const [formEstado, setFormEstado] = useState(ticket.estadoTicket || ticket.status || 'Atendido');
-  const [formObservaciones, setFormObservaciones] = useState(ticket.observaciones || ticket.description || '');
-  const [formAsignado, setFormAsignado] = useState(ticket.creadoPor || ticket.assignedTo || currentUser.name);
+  const [formDetalle, setFormDetalle] = useState(ticket?.detalleTicket || ticket?.title || '');
+  const [formContacto, setFormContacto] = useState(ticket?.contacto || ticket?.reportedBy || '');
+  const [formCelular, setFormCelular] = useState(ticket?.celular || '');
+  const [formEstado, setFormEstado] = useState(ticket?.estadoTicket || ticket?.status || 'Atendido');
+  const [formObservaciones, setFormObservaciones] = useState(ticket?.observaciones || ticket?.description || '');
+  const [formAsignado, setFormAsignado] = useState(ticket?.creadoPor || ticket?.assignedTo || currentUser.name);
 
   // Repuestos & SAP
-  const [formPartNumber, setFormPartNumber] = useState(ticket.partNumberRepuesto || '');
-  const [formDescPartNumber, setFormDescPartNumber] = useState(ticket.descripcionPartNumber || '');
-  const [formCotizacion, setFormCotizacion] = useState(ticket.cotizacion || '');
-  const [formPrecio, setFormPrecio] = useState<string>(ticket.precio !== undefined ? String(ticket.precio) : '');
-  const [formSolped, setFormSolped] = useState(ticket.solped || '');
-  const [formOC, setFormOC] = useState(ticket.ordenCompra || '');
-  const [formHES, setFormHES] = useState(ticket.hes || '');
-  const [formPresupuestoMes, setFormPresupuestoMes] = useState(ticket.presupuestoMes || 'Enero 2026');
+  const [formPartNumber, setFormPartNumber] = useState(ticket?.partNumberRepuesto || '');
+  const [formDescPartNumber, setFormDescPartNumber] = useState(ticket?.descripcionPartNumber || '');
+  const [formCotizacion, setFormCotizacion] = useState(ticket?.cotizacion || '');
+  const [formPrecio, setFormPrecio] = useState<string>(ticket?.precio !== undefined ? String(ticket?.precio) : '');
+  const [formSolped, setFormSolped] = useState(ticket?.solped || '');
+  const [formOC, setFormOC] = useState(ticket?.ordenCompra || '');
+  const [formHES, setFormHES] = useState(ticket?.hes || '');
+  const [formPresupuestoMes, setFormPresupuestoMes] = useState(ticket?.presupuestoMes || 'Enero 2026');
 
   // Sync state if ticket changes
   useEffect(() => {
@@ -162,6 +160,8 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
     onSave(updatedTicket);
     onClose();
   };
+
+  if (!isOpen || !ticket) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">

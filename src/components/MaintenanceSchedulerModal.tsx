@@ -153,8 +153,6 @@ export const MaintenanceSchedulerModal: React.FC<MaintenanceSchedulerModalProps>
   initialStoreId,
   defaultMode = 'individual'
 }) => {
-  if (!isOpen) return null;
-
   // Main Active Mode
   const [activeMode, setActiveMode] = useState<'individual' | 'masivo'>(defaultMode);
 
@@ -501,6 +499,8 @@ export const MaintenanceSchedulerModal: React.FC<MaintenanceSchedulerModalProps>
       }, 2500);
     }, 1200);
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fadeIn">

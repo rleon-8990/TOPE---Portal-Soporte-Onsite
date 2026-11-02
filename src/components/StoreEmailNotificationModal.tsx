@@ -43,8 +43,6 @@ export const StoreEmailNotificationModal: React.FC<StoreEmailNotificationModalPr
   initialStoreId,
   initialWorkOrder
 }) => {
-  if (!isOpen) return null;
-
   // Selected Store
   const [selectedStoreId, setSelectedStoreId] = useState<string>(() => {
     if (initialStoreId) return initialStoreId;
@@ -275,6 +273,8 @@ export const StoreEmailNotificationModal: React.FC<StoreEmailNotificationModalPr
       }, 2200);
     }, 1200);
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
